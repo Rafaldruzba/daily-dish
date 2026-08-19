@@ -12,13 +12,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package*.json ./
-RUN npm ci --only=production
+# Kopiujemy plik konfiguracyjny Prismy do kontenera produkcyjnego
+COPY prisma.config.ts ./
+COPY prisma ./prisma/
 
-# Kopiujemy wygenerowanego klienta Prismy oraz zbudowany kod
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/prisma ./prisma
+RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy --url \"$DATABASE_URL\" && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
