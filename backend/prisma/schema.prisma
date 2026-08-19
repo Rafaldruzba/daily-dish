@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Restaurant {
+  id          Int         @id @default(autoincrement())
+  name        String
+  slug        String      @unique
+  phone       String?
+  address     String?
+  city        String
+  facebookUrl String?
+  isActive    Boolean     @default(true)
+
+  dishes      DailyDish[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model DailyDish {
+  id           Int         @id @default(autoincrement())
+  restaurantId Int
+
+  name         String
+  description  String?
+  price        Decimal?    @db.Decimal(10, 2)
+  imageUrl     String?
+  sourceUrl    String?
+  sourcePostId String?
+
+  date         DateTime
+  publishedAt  DateTime?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date], name: "restaurantId_date")
+  @@index([date])
+  @@index([restaurantId])
+}
