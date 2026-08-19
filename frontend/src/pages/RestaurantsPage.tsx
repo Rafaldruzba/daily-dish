@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-interface Restaurant {
+// --- TYPY ---
+export interface Restaurant {
 	id: number
 	name: string
 	slug: string
@@ -21,25 +22,33 @@ interface RestaurantForm {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const INITIAL_FORM_STATE: RestaurantForm = { name: '', slug: '', phone: '', address: '', city: '', facebookUrl: '' }
 
-const emptyForm: RestaurantForm = {
-	name: '',
-	slug: '',
-	phone: '',
-	address: '',
-	city: '',
-	facebookUrl: '',
+// --- UTILS (poza komponentem) ---
+const generateSlug = (value: string) => {
+	return value
+		.toLowerCase()
+		.trim()
+		.normalize('NFD') // Oddziela znaki diakrytyczne
+		.replace(/[\u0300-\u036f]/g, '') // Usuwa diakrytyki (ą->a, ł->l)
+		.replace(/[^a-z0-9]+/g, '-') // Zamienia spacje i znaki specjalne na myślniki
+		.replace(/^-+|-+$/g, '') // Usuwa myślniki z początku i końca
 }
 
-function RestaurantsPage() {
+// --- KOMPONENT GŁÓWNY ---
+export default function RestaurantsPage() {
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+	const [form, setForm] = useState<RestaurantForm>(INITIAL_FORM_STATE)
 
-	const [form, setForm] = useState<RestaurantForm>(emptyForm)
-
+	// Statusy
 	const [loading, setLoading] = useState(true)
 	const [saving, setSaving] = useState(false)
 	const [error, setError] = useState('')
 	const [success, setSuccess] = useState('')
+
+	useEffect(() => {
+		loadRestaurants()
+	}, [])
 
 	const loadRestaurants = async () => {
 		try {
@@ -47,52 +56,26 @@ function RestaurantsPage() {
 			setError('')
 
 			const response = await fetch(`${API_URL}/restaurants`)
-
-			if (!response.ok) {
-				throw new Error()
-			}
+			if (!response.ok) throw new Error('Błąd połączenia z API')
 
 			const data = await response.json()
-
 			setRestaurants(data)
-		} catch (error) {
-			console.error(error)
+		} catch (err) {
+			console.error(err)
 			setError('Nie udało się pobrać restauracji.')
 		} finally {
 			setLoading(false)
 		}
 	}
 
-	useEffect(() => {
-		loadRestaurants()
-	}, [])
-
+	// Handlery formularza
 	const updateField = (field: keyof RestaurantForm, value: string) => {
-		setForm(previous => ({
-			...previous,
-			[field]: value,
-		}))
-	}
-
-	const generateSlug = (value: string) => {
-		return value
-			.toLowerCase()
-			.trim()
-			.replace(/[ąáàä]/g, 'a')
-			.replace(/[ćč]/g, 'c')
-			.replace(/[ęéèë]/g, 'e')
-			.replace(/[ł]/g, 'l')
-			.replace(/[ńñ]/g, 'n')
-			.replace(/[óöò]/g, 'o')
-			.replace(/[śš]/g, 's')
-			.replace(/[źżž]/g, 'z')
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-+|-+$/g, '')
+		setForm(prev => ({ ...prev, [field]: value }))
 	}
 
 	const handleNameChange = (value: string) => {
-		setForm(previous => ({
-			...previous,
+		setForm(prev => ({
+			...prev,
 			name: value,
 			slug: generateSlug(value),
 		}))
@@ -100,7 +83,6 @@ function RestaurantsPage() {
 
 	const handleSubmit = async (event: FormEvent) => {
 		event.preventDefault()
-
 		try {
 			setSaving(true)
 			setError('')
@@ -108,222 +90,192 @@ function RestaurantsPage() {
 
 			const response = await fetch(`${API_URL}/restaurants`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(form),
 			})
 
 			const data = await response.json()
+			if (!response.ok) throw new Error(data.message || 'Nie udało się dodać restauracji')
 
-			if (!response.ok) {
-				throw new Error(data.message || 'Nie udało się dodać restauracji')
-			}
-
-			setRestaurants(previous => [...previous, data].sort((a, b) => a.name.localeCompare(b.name)))
-
-			setForm(emptyForm)
-
+			setRestaurants(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+			setForm(INITIAL_FORM_STATE)
 			setSuccess('Restauracja została dodana do whitelisty.')
-		} catch (error) {
-			console.error(error)
-
-			setError(error instanceof Error ? error.message : 'Nie udało się dodać restauracji')
+		} catch (err) {
+			console.error(err)
+			setError(err instanceof Error ? err.message : 'Wystąpił nieoczekiwany błąd podczas zapisu')
 		} finally {
 			setSaving(false)
 		}
 	}
 
-	const toggleRestaurant = async (restaurant: Restaurant) => {
+	// Akcje na liście
+	const toggleRestaurantStatus = async (restaurant: Restaurant) => {
 		try {
 			const response = await fetch(`${API_URL}/restaurants/${restaurant.id}`, {
 				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					isActive: !restaurant.isActive,
-				}),
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isActive: !restaurant.isActive }),
 			})
 
-			if (!response.ok) {
-				throw new Error()
-			}
-
+			if (!response.ok) throw new Error()
 			const updated = await response.json()
 
-			setRestaurants(previous => previous.map(item => (item.id === updated.id ? updated : item)))
-		} catch (error) {
-			console.error(error)
-
+			setRestaurants(prev => prev.map(item => (item.id === updated.id ? updated : item)))
+		} catch (err) {
+			console.error(err)
 			setError('Nie udało się zmienić statusu restauracji.')
 		}
 	}
 
 	const deleteRestaurant = async (id: number) => {
-		if (!window.confirm('Czy na pewno chcesz usunąć tę restaurację?')) {
-			return
-		}
+		if (!window.confirm('Czy na pewno chcesz usunąć tę restaurację z whitelisty?')) return
 
 		try {
-			const response = await fetch(`${API_URL}/restaurants/${id}`, {
-				method: 'DELETE',
-			})
+			const response = await fetch(`${API_URL}/restaurants/${id}`, { method: 'DELETE' })
+			if (!response.ok) throw new Error()
 
-			if (!response.ok) {
-				throw new Error()
-			}
-
-			setRestaurants(previous => previous.filter(item => item.id !== id))
-		} catch (error) {
-			console.error(error)
-
+			setRestaurants(prev => prev.filter(item => item.id !== id))
+		} catch (err) {
+			console.error(err)
 			setError('Nie udało się usunąć restauracji.')
 		}
 	}
 
 	return (
-		<main className='page'>
-			<section className='page-title'>
+		<main className='page admin-page'>
+			<header className='page-header'>
 				<p className='eyebrow'>ADMINISTRACJA</p>
+				<h1>Zarządzanie Restauracjami</h1>
+				<p className='subtitle'>Zarządzaj whitelistą restauracji, z których pobieramy dania dnia.</p>
+			</header>
 
-				<h1>Restauracje</h1>
-
-				<p>Zarządzaj whitelistą restauracji, z których pobieramy dania dnia.</p>
-			</section>
-
-			<section className='form-card'>
-				<div className='section-header'>
-					<div>
-						<h2>Dodaj restaurację</h2>
-
-						<p>Restauracja zostanie dodana do whitelisty.</p>
-					</div>
+			<section className='form-section card'>
+				<div className='card-header'>
+					<h2>Dodaj restaurację</h2>
+					<p className='text-muted'>Wypełnij dane, aby włączyć nową restaurację do scrapera.</p>
 				</div>
 
-				<form onSubmit={handleSubmit}>
+				<form className='restaurant-form' onSubmit={handleSubmit}>
 					<div className='form-grid'>
-						<label>
-							Nazwa restauracji *
+						<label className='form-group'>
+							<span>
+								Nazwa restauracji <span className='required'>*</span>
+							</span>
 							<input
 								value={form.name}
-								onChange={event => handleNameChange(event.target.value)}
+								onChange={e => handleNameChange(e.target.value)}
 								placeholder='np. Bistro Warszawa'
 								required
 							/>
 						</label>
 
-						<label>
-							Miasto *
+						<label className='form-group'>
+							<span>
+								Miasto <span className='required'>*</span>
+							</span>
 							<input
 								value={form.city}
-								onChange={event => updateField('city', event.target.value)}
+								onChange={e => updateField('city', e.target.value)}
 								placeholder='np. Warszawa'
 								required
 							/>
 						</label>
 
-						<label>
-							Slug *
-							<input value={form.slug} onChange={event => updateField('slug', event.target.value)} required />
+						<label className='form-group'>
+							<span>
+								Slug (identyfikator) <span className='required'>*</span>
+							</span>
+							<input value={form.slug} onChange={e => updateField('slug', e.target.value)} required />
 						</label>
 
-						<label>
-							Telefon
+						<label className='form-group'>
+							<span>Telefon</span>
 							<input
 								value={form.phone}
-								onChange={event => updateField('phone', event.target.value)}
+								onChange={e => updateField('phone', e.target.value)}
 								placeholder='501 234 567'
 							/>
 						</label>
 
-						<label className='full-width'>
-							Adres
+						<label className='form-group full-width'>
+							<span>Adres ulicy</span>
 							<input
 								value={form.address}
-								onChange={event => updateField('address', event.target.value)}
+								onChange={e => updateField('address', e.target.value)}
 								placeholder='ul. Przykładowa 10'
 							/>
 						</label>
 
-						<label className='full-width'>
-							Facebook
+						<label className='form-group full-width'>
+							<span>
+								Link do Facebooka <span className='required'>*</span>
+							</span>
 							<input
 								type='url'
 								value={form.facebookUrl}
-								onChange={event => updateField('facebookUrl', event.target.value)}
+								onChange={e => updateField('facebookUrl', e.target.value)}
 								placeholder='https://facebook.com/...'
+								required
 							/>
 						</label>
 					</div>
 
-					<button className='button primary' type='submit' disabled={saving}>
-						{saving ? 'Dodawanie...' : '+ Dodaj restaurację'}
-					</button>
+					<div className='form-actions'>
+						<button className='button primary' type='submit' disabled={saving}>
+							{saving ? 'Zapisywanie...' : '+ Dodaj restaurację'}
+						</button>
+					</div>
 				</form>
 
-				{success && <div className='success'>✓ {success}</div>}
-
-				{error && <div className='error'>{error}</div>}
+				{success && <div className='alert success mt-4'>✓ {success}</div>}
+				{error && <div className='alert error mt-4'>⚠ {error}</div>}
 			</section>
 
-			<section className='restaurants-section'>
-				<div className='section-header'>
+			<section className='list-section mt-8'>
+				<div className='section-header flex-between'>
 					<div>
-						<h2>Whitelista</h2>
-
-						<p>
-							{restaurants.length} {restaurants.length === 1 ? 'restauracja' : 'restauracji'}
-						</p>
+						<h2>Whitelista ({restaurants.length})</h2>
 					</div>
-
-					<button className='button secondary' onClick={loadRestaurants}>
+					<button className='button secondary small' onClick={loadRestaurants} disabled={loading}>
 						↻ Odśwież
 					</button>
 				</div>
 
 				{loading ? (
-					<div className='empty'>
+					<div className='empty-state'>
 						<div className='loader' />
 						<p>Ładowanie restauracji...</p>
 					</div>
 				) : restaurants.length === 0 ? (
-					<div className='empty'>
+					<div className='empty-state'>
 						<div className='empty-icon'>🏪</div>
-
 						<h3>Brak restauracji</h3>
-
-						<p>Dodaj pierwszą restaurację powyżej.</p>
+						<p>Lista jest pusta. Dodaj pierwszą restaurację korzystając z formularza.</p>
 					</div>
 				) : (
 					<div className='restaurant-list'>
 						{restaurants.map(restaurant => (
-							<article className='restaurant-card' key={restaurant.id}>
+							<article className={`restaurant-row card ${!restaurant.isActive ? 'disabled' : ''}`} key={restaurant.id}>
 								<div className='restaurant-info'>
-									<div className='restaurant-icon'>🍴</div>
-
-									<div>
+									<div className='restaurant-avatar'>🍴</div>
+									<div className='restaurant-details'>
 										<h3>{restaurant.name}</h3>
-
-										<p>
+										<p className='text-muted'>
 											📍 {restaurant.city}
 											{restaurant.address ? `, ${restaurant.address}` : ''}
+											{restaurant.phone && <span className='ml-2'>• 📞 {restaurant.phone}</span>}
 										</p>
-
-										{restaurant.phone && <p>📞 {restaurant.phone}</p>}
 									</div>
 								</div>
 
 								<div className='restaurant-actions'>
-									<span className={restaurant.isActive ? 'status active' : 'status inactive'}>
-										{restaurant.isActive ? 'Aktywna' : 'Wyłączona'}
+									<span className={`badge ${restaurant.isActive ? 'badge-active' : 'badge-inactive'}`}>
+										{restaurant.isActive ? 'Scrapowanie aktywne' : 'Wyłączona'}
 									</span>
-
-									<button onClick={() => toggleRestaurant(restaurant)}>
-										{restaurant.isActive ? 'Wyłącz' : 'Włącz'}
+									<button className='button secondary' onClick={() => toggleRestaurantStatus(restaurant)}>
+										{restaurant.isActive ? 'Pauzuj' : 'Wznów'}
 									</button>
-
-									<button className='delete-button' onClick={() => deleteRestaurant(restaurant.id)}>
+									<button className='button danger' onClick={() => deleteRestaurant(restaurant.id)}>
 										Usuń
 									</button>
 								</div>
@@ -335,5 +287,3 @@ function RestaurantsPage() {
 		</main>
 	)
 }
-
-export default RestaurantsPage
