@@ -1,4 +1,5 @@
 import { ApifyClient } from 'apify-client'
+import { GREETING_PATTERNS } from '../data/words.js'
 
 const client = new ApifyClient({
 	token: process.env.APIFY_API_TOKEN,
@@ -38,10 +39,10 @@ const DISH_KEYWORDS = [
 ]
 
 // Zwroty, które należy zignorować przy ustalaniu NAZWY dania
-const GREETING_PATTERNS = ['dzień dobry', 'witajcie', 'cześć', 'hej', 'witam', 'smacznego', 'zapraszamy']
+// const GREETING_PATTERNS = ['dzień dobry', 'witajcie', 'cześć', 'hej', 'witam', 'smacznego', 'zapraszamy', 'Danie dnia', 'Danie dnia!', 'Polecamy', 'Dziś polecamy', 'Dzisiaj polecamy']
 
 export async function fetchRestaurantDish(restaurant: {
-	id: number
+	id: string
 	name: string
 	facebookUrl: string | null
 }): Promise<FacebookDishResult | null> {
@@ -114,11 +115,21 @@ export async function fetchRestaurantDish(restaurant: {
 		const priceMatch = postText.match(/(\d+[\.,]?\d*)\s*(zł|zl|pln)/i)
 		const parsedPrice = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : undefined
 
-		const imageUrl =
+		const rawImageUrl =
 			todayPost.mediaUrl ||
 			todayPost.imageUrl ||
-			(todayPost.attachedMedia && todayPost.attachedMedia[0]?.photoUrl) ||
+			(Array.isArray(todayPost.images) && todayPost.images[0]) ||
+			(Array.isArray(todayPost.media) && todayPost.media[0]?.url) ||
+			(Array.isArray(todayPost.media) && todayPost.media[0]?.photoUrl) ||
+			(Array.isArray(todayPost.attachedMedia) && todayPost.attachedMedia[0]?.photoUrl) ||
+			(Array.isArray(todayPost.attachments) && todayPost.attachments[0]?.media?.image?.src) ||
 			undefined
+
+		// Walidacja: odrzucamy linki będące podstronami HTML Facebooka (np. /photo/, /permalink), które przeglądarka blokuje polityką CORS (ERR_BLOCKED_BY_RESPONSE)
+		// Dopuszczamy wyłącznie bezpośrednie adresy CDN do plików graficznych (np. fbcdn.net, scontent)
+		const imageUrl = (rawImageUrl && typeof rawImageUrl === 'string' && !rawImageUrl.includes('facebook.com/') && !rawImageUrl.includes('/photo') && !rawImageUrl.includes('/permalink'))
+			? rawImageUrl
+			: undefined
 
 		return {
 			name: parsedName,

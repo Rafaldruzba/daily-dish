@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+orgmri-dev-keys.json
 
 # Zależności i moduły (node_modules)
 node_modules/

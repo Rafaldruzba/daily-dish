@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Restaurant" ADD COLUMN     "status" TEXT NOT NULL DEFAULT 'PENDING',
+ADD COLUMN     "subscriptionEndsAt" TIMESTAMP(3),
+ADD COLUMN     "subscriptionPlan" TEXT NOT NULL DEFAULT 'FREE_TRIAL',
+ADD COLUMN     "trialEndsAt" TIMESTAMP(3),
+ADD COLUMN     "views" INTEGER NOT NULL DEFAULT 0;

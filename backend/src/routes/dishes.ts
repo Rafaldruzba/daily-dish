@@ -1,12 +1,13 @@
-import { Router } from 'express'
+import { Router, type Response } from 'express'
 import prisma from '../lib/prisma.js'
 import { fetchTodayDishes } from '../services/daily-dish.service.js'
+import { authenticate, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
 
 // POST /api/dishes/fetch
 // Uruchamia pobieranie dań dla całej whitelisty
-router.post('/fetch', async (_req, res) => {
+router.post('/fetch', authenticate, async (req: AuthRequest, res: Response) => {
 	try {
 		console.log('🔄 Rozpoczynam pobieranie dań...')
 
@@ -93,9 +94,9 @@ router.get('/', async (_req, res) => {
 // GET /api/dishes/:id
 router.get('/:id', async (req, res) => {
 	try {
-		const id = Number(req.params.id)
+		const { id } = req.params
 
-		if (Number.isNaN(id)) {
+		if (!id) {
 			return res.status(400).json({
 				success: false,
 				message: 'Nieprawidłowe ID dania',

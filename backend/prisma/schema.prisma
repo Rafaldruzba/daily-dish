@@ -7,24 +7,38 @@ datasource db {
 }
 
 model Restaurant {
-  id          Int         @id @default(autoincrement())
-  name        String
-  slug        String      @unique
-  phone       String?
-  address     String?
-  city        String
-  facebookUrl String?
-  isActive    Boolean     @default(true)
+  id                 String      @id @default(uuid())
+  name               String
+  slug               String      @unique
+  phone              String?
+  address            String?
+  city               String
+  facebookUrl        String?
+  isActive           Boolean     @default(true)
+  rating             Float?      @default(0.0)
+  description        String?
+  generalMenu        String?
+  
+  status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
+  views              Int         @default(0)         // Licznik odwiedzin profilu/dań
+  
+  subscriptionPlan   String      @default("FREE_TRIAL") // FREE_TRIAL, ACTIVE, EXPIRED
+  trialEndsAt        DateTime?
+  subscriptionEndsAt DateTime?
 
-  dishes      DailyDish[]
+  userId             String?
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  user               User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  dishes             DailyDish[]
+  favorites          FavoriteRestaurant[]
+
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 }
 
 model DailyDish {
-  id           Int         @id @default(autoincrement())
-  restaurantId Int
+  id           String      @id @default(uuid())
+  restaurantId String
 
   name         String
   description  String?
@@ -44,4 +58,34 @@ model DailyDish {
   @@unique([restaurantId, date], name: "restaurantId_date")
   @@index([date])
   @@index([restaurantId])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("USER") // "USER", "OWNER" or "ADMIN"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favorites   FavoriteRestaurant[]
+  restaurants Restaurant[]
+}
+
+model FavoriteRestaurant {
+  id           String   @id @default(uuid())
+  userId       String
+  restaurantId String
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+}
+
+model SystemStats {
+  id    String @id @default("global")
+  views Int    @default(0)
 }
