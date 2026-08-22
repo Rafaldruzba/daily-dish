@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 export interface Restaurant {
 	id: string
@@ -43,6 +44,8 @@ export default function HomePage() {
 	const [dishes, setDishes] = useState<DailyDish[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
+
+	const navigate = useNavigate()
 
 	// State for filtering
 	const [filterFavorites, setFilterFavorites] = useState(false)
@@ -233,7 +236,7 @@ export default function HomePage() {
 							<p className='text-xs font-mono text-stone-400 uppercase mt-1'>{formatDate()}</p>
 						</div>
 
-						<div className='flex items-center gap-3 font-mono text-xs'>
+						<div className='flex items-center gap-3 font-mono text-xs '>
 							{user && (
 								<div className='flex border border-stone-200 p-0.5 bg-stone-50'>
 									<button
@@ -267,7 +270,7 @@ export default function HomePage() {
 					)}
 
 					{loading ? (
-						<div className='py-24 text-center border border-dashed border-stone-200'>
+						<div className='py-24 text-center border border-dashed border-stone-200 '>
 							<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mx-auto mb-4' />
 							<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie menu dnia...</p>
 						</div>
@@ -284,7 +287,7 @@ export default function HomePage() {
 							</p>
 						</div>
 					) : (
-						<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
+						<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 '>
 							{displayedDishes.map(dish => {
 								const isFav = isFavorite(dish.restaurant.id)
 
@@ -331,12 +334,11 @@ export default function HomePage() {
 															</span>
 														) : null}
 													</span>
-													
+
 													<div className='flex items-center gap-2'>
 														<span className='text-stone-700 font-mono text-[11px] font-semibold tracking-tight block truncate uppercase max-w-[120px] sm:max-w-none'>
 															{dish.restaurant.name}
 														</span>
-														
 														{/* Inline heart button if no image is rendered */}
 														{!dish.imageUrl && user && (
 															<button

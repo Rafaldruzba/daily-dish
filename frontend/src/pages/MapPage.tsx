@@ -57,7 +57,7 @@ export default function MapPage() {
 
 				// Filter for approved, active restaurants
 				const activeApproved = data.filter(r => r.isActive && r.status === 'APPROVED')
-				
+
 				// Initialize state with coordinates from localStorage if available (v3 cache)
 				const withCoords = activeApproved.map(r => {
 					const cached = localStorage.getItem(`geo_cache_v3_${r.id}`)
@@ -90,7 +90,7 @@ export default function MapPage() {
 					console.warn('Geolocation error:', err)
 					setError('Nie udało się pobrać Twojej dokładnej lokalizacji. Wyświetlanie domyślnej mapy.')
 				},
-				{ timeout: 8000 }
+				{ timeout: 8000 },
 			)
 		}
 	}, [])
@@ -111,7 +111,7 @@ export default function MapPage() {
 				setGeocodingProgress(`Mapowanie lokalizacji lokali: ${i + 1}/${unmapped.length}...`)
 
 				// Clean prefix (ul., al., pl., plac) from street names for extremely high geocoding success rate in Nominatim
-				const cleanStreet = rest.address 
+				const cleanStreet = rest.address
 					? rest.address.replace(/^(ul\.\s*|ul\s+|al\.\s*|al\s+|pl\.\s*|pl\s+|plac\s+)/i, '').trim()
 					: ''
 
@@ -177,9 +177,7 @@ export default function MapPage() {
 						localStorage.setItem(`geo_cache_v3_${rest.id}`, JSON.stringify(coords))
 
 						// Update state
-						setRestaurants(prev =>
-							prev.map(item => (item.id === rest.id ? { ...item, coords } : item))
-						)
+						setRestaurants(prev => prev.map(item => (item.id === rest.id ? { ...item, coords } : item)))
 					}
 				} catch (err) {
 					console.error(`Geocoding failed for restaurant ${rest.name}:`, err)
@@ -205,7 +203,9 @@ export default function MapPage() {
 		try {
 			setIsSearching(true)
 			setError('')
-			const res = await fetch(`${NOMINATIM_URL}?q=${encodeURIComponent(searchQuery)}&format=json&limit=1&email=rafaldruzba.00@gmail.com`)
+			const res = await fetch(
+				`${NOMINATIM_URL}?q=${encodeURIComponent(searchQuery)}&format=json&limit=1&email=rafaldruzba.00@gmail.com`,
+			)
 			const data = await res.json()
 
 			if (data && data.length > 0) {
@@ -222,111 +222,101 @@ export default function MapPage() {
 	}
 
 	return (
-		<main className="flex-grow flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+		<main className='flex flex-col md:flex-row h-[calc(100dvh-4rem)] overflow-hidden'>
 			{/* Left side panel: Info & Search */}
-			<section className="w-full md:w-96 border-r border-stone-200 bg-white flex flex-col z-10 shadow-md">
+			<section className='w-full md:w-96 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-md flex-1 md:flex-none min-h-0'>
 				{/* Search header */}
-				<div className="p-4 border-b border-stone-100">
-					<h2 className="font-mono text-xs uppercase tracking-widest text-stone-400 mb-2">Wyszukaj lokalizację</h2>
-					<form onSubmit={handleSearch} className="relative">
+				<div className='p-4 border-b border-stone-100'>
+					<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-2'>Wyszukaj lokalizację</h2>
+					<form onSubmit={handleSearch} className='relative'>
 						<input
-							type="text"
+							type='text'
 							value={searchQuery}
 							onChange={e => setSearchQuery(e.target.value)}
-							placeholder="Wpisz miasto lub adres..."
-							className="w-full pl-3 pr-12 py-2 bg-stone-50 border border-stone-200 focus:outline-none focus:border-black text-sm font-mono transition-colors"
+							placeholder='Wpisz miasto lub adres...'
+							className='w-full pl-3 pr-12 py-2 bg-stone-50 border border-stone-200 focus:outline-none focus:border-black text-sm font-mono transition-colors'
 						/>
 						<button
-							type="submit"
+							type='submit'
 							disabled={isSearching}
-							className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white hover:bg-stone-900 transition-colors p-1.5 font-mono text-xs disabled:opacity-50 cursor-pointer"
-						>
-							{isSearching ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+							className='absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white hover:bg-stone-900 transition-colors p-1.5 font-mono text-xs disabled:opacity-50 cursor-pointer'>
+							{isSearching ? <Loader className='w-3.5 h-3.5 animate-spin' /> : <Search className='w-3.5 h-3.5' />}
 						</button>
 					</form>
-					{error && <p className="text-[11px] text-red-600 font-mono mt-1">{error}</p>}
+					{error && <p className='text-[11px] text-red-600 font-mono mt-1'>{error}</p>}
 				</div>
 
 				{/* Progress and status indicators */}
 				{geocodingProgress && (
-					<div className="px-4 py-2 bg-stone-50 border-b border-stone-100 flex items-center gap-2">
-						<Loader className="w-3 h-3 text-stone-500 animate-spin" />
-						<span className="font-mono text-[10px] text-stone-500 uppercase tracking-wider">
-							{geocodingProgress}
-						</span>
+					<div className='px-4 py-2 bg-stone-50 border-b border-stone-100 flex items-center gap-2'>
+						<Loader className='w-3 h-3 text-stone-500 animate-spin' />
+						<span className='font-mono text-[10px] text-stone-500 uppercase tracking-wider'>{geocodingProgress}</span>
 					</div>
 				)}
 
 				{/* Restaurant list */}
-				<div className="flex-grow overflow-y-auto divide-y divide-stone-100">
-					<div className="p-4">
-						<h3 className="font-mono text-xs uppercase tracking-wider font-semibold text-stone-700 mb-3">
+				<div className='flex-grow overflow-y-auto divide-y divide-stone-100'>
+					<div className='p-4'>
+						<h3 className='font-mono text-xs uppercase tracking-wider font-semibold text-stone-700 mb-3'>
 							Lokale w pobliżu ({restaurants.filter(r => r.coords !== null).length})
 						</h3>
 					</div>
 
 					{loading ? (
-						<div className="p-8 text-center">
-							<RefreshCw className="w-6 h-6 text-stone-300 animate-spin mx-auto mb-2" />
-							<p className="font-mono text-[10px] text-stone-400 uppercase tracking-widest">
-								Pobieranie lokali...
-							</p>
+						<div className='p-8 text-center'>
+							<RefreshCw className='w-6 h-6 text-stone-300 animate-spin mx-auto mb-2' />
+							<p className='font-mono text-[10px] text-stone-400 uppercase tracking-widest'>Pobieranie lokali...</p>
 						</div>
 					) : restaurants.length === 0 ? (
-						<div className="p-8 text-center">
-							<p className="font-mono text-xs text-stone-500">Brak aktywnych restauracji w systemie.</p>
+						<div className='p-8 text-center'>
+							<p className='font-mono text-xs text-stone-500'>Brak aktywnych restauracji w systemie.</p>
 						</div>
 					) : (
 						restaurants.map(rest => (
 							<div
 								key={rest.id}
-								className="p-4 hover:bg-stone-50 transition-colors cursor-pointer group"
+								className='p-4 hover:bg-stone-50 transition-colors cursor-pointer group'
 								onClick={() => {
 									if (rest.coords) {
 										setMapCenter(rest.coords)
 									}
-								}}
-							>
-								<div className="flex justify-between items-start gap-2">
-									<h4 className="font-serif text-base font-bold text-stone-900 group-hover:text-black">
-										{rest.name}
-									</h4>
+								}}>
+								<div className='flex justify-between items-start gap-2'>
+									<h4 className='font-serif text-base font-bold text-stone-900 group-hover:text-black'>{rest.name}</h4>
 									{rest.rating && (
-										<span className="flex items-center gap-0.5 text-xs font-mono bg-stone-100 px-1.5 py-0.5 rounded">
-											<Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+										<span className='flex items-center gap-0.5 text-xs font-mono bg-stone-100 px-1.5 py-0.5 rounded'>
+											<Star className='w-3 h-3 fill-yellow-400 text-yellow-400' />
 											{rest.rating.toFixed(1)}
 										</span>
 									)}
 								</div>
-								
-								<p className="text-xs text-stone-500 mt-1 flex items-center gap-1">
-									<MapPin className="w-3 h-3 shrink-0" />
+
+								<p className='text-xs text-stone-500 mt-1 flex items-center gap-1'>
+									<MapPin className='w-3 h-3 shrink-0' />
 									{rest.address ? `${rest.address}, ${rest.city}` : rest.city}
 								</p>
 
 								{rest.phone && (
-									<p className="text-[11px] text-stone-400 mt-0.5 flex items-center gap-1">
-										<Phone className="w-3 h-3 shrink-0" />
+									<p className='text-[11px] text-stone-400 mt-0.5 flex items-center gap-1'>
+										<Phone className='w-3 h-3 shrink-0' />
 										{rest.phone}
 									</p>
 								)}
 
-								<div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between gap-2">
+								<div className='mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between gap-2'>
 									<a
 										href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${rest.name}, ${rest.address || ''}, ${rest.city}`)}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-[10px] font-mono uppercase tracking-wider text-stone-500 hover:text-black flex items-center gap-1 font-semibold"
-										onClick={(e) => e.stopPropagation()}
-									>
-										<Navigation className="w-3 h-3" /> Google Maps
+										target='_blank'
+										rel='noopener noreferrer'
+										className='text-[10px] font-mono uppercase tracking-wider text-stone-500 hover:text-black flex items-center gap-1 font-semibold'
+										onClick={e => e.stopPropagation()}>
+										<Navigation className='w-3 h-3' /> Google Maps
 									</a>
 									<Link
 										to={`/restaurants`}
-										className="text-[11px] font-mono uppercase tracking-wider text-stone-600 hover:text-black flex items-center gap-1 font-bold group-hover:translate-x-0.5 transition-transform"
-										onClick={(e) => e.stopPropagation()}
-									>
-										Zobacz dania <ArrowRight className="w-3 h-3" />
+										className='text-[11px] font-mono uppercase tracking-wider text-stone-600 hover:text-black flex items-center gap-1 font-bold group-hover:translate-x-0.5 transition-transform'
+										onClick={e => e.stopPropagation()}>
+										Zobacz dania <ArrowRight className='w-3 h-3' />
 									</Link>
 								</div>
 							</div>
@@ -336,18 +326,13 @@ export default function MapPage() {
 			</section>
 
 			{/* Right side area: Map */}
-			<section className="flex-grow h-full w-full relative bg-stone-100">
-				<MapContainer
-					center={mapCenter}
-					zoom={13}
-					style={{ height: '100%', width: '100%' }}
-					scrollWheelZoom={true}
-				>
+			<section className='w-full relative bg-stone-100 flex-1 md:flex-grow min-h-[40%] md:min-h-0'>
+				<MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
 					<TileLayer
 						attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-						url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+						url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 					/>
-					
+
 					{/* Recenter handler */}
 					<ChangeMapView center={mapCenter} />
 
@@ -357,45 +342,43 @@ export default function MapPage() {
 						.map(rest => (
 							<Marker key={rest.id} position={rest.coords as [number, number]}>
 								<Popup>
-									<div className="p-1 min-w-[200px] font-sans">
-										<Link to={`/restaurants/${rest.slug}`} className="group/title block">
-											<h4 className="font-serif text-sm font-bold text-stone-950 mb-1 cursor-pointer group-hover/title:underline">
+									<div className='p-1 min-w-[200px] font-sans'>
+										<Link to={`/restaurants/${rest.slug}`} className='group/title block'>
+											<h4 className='font-serif text-sm font-bold text-stone-950 mb-1 cursor-pointer group-hover/title:underline'>
 												{rest.name}
 											</h4>
 										</Link>
-										<p className="text-xs text-stone-600 mb-1.5 flex items-center gap-1">
-											<MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+										<p className='text-xs text-stone-600 mb-1.5 flex items-center gap-1'>
+											<MapPin className='w-3.5 h-3.5 text-stone-400 shrink-0' />
 											{rest.address ? `${rest.address}, ${rest.city}` : rest.city}
 										</p>
 										{rest.phone && (
-											<p className="text-xs text-stone-500 mb-1.5 flex items-center gap-1">
-												<Phone className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+											<p className='text-xs text-stone-500 mb-1.5 flex items-center gap-1'>
+												<Phone className='w-3.5 h-3.5 text-stone-400 shrink-0' />
 												{rest.phone}
 											</p>
 										)}
-										<div className="border-t border-stone-100 pt-2 flex flex-col gap-2 mt-2">
-											<div className="flex justify-between items-center">
+										<div className='border-t border-stone-100 pt-2 flex flex-col gap-2 mt-2'>
+											<div className='flex justify-between items-center'>
 												{rest.rating && (
-													<span className="flex items-center gap-0.5 text-[10px] font-mono bg-stone-50 px-1 py-0.5 rounded">
-														<Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+													<span className='flex items-center gap-0.5 text-[10px] font-mono bg-stone-50 px-1 py-0.5 rounded'>
+														<Star className='w-2.5 h-2.5 fill-yellow-400 text-yellow-400' />
 														{rest.rating.toFixed(1)}
 													</span>
 												)}
 												<Link
 													to={`/restaurants`}
-													className="text-[11px] font-mono uppercase tracking-wider text-black font-bold flex items-center gap-0.5 hover:underline"
-												>
-													Oferty <ArrowRight className="w-3 h-3" />
+													className='text-[11px] font-mono uppercase tracking-wider text-black font-bold flex items-center gap-0.5 hover:underline'>
+													Oferty <ArrowRight className='w-3 h-3' />
 												</Link>
 											</div>
 
 											<a
 												href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${rest.name}, ${rest.address || ''}, ${rest.city}`)}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="w-full text-center py-1.5 border border-stone-200 hover:border-black text-[10px] font-mono uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-stone-50 transition-colors font-bold text-stone-700"
-											>
-												<Navigation className="w-3 h-3" /> Pokaż w Google Maps
+												target='_blank'
+												rel='noopener noreferrer'
+												className='w-full text-center py-1.5 border border-stone-200 hover:border-black text-[10px] font-mono uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-stone-50 transition-colors font-bold text-stone-700'>
+												<Navigation className='w-3 h-3' /> Pokaż w Google Maps
 											</a>
 										</div>
 									</div>
