@@ -43,11 +43,18 @@ model Subscription {
   id               String     @id @default(uuid())
   restaurantId     String     @unique
   restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  plan             String     // e.g., FREE_TRIAL, PREMIUM_100
+  isPromoted       Boolean    @default(false)
+  hasStaticMenu    Boolean    @default(false)
+  
   status           String     // e.g., ACTIVE, INACTIVE, CANCELED
-  plan             String     // e.g., PREMIUM_MONTHLY
   currentPeriodEnd DateTime
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+
+  stripeCustomerId String?
+  stripeSubscriptionId String? @unique
 }
 
 model Payment {

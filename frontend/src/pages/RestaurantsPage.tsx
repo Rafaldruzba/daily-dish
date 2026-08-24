@@ -33,6 +33,11 @@ export interface Restaurant {
 	subscriptionPlan: string
 	latitude?: number | null
 	longitude?: number | null
+	subscription?: {
+		plan: string
+		status: string
+		currentPeriodEnd: string
+	} | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
@@ -250,16 +255,26 @@ export default function RestaurantsPage() {
 					<div className='grid grid-cols-1 gap-4'>
 						{filteredRestaurants.map(restaurant => {
 							const isFav = isFavorite(restaurant.id)
-
+							const isPromoted =
+								restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.plan === 'PROMOTE_50'
+							console.log(isPromoted + ' restaruacja:' + restaurant.name)
 							return (
 								<article
 									key={restaurant.id}
-									className={`p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
+									className={`relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
 										!restaurant.isActive
 											? 'opacity-65 border-stone-200'
 											: 'border-stone-200 hover:border-black hover:shadow-sm'
 									}`}>
-									<div className='space-y-3 flex-grow'>
+									{isPromoted && (
+										<div className='absolute top-0 left-0 w-16 h-16 overflow-hidden pointer-events-none z-10'>
+											<div className='absolute top-[8px] left-[-24px] w-20 h-5 bg-green-600 text-white flex items-center justify-center -rotate-45 font-mono text-[8px] font-bold shadow-sm'>
+												★
+											</div>
+										</div>
+									)}
+
+									<div className='space-y-3 flex-grow pl-2'>
 										<div className='flex flex-wrap items-start sm:items-center gap-3'>
 											<div className='w-8 h-8 bg-stone-100 flex items-center justify-center font-serif text-sm font-bold border border-stone-200 text-stone-800 shrink-0'>
 												R
@@ -300,7 +315,6 @@ export default function RestaurantsPage() {
 											)}
 										</div>
 									</div>
-
 									{/* Actions */}
 									<div className='flex flex-wrap items-center gap-3 shrink-0 self-end sm:self-auto'>
 										{!restaurant.isActive && (

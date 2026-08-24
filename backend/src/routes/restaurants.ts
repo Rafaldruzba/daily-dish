@@ -1,5 +1,6 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
+import type { Restaurant, Subscription } from '@prisma/client'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { MOCK_RESTAURANTS, MOCK_OWNERS } from '../data/mockDishes.js'
 import { geocodeCity } from '../services/geolocation.service.js'
@@ -36,24 +37,35 @@ router.get('/', async (req: Request, res: Response) => {
         const { lat, lon } = coordinates;
         const radius = 20 * 1000; // 20km
 
-        const restaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT id FROM "Restaurant"
-          WHERE "isActive" = true AND "status" = 'APPROVED' AND latitude IS NOT NULL AND longitude IS NOT NULL AND (
-            6371000 * acos(
-              cos(radians(${lat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${lon})) +
-              sin(radians(${lat})) * sin(radians(latitude))
-            )
+        // Prioritize promoted restaurants first
+        const promotedRestaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT r.id FROM "Restaurant" r
+          LEFT JOIN "Subscription" s ON r.id = s."restaurantId"
+          WHERE r."isActive" = true AND r."status" = 'APPROVED' AND s."isPromoted" = true AND s.status = 'ACTIVE' AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (
+            6371000 * acos(cos(radians(${lat})) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(r.latitude)))
           ) <= ${radius};
         `;
-        where.id = { in: restaurantIds.map((r: { id: string }) => r.id) };
+
+        const otherRestaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT r.id FROM "Restaurant" r
+          LEFT JOIN "Subscription" s ON r.id = s."restaurantId"
+          WHERE r."isActive" = true AND r."status" = 'APPROVED' AND (s."isPromoted" IS NULL OR s."isPromoted" = false) AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (
+            6371000 * acos(cos(radians(${lat})) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(r.latitude)))
+          ) <= ${radius};
+        `;
+
+        const finalIds = [...promotedRestaurantIds.map((r: {id: string}) => r.id), ...otherRestaurantIds.map((r: {id: string}) => r.id)];
+        where.id = { in: finalIds };
+
       } else {
-        // Fallback to city name
         where.city = { equals: city, mode: 'insensitive' };
       }
     }
 
-		let restaurants = await prisma.restaurant.findMany({
+		type RestaurantWithSubscription = Restaurant & { subscription: Subscription | null };
+		let restaurants: RestaurantWithSubscription[] = await prisma.restaurant.findMany({
 			where,
+			include: { subscription: true },
 			orderBy: {
 				name: 'asc',
 			},
@@ -128,11 +140,30 @@ router.get('/', async (req: Request, res: Response) => {
 			// Pobierz ponownie po zasileniu bazy
 			restaurants = await prisma.restaurant.findMany({
 				where,
+				include: { subscription: true },
 				orderBy: {
 					name: 'asc',
 				},
 			})
 		}
+
+    // In-memory sort to prioritize promoted restaurants (isPromoted = true) at the very top
+    try {
+      // HACK: Using a type assertion because the build process is using a stale, cached type for the Subscription model.
+      // This forces TypeScript to recognize the new `isPromoted` field.
+      type RestaurantWithFlags = Restaurant & { subscription: { isPromoted?: boolean } | null };
+
+      (restaurants as RestaurantWithFlags[]).sort((a, b) => {
+        const aPromoted = a.subscription?.isPromoted || false;
+        const bPromoted = b.subscription?.isPromoted || false;
+
+        if (aPromoted && !bPromoted) return -1;
+        if (!aPromoted && bPromoted) return 1;
+        return a.name.localeCompare(b.name, 'pl');
+      });
+    } catch (err) {
+      console.error('Error prioritizing promoted restaurants:', err);
+    }
 
     if (redisClient.isOpen) {
       try {
@@ -161,6 +192,7 @@ router.get('/admin/all', authenticate, requireAdmin, async (req: AuthRequest, re
 						name: true,
 					},
 				},
+				subscription: true,
 			},
 			orderBy: { createdAt: 'desc' },
 		})

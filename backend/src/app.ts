@@ -39,7 +39,13 @@ const corsOptions = {
 }
 
 app.use(cors(corsOptions))
-app.use(express.json())
+app.use(
+	express.json({
+		verify: (req: any, _res, buf) => {
+			req.rawBody = buf
+		},
+	}),
+)
 
 app.get('/api/health', (_req, res) => {
 	res.json({
