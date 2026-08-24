@@ -38,12 +38,12 @@ router.get('/', async (req: Request, res: Response) => {
 
         const restaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
           SELECT id FROM "Restaurant"
-          WHERE "isActive" = true AND "status" = 'APPROVED' AND
-          ST_DWithin(
-            ST_MakePoint(longitude, latitude)::geography,
-            ST_MakePoint(${lon}, ${lat})::geography,
-            ${radius}
-          );
+          WHERE "isActive" = true AND "status" = 'APPROVED' AND latitude IS NOT NULL AND longitude IS NOT NULL AND (
+            6371000 * acos(
+              cos(radians(${lat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${lon})) +
+              sin(radians(${lat})) * sin(radians(latitude))
+            )
+          ) <= ${radius};
         `;
         where.id = { in: restaurantIds.map((r: { id: string }) => r.id) };
       } else {
