@@ -5,6 +5,8 @@ import { RefreshCw, Search, Loader, MapPin, Phone, Star, ArrowRight, Navigation 
 import { Link } from 'react-router-dom'
 import type { Restaurant } from './RestaurantsPage'
 
+import { useLocation } from '../context/LocationContext'
+
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css'
 
@@ -45,13 +47,14 @@ export default function MapPage() {
 	const [isSearching, setIsSearching] = useState(false)
 	const [mapCenter, setMapCenter] = useState<[number, number]>([52.237, 21.017]) // Warsaw city center
 	const [geocodingProgress, setGeocodingProgress] = useState('')
+	const { city } = useLocation()
 
 	// --- 1. Fetch Restaurants ---
 	useEffect(() => {
 		const fetchRestaurants = async () => {
 			try {
 				setLoading(true)
-				const response = await fetch(`${API_URL}/restaurants`)
+				const response = await fetch(`${API_URL}/restaurants?city=${encodeURIComponent(city || '')}`)
 				if (!response.ok) throw new Error('Nie udało się pobrać restauracji')
 				const data: Restaurant[] = await response.json()
 
@@ -60,10 +63,10 @@ export default function MapPage() {
 
 				// Initialize state with coordinates from localStorage if available (v3 cache)
 				const withCoords = activeApproved.map(r => {
-					const cached = localStorage.getItem(`geo_cache_v3_${r.id}`)
+					const coords: [number, number] | null = r.latitude && r.longitude ? [r.latitude, r.longitude] : null
 					return {
 						...r,
-						coords: cached ? (JSON.parse(cached) as [number, number]) : null,
+						coords,
 					}
 				})
 
@@ -76,24 +79,43 @@ export default function MapPage() {
 			}
 		}
 		fetchRestaurants()
-	}, [])
+	}, [city])
 
 	// --- 2. Request Geolocation ---
 	useEffect(() => {
-		if ('geolocation' in navigator) {
-			navigator.geolocation.getCurrentPosition(
-				position => {
-					const { latitude, longitude } = position.coords
-					setMapCenter([latitude, longitude])
-				},
-				err => {
-					console.warn('Geolocation error:', err)
-					setError('Nie udało się pobrać Twojej dokładnej lokalizacji. Wyświetlanie domyślnej mapy.')
-				},
-				{ timeout: 8000 },
-			)
+		const setInitialCenter = async () => {
+			if (city) {
+				try {
+					const res = await fetch(
+						`${NOMINATIM_URL}?q=${encodeURIComponent(city)}&format=json&limit=1&email=rafaldruzba.00@gmail.com`,
+					)
+					const data = await res.json()
+					if (data && data.length > 0) {
+						const { lat, lon } = data[0]
+						setMapCenter([parseFloat(lat), parseFloat(lon)])
+						return // Exit if city is geocoded
+					}
+				} catch (err) {
+					console.warn('Could not geocode user city, falling back to geolocation.', err)
+				}
+			}
+
+			if ('geolocation' in navigator) {
+				navigator.geolocation.getCurrentPosition(
+					position => {
+						const { latitude, longitude } = position.coords
+						setMapCenter([latitude, longitude])
+					},
+					err => {
+						console.warn('Geolocation error:', err)
+						setError('Nie udało się pobrać Twojej dokładnej lokalizacji. Wyświetlanie domyślnej mapy.')
+					},
+					{ timeout: 8000 },
+				)
+			}
 		}
-	}, [])
+		setInitialCenter()
+	}, [city])
 
 	// --- 3. Geocode Restaurants Sequentially ---
 	useEffect(() => {
@@ -367,7 +389,7 @@ export default function MapPage() {
 													</span>
 												)}
 												<Link
-													to={`/restaurants`}
+													to={`/restaurants/${rest.slug}`}
 													className='text-[11px] font-mono uppercase tracking-wider text-black font-bold flex items-center gap-0.5 hover:underline'>
 													Oferty <ArrowRight className='w-3 h-3' />
 												</Link>

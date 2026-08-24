@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4
     container_name: daily_dish_db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dailydish}
+      POSTGRES_DB: ${POSTGRES_DB:-daily_dish}
     ports:
       - '5432:5432'
     volumes:
@@ -19,32 +17,45 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: daily_dish_backend
-    restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dailydish}?schema=public
-      APIFY_API_TOKEN: ${APIFY_API_TOKEN}
-      PORT: 3000
-    ports:
-      - '3000:3000'
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: daily_dish_backend
+  #   restart: always
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #   environment:
+  #     DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dailydish}?schema=public
+  #     APIFY_API_TOKEN: ${APIFY_API_TOKEN}
+  #     PORT: 3000
+  #     REDIS_URL: redis://redis:6379
+  #   ports:
+  #     - '3000:3000'
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: daily_dish_frontend
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: daily_dish_frontend
+  #   restart: always
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - '80:80'
+
+  redis:
+    image: redis:7-alpine
+    container_name: daily_dish_redis
     restart: always
-    depends_on:
-      - backend
     ports:
-      - '80:80'
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
 
 volumes:
   postgres_data:
+  redis_data:

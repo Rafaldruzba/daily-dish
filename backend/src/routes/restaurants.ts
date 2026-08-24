@@ -1,22 +1,146 @@
-import { Router, type Response } from 'express'
+import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
+import { MOCK_RESTAURANTS, MOCK_OWNERS } from '../data/mockDishes.js'
+import { geocodeCity } from '../services/geolocation.service.js'
+import redisClient from '../lib/redis.js'
 
 const router = Router()
 
 // GET /api/restaurants
 // Pobiera wszystkie aktywne i zatwierdzone restauracje (dla gości/użytkowników)
-router.get('/', async (_req, res) => {
+router.get('/', async (req: Request, res: Response) => {
 	try {
-		const restaurants = await prisma.restaurant.findMany({
-			where: {
-				isActive: true,
-				status: 'APPROVED',
-			},
+    const city = req.query.city as string | undefined;
+    const cacheKey = `restaurants:${city || 'all'}`;
+
+    if (redisClient.isOpen) {
+      try {
+        const cachedRestaurants = await redisClient.get(cacheKey);
+        if (cachedRestaurants) {
+          return res.json(JSON.parse(cachedRestaurants));
+        }
+      } catch (err) {
+        console.error('[Redis] Cache read error:', err);
+      }
+    }
+
+    let where: any = {
+      isActive: true,
+      status: 'APPROVED',
+    };
+
+    if (city) {
+      const coordinates = await geocodeCity(city);
+      if (coordinates) {
+        const { lat, lon } = coordinates;
+        const radius = 20 * 1000; // 20km
+
+        const restaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "Restaurant"
+          WHERE "isActive" = true AND "status" = 'APPROVED' AND
+          ST_DWithin(
+            ST_MakePoint(longitude, latitude)::geography,
+            ST_MakePoint(${lon}, ${lat})::geography,
+            ${radius}
+          );
+        `;
+        where.id = { in: restaurantIds.map((r: { id: string }) => r.id) };
+      } else {
+        // Fallback to city name
+        where.city = { equals: city, mode: 'insensitive' };
+      }
+    }
+
+		let restaurants = await prisma.restaurant.findMany({
+			where,
 			orderBy: {
 				name: 'asc',
 			},
 		})
+
+		// Na localhost automatycznie inicjalizujemy restauracje testowe, jeśli baza jest pusta
+		if (process.env.NODE_ENV !== 'production' && restaurants.length === 0) {
+			console.log('🤖 [LOCAL MOCK] Inicjalizacja testowych właścicieli i restauracji...')
+			
+      // 1. Seed Mock Owners
+      for (const owner of MOCK_OWNERS) {
+        try {
+          await prisma.user.upsert({
+            where: { id: owner.id },
+            update: {
+              email: owner.email,
+              name: owner.name,
+              role: owner.role
+            },
+            create: {
+              id: owner.id,
+              email: owner.email,
+              password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // hash for password123
+              name: owner.name,
+              role: owner.role
+            }
+          })
+        } catch (err) {
+          console.error(`❌ Błąd podczas upsertowania właściciela testowego ${owner.name}:`, err)
+        }
+      }
+
+      // 2. Seed Mock Restaurants
+      for (const r of MOCK_RESTAURANTS) {
+				try {
+          const restaurantInDb = await prisma.restaurant.findUnique({ where: { id: r.id } });
+          let lat = restaurantInDb?.latitude;
+          let lon = restaurantInDb?.longitude;
+          if (!lat || !lon) {
+            const coords = await geocodeCity(`${r.address}, ${r.city}`);
+            if (coords) {
+              lat = coords.lat;
+              lon = coords.lon;
+            }
+          }
+
+					const restaurant = await prisma.restaurant.upsert({
+						where: { id: r.id },
+            update: { name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
+            create: { id: r.id, name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
+					});
+
+          // Create a mock subscription for the mock restaurant
+          const trialEndsAt = new Date();
+          trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+          await prisma.subscription.upsert({
+            where: { restaurantId: restaurant.id },
+            create: {
+              restaurantId: restaurant.id,
+              plan: 'FREE_TRIAL',
+              status: 'ACTIVE',
+              currentPeriodEnd: trialEndsAt,
+            },
+            update: {},
+          });
+
+				} catch (err) {
+					console.error(`❌ Błąd podczas upsertowania restauracji testowej ${r.name}:`, err)
+				}
+			}
+
+			// Pobierz ponownie po zasileniu bazy
+			restaurants = await prisma.restaurant.findMany({
+				where,
+				orderBy: {
+					name: 'asc',
+				},
+			})
+		}
+
+    if (redisClient.isOpen) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(restaurants), { EX: 3600 }); // Cache for 1 hour
+      } catch (err) {
+        console.error('[Redis] Cache write error:', err);
+      }
+    }
 
 		res.json(restaurants)
 	} catch (error) {
@@ -60,6 +184,7 @@ router.get('/owner', authenticate, async (req: AuthRequest, res: Response) => {
 
 		const restaurants = await prisma.restaurant.findMany({
 			where: { userId: req.user.id },
+			include: { subscription: true },
 			orderBy: { createdAt: 'desc' },
 		})
 		res.json(restaurants)
@@ -82,7 +207,7 @@ router.get('/favorites', authenticate, async (req: AuthRequest, res: Response) =
 			include: { restaurant: true },
 		})
 
-		res.json(favorites.map(fav => fav.restaurant))
+		res.json(favorites.map((fav: { restaurant: any }) => fav.restaurant))
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać ulubionych' })
@@ -156,34 +281,60 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(409).json({ success: false, message: 'Restauracja o takim slug już istnieje' })
 		}
 
+    let lat: number | undefined;
+    let lon: number | undefined;
+    if (address && city) {
+      const coords = await geocodeCity(`${address}, ${city}`);
+      if (coords) {
+        lat = coords.lat;
+        lon = coords.lon;
+      }
+    }
+
 		const userId = req.user?.id
 		const isOwner = req.user?.role === 'OWNER'
 
-		// Darmowy okres próbny (7 dni) dla właścicieli
-		const trialEndsAt = new Date()
-		trialEndsAt.setDate(trialEndsAt.getDate() + 7)
+		// Check if owner already has restaurants
+		const existingCount = await prisma.restaurant.count({ where: { userId: userId } });
+		const hasFreeTrial = existingCount === 0;
 
 		const restaurant = await prisma.restaurant.create({
-			data: {
-				name: name.trim(),
-				slug: slug.trim().toLowerCase(),
-				phone: phone?.trim() || null,
-				address: address?.trim() || null,
-				city: city.trim(),
-				facebookUrl: facebookUrl?.trim() || null,
-				rating: rating !== undefined ? Number(rating) : 5.0,
-				...(userId && {
-					user: {
-						connect: {
-							id: userId,
-						},
-					},
-				}),
-				status: 'PENDING', // Zawsze PENDING na start
-				subscriptionPlan: isOwner ? 'FREE_TRIAL' : 'NONE',
-				trialEndsAt: isOwner ? trialEndsAt : null,
-			},
-		})
+		data: {
+		name: name.trim(),
+		slug: slug.trim().toLowerCase(),
+		phone: phone?.trim() || null,
+		address: address?.trim() || null,
+		city: city.trim(),
+		    latitude: lat,
+		    longitude: lon,
+		facebookUrl: facebookUrl?.trim() || null,
+		rating: rating !== undefined ? Number(rating) : 5.0,
+		...(userId && {
+		user: {
+		connect: {
+		id: userId,
+		},
+		},
+		}),
+		status: 'PENDING', // Always PENDING on start
+		    isActive: hasFreeTrial, // Activate immediately only if it's the first restaurant
+		},
+		});
+
+		// If it's the first restaurant for an owner, create a free trial subscription
+		if (isOwner && hasFreeTrial) {
+		  const trialEndsAt = new Date();
+		  trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+
+		  await prisma.subscription.create({
+		    data: {
+		      restaurantId: restaurant.id,
+		      plan: 'FREE_TRIAL',
+		      status: 'ACTIVE',
+		      currentPeriodEnd: trialEndsAt,
+		    }
+		  });
+		}
 
 		res.status(201).json(restaurant)
 	} catch (error) {
@@ -207,6 +358,11 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 			where: { id },
 			data: { status },
 		})
+
+    if (redisClient.isOpen) {
+      await redisClient.del(`restaurants:${restaurant.city}`);
+      await redisClient.del('restaurants:all');
+    }
 
 		res.json(restaurant)
 	} catch (error) {
@@ -276,6 +432,14 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			},
 		})
 
+    if (redisClient.isOpen) {
+      await redisClient.del(`restaurants:${restaurant.city}`);
+      if (restaurantToUpdate.city !== restaurant.city) {
+        await redisClient.del(`restaurants:${restaurantToUpdate.city}`);
+      }
+      await redisClient.del('restaurants:all');
+    }
+
 		res.json(restaurant)
 	} catch (error) {
 		console.error(error)
@@ -299,6 +463,12 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: 
 				message: 'Nieprawidłowe ID restauracji',
 			})
 		}
+
+    const restaurant = await prisma.restaurant.findUnique({ where: { id } });
+    if (restaurant && redisClient.isOpen) {
+      await redisClient.del(`restaurants:${restaurant.city}`);
+      await redisClient.del('restaurants:all');
+    }
 
 		await prisma.restaurant.delete({
 			where: {

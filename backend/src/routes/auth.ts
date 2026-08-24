@@ -42,8 +42,9 @@ router.post('/register', async (req, res) => {
 		// Sprawdzamy czy to pierwszy użytkownik lub ma email admina
 		const userCount = await prisma.user.count()
 		const isFirstUser = userCount === 0
-		const isAdminEmail = email.toLowerCase().trim() === 'admin@dailydish.com' || email.toLowerCase().trim().startsWith('admin@')
-		
+		const isAdminEmail =
+			email.toLowerCase().trim() === 'admin@dailydish.com' || email.toLowerCase().trim().startsWith('admin@')
+
 		let role = 'USER'
 		if (isFirstUser || isAdminEmail) {
 			role = 'ADMIN'
@@ -60,11 +61,7 @@ router.post('/register', async (req, res) => {
 			},
 		})
 
-		const token = jwt.sign(
-			{ id: user.id, email: user.email, role: user.role },
-			JWT_SECRET,
-			{ expiresIn: '7d' },
-		)
+		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
 
 		res.status(201).json({
 			success: true,
@@ -117,11 +114,7 @@ router.post('/login', async (req, res) => {
 			})
 		}
 
-		const token = jwt.sign(
-			{ id: user.id, email: user.email, role: user.role },
-			JWT_SECRET,
-			{ expiresIn: '7d' },
-		)
+		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
 
 		res.json({
 			success: true,

@@ -18,22 +18,73 @@ model Restaurant {
   rating             Float?      @default(0.0)
   description        String?
   generalMenu        String?
+
+  latitude           Float?
+  longitude          Float?
   
   status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
   views              Int         @default(0)         // Licznik odwiedzin profilu/dań
-  
-  subscriptionPlan   String      @default("FREE_TRIAL") // FREE_TRIAL, ACTIVE, EXPIRED
-  trialEndsAt        DateTime?
-  subscriptionEndsAt DateTime?
 
   userId             String?
 
-  user               User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user               User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   dishes             DailyDish[]
   favorites          FavoriteRestaurant[]
+  standardOffers     StandardOffer[]
+  menuItems          MenuItem[]
+  subscription       Subscription? 
+  payments           Payment[]
 
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
+}
+
+model Subscription {
+  id               String     @id @default(uuid())
+  restaurantId     String     @unique
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  status           String     // e.g., ACTIVE, INACTIVE, CANCELED
+  plan             String     // e.g., PREMIUM_MONTHLY
+  currentPeriodEnd DateTime
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+model Payment {
+  id                String      @id @default(uuid())
+  restaurantId      String
+  restaurant        Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  amount            Decimal     @db.Decimal(10, 2)
+  currency          String      @default("PLN")
+  status            String      // e.g., SUCCEEDED, PENDING, FAILED
+  provider          String      // e.g., STRIPE, PAYU (or MOCK for simulation)
+  providerPaymentId String?     @unique
+  createdAt         DateTime    @default(now())
+}
+
+model StandardOffer {
+  id           String    @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  price        Float?
+  imageUrl     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model MenuItem {
+  id           String    @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  price        Float
+  category     String
+  order        Int       @default(0)
+  createdAt    DateTime  @default(now())
 }
 
 model DailyDish {
@@ -46,6 +97,8 @@ model DailyDish {
   imageUrl     String?
   sourceUrl    String?
   sourcePostId String?
+
+  isPromoted   Boolean     @default(false)
 
   date         DateTime
   publishedAt  DateTime?

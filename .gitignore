@@ -7,6 +7,7 @@ orgmri-dev-keys.json
 # Zależności i moduły (node_modules)
 node_modules/
 **/node_modules/
+docs/
 
 # Klucze, certyfikaty i sekrety (keys)
 keys/

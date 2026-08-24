@@ -31,6 +31,23 @@ export interface DailyDish {
 	createdAt: string
 }
 
+export interface StandardOffer {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  imageUrl: string | null;
+  isActive: boolean;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string;
+}
+
 export interface RestaurantDetail {
 	id: string
 	name: string
@@ -48,6 +65,8 @@ export interface RestaurantDetail {
 	generalMenu: string | null
 	userId: string | null
 	dishes: DailyDish[]
+  standardOffers: StandardOffer[]
+  menuItems: MenuItem[]
 }
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
@@ -484,21 +503,37 @@ export default function RestaurantDetailPage() {
 
 						{activeTab === 'about' && (
 							<div className='space-y-4'>
-								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-									<Shield className='w-4 h-4 text-stone-300' /> Profil i nasza historia
-								</h2>
+							<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
+							<Shield className='w-4 h-4 text-stone-300' /> Profil i nasza historia
+							</h2>
 
-								<div className='bg-white border border-stone-200 p-6 md:p-8 space-y-4'>
-									{restaurant.description ? (
-										<p className='text-stone-700 text-sm leading-relaxed font-sans whitespace-pre-line'>
-											{restaurant.description}
-										</p>
-									) : (
-										<div className='text-center py-6 text-stone-400 font-mono text-xs uppercase'>
-											Restauracja nie uzupełniła jeszcze opisu.
-										</div>
-									)}
-								</div>
+							<div className='bg-white border border-stone-200 p-6 md:p-8 space-y-4'>
+							{restaurant.description ? (
+							<p className='text-stone-700 text-sm leading-relaxed font-sans whitespace-pre-line'>
+							{restaurant.description}
+							</p>
+							) : (
+							<div className='text-center py-6 text-stone-400 font-mono text-xs uppercase'>
+							Restauracja nie uzupełniła jeszcze opisu.
+							</div>
+							)}
+							</div>
+
+							            <h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5 pt-4'>
+							<BookOpen className='w-4 h-4 text-stone-300' /> Historia
+							</h2>
+
+							<div className='bg-white border border-stone-200 p-6 md:p-8'>
+							{restaurant.generalMenu ? (
+							<p className='text-stone-700 text-sm leading-relaxed font-sans whitespace-pre-line'>
+							{restaurant.generalMenu}
+							</p>
+							) : (
+							<div className='text-center py-6 text-stone-400 font-mono text-xs uppercase'>
+							Restauracja nie dodała jeszcze swojej historii.
+							</div>
+							)}
+							</div>
 							</div>
 						)}
 

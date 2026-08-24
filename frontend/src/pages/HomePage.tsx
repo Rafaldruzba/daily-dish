@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useLocation } from '../context/LocationContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 export interface Restaurant {
 	id: string
@@ -41,11 +42,10 @@ const formatDate = (date: Date = new Date()) => {
 
 export default function HomePage() {
 	const { user, toggleFavorite, isFavorite } = useAuth()
+	const { city } = useLocation()
 	const [dishes, setDishes] = useState<DailyDish[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
-
-	const navigate = useNavigate()
 
 	// State for filtering
 	const [filterFavorites, setFilterFavorites] = useState(false)
@@ -56,14 +56,16 @@ export default function HomePage() {
 
 	// Fetch daily dishes and stats on mount
 	useEffect(() => {
-		loadTodayDishes()
+		if (city) {
+			loadTodayDishes(city)
+		}
 
 		const initStats = async () => {
 			await recordVisit()
 			await loadStats()
 		}
 		initStats()
-	}, [])
+	}, [city])
 
 	const loadStats = async () => {
 		try {
@@ -88,12 +90,12 @@ export default function HomePage() {
 		}
 	}
 
-	const loadTodayDishes = async () => {
+	const loadTodayDishes = async (currentCity: string) => {
 		try {
 			setLoading(true)
 			setError('')
 
-			const response = await fetch(`${API_URL}/dishes/today`)
+			const response = await fetch(`${API_URL}/dishes/today?city=${encodeURIComponent(currentCity)}`)
 			if (!response.ok) throw new Error('Nie udało się pobrać dzisiejszych dań')
 
 			const data = await response.json()
@@ -195,8 +197,8 @@ export default function HomePage() {
 
 				<div className='flex flex-wrap items-center gap-4 shrink-0'>
 					<button
-						onClick={loadTodayDishes}
-						disabled={loading}
+						onClick={() => loadTodayDishes(city!)}
+						disabled={loading || !city}
 						className='px-5 py-3 border border-stone-200 hover:border-black font-mono text-xs uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer bg-white text-stone-900'>
 						<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
 						Odśwież
@@ -321,6 +323,7 @@ export default function HomePage() {
 										)}
 
 										{/* Dish Info Body */}
+										<Link to={`/restaurants/${dish.restaurant.slug}`}>
 										<div className='p-6 flex flex-col flex-grow justify-between relative'>
 											<div className='space-y-3'>
 												{/* Restaurant details */}
@@ -342,7 +345,11 @@ export default function HomePage() {
 														{/* Inline heart button if no image is rendered */}
 														{!dish.imageUrl && user && (
 															<button
-																onClick={() => toggleFavorite(dish.restaurant.id)}
+																onClick={(e) => {
+																	e.preventDefault()
+																	e.stopPropagation()
+																	toggleFavorite(dish.restaurant.id)
+																}}
 																className='w-6 h-6 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50 hover:scale-110 active:scale-95 transition-all text-stone-700 shadow-sm cursor-pointer shrink-0'
 																title={isFav ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
 																<Heart
@@ -379,6 +386,7 @@ export default function HomePage() {
 													{dish.restaurant.phone && (
 														<a
 															href={`tel:${dish.restaurant.phone}`}
+															onClick={(e) => e.stopPropagation()}
 															className='text-stone-500 hover:text-black text-xs font-mono flex items-center gap-1.5 transition-colors'
 															title='Zadzwoń do restauracji'>
 															<Phone className='w-3' />
@@ -392,7 +400,10 @@ export default function HomePage() {
 														href={dish.sourceUrl}
 														target='_blank'
 														rel='noopener noreferrer'
-														onClick={() => handleRecordView(dish.restaurant.id)}
+														onClick={(e) => {
+															e.stopPropagation()
+															handleRecordView(dish.restaurant.id)
+														}}
 														className='w-full text-center py-2 border border-black hover:bg-black hover:text-white transition-colors text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-1.5 cursor-pointer'>
 														Źródło oferty
 														<ExternalLink className='w-3 h-3' />
@@ -400,6 +411,7 @@ export default function HomePage() {
 												)}
 											</div>
 										</div>
+										</Link>
 									</article>
 								)
 							})}

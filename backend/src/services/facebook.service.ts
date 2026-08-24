@@ -1,5 +1,6 @@
 import { ApifyClient } from 'apify-client'
 import { GREETING_PATTERNS } from '../data/words.js'
+import { MOCK_DISHES } from '../data/mockDishes.js'
 
 const client = new ApifyClient({
 	token: process.env.APIFY_API_TOKEN,
@@ -46,6 +47,33 @@ export async function fetchRestaurantDish(restaurant: {
 	name: string
 	facebookUrl: string | null
 }): Promise<FacebookDishResult | null> {
+	if (process.env.NODE_ENV !== 'production') {
+		console.log(`🤖 [LOCAL MOCK] Zwracam statyczne dane testowe dla: ${restaurant.name}`)
+		const mockDish = MOCK_DISHES[restaurant.id]
+		if (mockDish) {
+			return {
+				name: mockDish.name,
+				description: mockDish.description,
+				price: mockDish.price,
+				imageUrl: mockDish.imageUrl,
+				sourceUrl: mockDish.sourceUrl,
+				sourcePostId: mockDish.sourcePostId,
+				publishedAt: new Date(),
+			}
+		}
+
+		// Fallback dla dowolnych innych restauracji dodanych lokalnie
+		return {
+			name: `Przykładowe Danie Dnia w ${restaurant.name}`,
+			description: 'To jest automatycznie wygenerowany lokalny opis dania dnia dla celów testowych (brak dopasowania ID w mockDishes.ts).',
+			price: 29.90,
+			imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
+			sourceUrl: restaurant.facebookUrl || 'https://facebook.com',
+			sourcePostId: 'mock_post_id',
+			publishedAt: new Date(),
+		}
+	}
+
 	if (!restaurant.facebookUrl) {
 		console.log(`⚠️ ${restaurant.name}: brak adresu Facebook`)
 		return null

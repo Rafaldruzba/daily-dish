@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { Routes, Route, NavLink, Link } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
 import HomePage from './pages/HomePage'
 import RestaurantsPage from './pages/RestaurantsPage'
 import ForRestaurantsPage from './pages/ForRestaurantsPage'
@@ -7,12 +7,22 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import MapPage from './pages/MapPage'
 import RestaurantDetailPage from './pages/RestaurantDetailPage'
-import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map } from 'lucide-react'
+import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
 import { useState } from 'react'
+import { useLocation } from './context/LocationContext'
+import { Preloader } from './components/Preloader'
 
 function Navigation() {
 	const { user, logout } = useAuth()
+	const { city, setCity } = useLocation()
 	const [isOpen, setIsOpen] = useState(false)
+
+	const handleChangeCity = () => {
+		// Resetting the city will trigger the Preloader
+		setCity('');
+		localStorage.removeItem('user_city');
+		window.location.reload(); // Force a reload to re-evaluate the context state
+	}
 
 	return (
 		<div className="relative">
@@ -27,6 +37,13 @@ function Navigation() {
 
 			{/* Desktop Navigation */}
 			<nav className="hidden md:flex items-center gap-1 font-mono text-xs uppercase tracking-wider">
+				<button onClick={handleChangeCity} className='flex items-center gap-2 bg-stone-100 border border-stone-200 px-3 py-1.5 hover:bg-stone-200 hover:border-stone-300 transition-colors'>
+					<MapPin className='w-3.5 h-3.5 text-stone-500' />
+					<span className='text-stone-700 font-semibold'>{city}</span>
+				</button>
+
+				<div className="h-4 w-px bg-stone-200 mx-2"></div>
+
 				<NavLink
 					to="/"
 					end
@@ -80,7 +97,7 @@ function Navigation() {
 				>
 					<span className="flex items-center gap-1.5">
 						<Building className="w-3.5 h-3.5" />
-						Dla restauracji
+						{user?.role === 'OWNER' ? 'Profil' : 'Dla restauracji'}
 					</span>
 				</NavLink>
 
@@ -126,8 +143,14 @@ function Navigation() {
 
 			{/* Mobile Navigation Dropdown */}
 			{isOpen && (
-				<div className="absolute right-0 top-12 w-56 bg-white border border-stone-200 shadow-lg py-3 px-4 z-50 flex flex-col gap-4 font-mono text-xs uppercase tracking-wider md:hidden">
-					<NavLink
+				<div className="absolute right-0 top-12 w-64 bg-white border border-stone-200 shadow-lg py-3 px-4 z-50 flex flex-col gap-2 font-mono text-xs uppercase tracking-wider md:hidden">
+          <button onClick={handleChangeCity} className='w-full flex items-center gap-2 bg-stone-50 border border-stone-200 px-3 py-2.5 hover:bg-stone-100 hover:border-stone-300 transition-colors mb-2'>
+					  <MapPin className='w-4 h-4 text-stone-500' />
+					  <span className='text-stone-800 font-semibold normal-case'>{city}</span>
+				  </button>
+
+          <div className='flex flex-col gap-3'>
+    				<NavLink
 						to="/"
 						end
 						onClick={() => setIsOpen(false)}
@@ -169,8 +192,9 @@ function Navigation() {
 						}
 					>
 						<Building className="w-4 h-4" />
-						Dla restauracji
+						{user?.role === 'OWNER' ? 'Profil' : 'Dla restauracji'}
 					</NavLink>
+          </div>
 
 					<hr className="border-stone-100 my-1" />
 
@@ -290,13 +314,13 @@ function AppContent() {
 }
 
 function App() {
-	return (
-		<BrowserRouter>
-			<AuthProvider>
-				<AppContent />
-			</AuthProvider>
-		</BrowserRouter>
-	)
+	const { city } = useLocation()
+
+	if (!city) {
+		return <Preloader />
+	}
+
+	return <AppContent />
 }
 
 export default App

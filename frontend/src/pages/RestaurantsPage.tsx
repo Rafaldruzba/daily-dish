@@ -31,6 +31,8 @@ export interface Restaurant {
 	status: string
 	views: number
 	subscriptionPlan: string
+	latitude?: number | null
+	longitude?: number | null
 }
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
