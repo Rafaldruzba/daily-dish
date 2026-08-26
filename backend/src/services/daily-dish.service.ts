@@ -89,15 +89,14 @@ export async function fetchTodayDishes(city?: string) {
 
         const trialEndsAt = new Date();
         trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-        await prisma.subscription.upsert({
-          where: { restaurantId: restaurant.id },
-          create: {
+        await prisma.subscription.create({
+          data: {
             restaurantId: restaurant.id,
-            plan: 'FREE_TRIAL',
+            type: 'FREE_TRIAL',
             status: 'ACTIVE',
-            currentPeriodEnd: trialEndsAt,
-          },
-          update: {},
+            startsAt: new Date(),
+            endsAt: trialEndsAt,
+          }
         });
 
         } catch (err) {

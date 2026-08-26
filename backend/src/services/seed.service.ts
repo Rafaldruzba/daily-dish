@@ -82,15 +82,14 @@ export async function seedLocalMockData() {
 			// Create active subscription
 			const trialEndsAt = new Date()
 			trialEndsAt.setDate(trialEndsAt.getDate() + 30)
-			await prisma.subscription.upsert({
-				where: { restaurantId: r.id },
-				create: {
+			await prisma.subscription.create({
+				data: {
 					restaurantId: r.id,
-					plan: 'FREE_TRIAL',
+					type: 'FREE_TRIAL',
 					status: 'ACTIVE',
-					currentPeriodEnd: trialEndsAt
-				},
-				update: {}
+					startsAt: new Date(),
+					endsAt: trialEndsAt
+				}
 			})
 
 			// Seed today's dish

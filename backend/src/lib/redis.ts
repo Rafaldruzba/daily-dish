@@ -1,38 +1,31 @@
 import { createClient } from 'redis';
 
-let redisUrl: string;
+// Get connection config from environment variables
+const redisUrl = process.env.REDIS_URL;
+const host = process.env.REDIS_HOST || 'localhost';
+const port = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
 
-// Priority 1: Official REDIS_URL from hosting provider (e.g., Railway)
-if (process.env.REDIS_URL) {
-  redisUrl = process.env.REDIS_URL;
-} 
-// Priority 2: Fallback for environments that provide separate parts
-else if (process.env.REDIS_HOST && process.env.REDIS_PORT) {
-  const user = process.env.REDIS_USER || '';
-  const password = process.env.REDIS_PASSWORD ? `:${process.env.REDIS_PASSWORD}` : '';
-  const at = (user || password) ? '@' : '';
-  redisUrl = `redis://${user}${password}${at}${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
-} 
-// Priority 3: Default for local development (e.g., local docker or redis-server)
-else {
-  redisUrl = 'redis://localhost:6379';
+if (redisUrl) {
+  // Obfuscate password in connection URL for safe logging
+  const safeUrl = redisUrl.replace(/:([^:@]+)@/, ':****@');
+  console.log(`[Redis] Attempting to connect using URL: ${safeUrl}...`);
+} else {
+  console.log(`[Redis] Attempting to connect to ${host}:${port}...`);
 }
 
-console.log(`[Redis] Connecting to ${redisUrl.replace(/:.*@/, ':<password>@')}...`);
+export const redisClient = redisUrl
+  ? createClient({ url: redisUrl })
+  : createClient({
+      socket: {
+        host: host,
+        port: port,
+      },
+    });
 
-export const redisClient = createClient({
-  url: redisUrl,
-});
-
-redisClient.on('connect', () => console.log('[Redis] Connected successfully!'));
+redisClient.on('ready', () => console.log('[Redis] Connected successfully and ready to use.'));
 redisClient.on('error', (err) => console.error('[Redis] Client Error', err));
 
-(async () => {
-  try {
-    await redisClient.connect();
-  } catch (err) {
-    console.error('[Redis] Could not connect:', err);
-  }
-})();
+// Connect
+redisClient.connect().catch(console.error);
 
 export default redisClient;

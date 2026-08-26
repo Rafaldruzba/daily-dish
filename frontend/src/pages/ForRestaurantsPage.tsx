@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
-import { Plus, CheckCircle, BarChart2, RefreshCw, Mail, HelpCircle, Check, X } from 'lucide-react'
+import { Plus, CheckCircle, BarChart2, RefreshCw, Mail, HelpCircle, Check, X, Eye, EyeOff, Trash2, MapPin, Phone, Star, Store } from 'lucide-react'
 
 interface Subscription {
 	id: string
@@ -69,10 +69,12 @@ const generateSlug = (value: string) => {
 export default function ForRestaurantsPage() {
 	const { user, token } = useAuth()
 	const isOwnerOrAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN'
+	const isAdmin = user?.role === 'ADMIN'
 
-	const [activeTab, setActiveTab] = useState('stats') // 'stats', 'new', 'payments'
+	const [activeTab, setActiveTab] = useState('stats') // 'stats', 'new', 'payments', 'admin-pending', 'admin-approved'
 
 	const [ownedRestaurants, setOwnedRestaurants] = useState<Restaurant[]>([])
+	const [restaurants, setRestaurants] = useState<Restaurant[]>([]) // For admin moderation panel
 	const [form, setForm] = useState<RestaurantForm>(INITIAL_FORM_STATE)
 	const [loading, setLoading] = useState(true)
 	const [saving, setSaving] = useState(false)
@@ -92,6 +94,14 @@ export default function ForRestaurantsPage() {
 
 	const [isMockCheckout, setIsMockCheckout] = useState(!!mockCheckoutParam)
 	const [mockProcessing, setMockProcessing] = useState(false)
+
+	useEffect(() => {
+		if (isAdmin) {
+			setActiveTab('admin-pending')
+		} else {
+			setActiveTab('stats')
+		}
+	}, [isAdmin])
 
 	useEffect(() => {
 		if (successParam) {
@@ -196,11 +206,103 @@ export default function ForRestaurantsPage() {
 
 	useEffect(() => {
 		if (token && isOwnerOrAdmin) {
-			loadOwnedRestaurants()
+			if (isAdmin) {
+				loadAdminRestaurants()
+			} else {
+				loadOwnedRestaurants()
+			}
 		} else {
 			setLoading(false)
 		}
-	}, [token, isOwnerOrAdmin])
+	}, [token, isOwnerOrAdmin, isAdmin])
+
+	const loadAdminRestaurants = async () => {
+		try {
+			setLoading(true)
+			setError('')
+			const response = await fetch(`${API_URL}/restaurants/admin/all`, {
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+			})
+			if (!response.ok) throw new Error('Błąd połączenia z API')
+			const data = await response.json()
+			setRestaurants(data)
+		} catch (err) {
+			console.error(err)
+			setError('Nie udało się pobrać restauracji dla panelu moderacyjnego.')
+		} finally {
+			setLoading(false)
+		}
+	}
+
+	const handleStatusApproval = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+		if (!token || !isAdmin) return
+
+		try {
+			setError('')
+			const response = await fetch(`${API_URL}/restaurants/admin/${id}/status`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ status }),
+			})
+
+			if (!response.ok) throw new Error('Błąd aktualizacji statusu.')
+			setSuccess(`Status restauracji został pomyślnie zmieniony na: ${status === 'APPROVED' ? 'Zatwierdzona' : 'Odrzucona'}`)
+			loadAdminRestaurants()
+		} catch (err) {
+			console.error(err)
+			setError('Nie udało się zaktualizować statusu restauracji.')
+		}
+	}
+
+	const toggleRestaurantStatus = async (restaurant: Restaurant) => {
+		if (!token || !isAdmin) return
+
+		try {
+			setError('')
+			const response = await fetch(`${API_URL}/restaurants/${restaurant.id}`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ isActive: !restaurant.isActive }),
+			})
+
+			if (!response.ok) throw new Error('Nie udało się zmienić statusu restauracji.')
+			const updated = await response.json()
+
+			setRestaurants(prev => prev.map(item => (item.id === updated.id ? updated : item)))
+			setSuccess(`Scrapowanie dla restauracji „${updated.name}” zostało ${updated.isActive ? 'wznowione' : 'wstrzymane'}.`)
+		} catch (err) {
+			console.error(err)
+			setError('Wystąpił błąd podczas zmiany statusu.')
+		}
+	}
+
+	const deleteRestaurant = async (id: string) => {
+		if (!token || !isAdmin) return
+		if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć tę restaurację z bazy?')) return
+
+		try {
+			setError('')
+			const response = await fetch(`${API_URL}/restaurants/${id}`, {
+				method: 'DELETE',
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
+			if (!response.ok) throw new Error('Nie udało się usunąć restauracji.')
+
+			setRestaurants(prev => prev.filter(item => item.id !== id))
+			setSuccess('Restauracja została pomyślnie usunięta z bazy danych.')
+		} catch (err) {
+			console.error(err)
+			setError('Wystąpił błąd podczas usuwania restauracji.')
+		}
+	}
 
 	const loadOwnedRestaurants = async () => {
 		try {
@@ -276,6 +378,126 @@ export default function ForRestaurantsPage() {
 		return days > 0 ? days : 0
 	}
 
+	const renderAdminRestaurantCard = (restaurant: Restaurant) => {
+		const isPromoted =
+			restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.plan === 'PROMOTE_50'
+
+		return (
+			<article
+				key={restaurant.id}
+				className={`relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
+					!restaurant.isActive
+						? 'opacity-65 border-stone-200'
+						: 'border-stone-200 hover:border-black hover:shadow-sm'
+				}`}>
+				{isPromoted && (
+					<div className='absolute top-0 left-0 w-16 h-16 overflow-hidden pointer-events-none z-10'>
+						<div className='absolute top-[8px] left-[-24px] w-20 h-5 bg-green-600 text-white flex items-center justify-center -rotate-45 font-mono text-[8px] font-bold shadow-sm'>
+							★
+						</div>
+					</div>
+				)}
+
+				<div className='space-y-3 flex-grow pl-2 text-left'>
+					<div className='flex flex-wrap items-start sm:items-center gap-3'>
+						<div className='w-8 h-8 bg-stone-100 flex items-center justify-center font-serif text-sm font-bold border border-stone-200 text-stone-800 shrink-0'>
+							R
+						</div>
+						<div>
+							<div className='flex items-center gap-2 flex-wrap'>
+								<h3 className='text-base font-bold font-serif text-stone-900'>{restaurant.name}</h3>
+
+								{restaurant.rating ? (
+									<span className='flex items-center text-xs text-stone-900 bg-stone-100 px-2 py-0.5 font-bold font-mono'>
+										<Star className='w-3 h-3 fill-black mr-0.5' />
+										{Number(restaurant.rating).toFixed(1)}
+									</span>
+								) : (
+									<span className='text-[10px] text-stone-400 font-mono'>Brak ocen</span>
+								)}
+							</div>
+							<span className='font-mono text-[9px] tracking-wider text-stone-400 uppercase block mt-0.5'>
+								{restaurant.slug}
+							</span>
+						</div>
+					</div>
+
+					<div className='grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-stone-500 font-sans'>
+						<p className='flex items-center gap-1.5'>
+							<MapPin className='w-3.5 h-3.5 text-stone-400 shrink-0' />
+							{restaurant.city}
+							{restaurant.address ? `, ${restaurant.address}` : ''}
+						</p>
+
+						{restaurant.phone && (
+							<p className='flex items-center gap-1.5'>
+								<Phone className='w-3.5 h-3.5 text-stone-400 shrink-0' />
+								<a href={`tel:${restaurant.phone}`} className='hover:text-black'>
+									{restaurant.phone}
+								</a>
+							</p>
+						)}
+					</div>
+				</div>
+
+				{/* Actions */}
+				<div className='flex flex-wrap items-center gap-3 shrink-0 self-end sm:self-auto'>
+					{!restaurant.isActive && (
+						<span className='text-[10px] font-mono uppercase bg-stone-100 text-stone-500 border border-stone-200 px-2 py-1 font-bold'>
+							Scrapowanie wstrzymane
+						</span>
+					)}
+
+					{restaurant.status === 'PENDING' ? (
+						<>
+							<button
+								onClick={() => handleStatusApproval(restaurant.id, 'APPROVED')}
+								className='px-3 py-2 bg-green-700 text-white hover:bg-green-800 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer font-bold'>
+								<Check className='w-3.5 h-3.5' /> Zatwierdź
+							</button>
+							<button
+								onClick={() => handleStatusApproval(restaurant.id, 'REJECTED')}
+								className='px-3 py-2 border border-red-200 text-red-500 hover:border-red-600 hover:bg-red-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer font-bold'>
+								<X className='w-3.5 h-3.5' /> Odrzuć
+							</button>
+						</>
+					) : (
+						<>
+							<button
+								onClick={() => toggleRestaurantStatus(restaurant)}
+								className='p-2 border border-stone-200 hover:border-black hover:bg-stone-50 text-stone-700 hover:text-black transition-colors flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer'
+								title={restaurant.isActive ? 'Wstrzymaj' : 'Aktywuj'}>
+								{restaurant.isActive ? <EyeOff className='w-3.5 h-3.5' /> : <Eye className='w-3.5 h-3.5' />}
+								{restaurant.isActive ? 'Pauzuj' : 'Wznów'}
+							</button>
+							<button
+								onClick={() => deleteRestaurant(restaurant.id)}
+								className='p-2 border border-stone-200 hover:border-red-600 hover:bg-red-50 text-stone-500 hover:text-red-600 transition-colors flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer'>
+								<Trash2 className='w-3.5 h-3.5' /> Usuń
+							</button>
+						</>
+					)}
+
+					<Link
+						to={`/restaurants/${restaurant.slug}`}
+						className='px-3 py-2 border border-black text-black hover:bg-black hover:text-white transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer font-bold'>
+						Zobacz profil
+					</Link>
+
+					{restaurant.facebookUrl && (
+						<a
+							href={restaurant.facebookUrl}
+							target='_blank'
+							rel='noopener noreferrer'
+							className='px-3 py-2 border border-stone-200 text-stone-600 hover:border-black hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer'>
+							Facebook
+						</a>
+					)}
+				</div>
+			</article>
+		)
+	}
+
 	const renderGuideCarousel = () => {
 		return (
 			<div className='bg-stone-50 border border-stone-200 p-6 md:p-8 space-y-6 relative overflow-hidden flex flex-col justify-between min-h-[350px] shadow-sm text-left'>
@@ -342,29 +564,31 @@ export default function ForRestaurantsPage() {
 		<main className='max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex-grow space-y-12'>
 			{/* Header */}
 			<section className='border-b border-stone-200 pb-10 flex flex-col md:flex-row md:items-end justify-between gap-6'>
-				<div className='max-w-2xl'>
+				<div className='max-w-2xl text-left'>
 					<span className='text-xs font-mono uppercase tracking-widest text-stone-400'>
-						{isOwnerOrAdmin ? 'Panel Właściciela' : 'Dedykowany Panel'}
+						{isAdmin ? 'Panel Administratora' : isOwnerOrAdmin ? 'Panel Właściciela' : 'Dedykowany Panel'}
 					</span>
 					<h1 className='text-3xl md:text-4xl font-black font-serif tracking-tight text-stone-900 mt-1'>
-						{isOwnerOrAdmin ? 'Twój Panel Biznesowy' : 'Dla Restauracji'}
+						{isAdmin ? 'Panel Moderacji i Zarządzania' : isOwnerOrAdmin ? 'Twój Panel Biznesowy' : 'Dla Restauracji'}
 					</h1>
 					<p className='text-stone-500 text-sm md:text-base mt-2'>
-						{isOwnerOrAdmin
-							? 'Zarządzaj swoimi lokalami, śledź wyświetlenia i kontroluj status subskrypcji.'
-							: 'Dołącz do platformy Daily Dish i dotrzyj do setek głodnych klientów w Twojej okolicy – całkowicie za darmo.'}
+						{isAdmin
+							? 'Zatwierdzaj zgłoszenia od restauratorów, zarządzaj aktywnością lokali oraz kontroluj statusy.'
+							: isOwnerOrAdmin
+								? 'Zarządzaj swoimi lokalami, śledź wyświetlenia i kontroluj status subskrypcji.'
+								: 'Dołącz do platformy Daily Dish i dotrzyj do setek głodnych klientów w Twojej okolicy – całkowicie za darmo.'}
 					</p>
 				</div>
 			</section>
 
 			{success && (
-				<div className='p-4 bg-green-50 border-l-4 border-green-600 text-xs font-mono text-green-800 flex items-start gap-2 max-w-4xl mx-auto'>
+				<div className='p-4 bg-green-50 border-l-4 border-green-600 text-xs font-mono text-green-800 flex items-start gap-2 max-w-4xl mx-auto text-left'>
 					<CheckCircle className='w-4 h-4 text-green-700 shrink-0 mt-0.5' />
 					<span>{success}</span>
 				</div>
 			)}
 			{error && (
-				<div className='p-4 bg-red-50 border-l-4 border-red-500 text-xs font-mono text-red-500 max-w-4xl mx-auto'>
+				<div className='p-4 bg-red-50 border-l-4 border-red-500 text-xs font-mono text-red-500 max-w-4xl mx-auto text-left'>
 					{error}
 				</div>
 			)}
@@ -455,32 +679,125 @@ export default function ForRestaurantsPage() {
 						<>
 							<div className='border-b border-stone-200 mb-8'>
 								<nav className='-mb-px flex space-x-6' aria-label='Tabs'>
-									<button
-										onClick={() => setActiveTab('stats')}
-										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'stats' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
-										Lokale i statystyki
-									</button>
-									<button
-										onClick={() => setActiveTab('new')}
-										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'new' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
-										Zgłoś nową restaurację
-									</button>
-									<button
-										onClick={() => setActiveTab('subscriptions')}
-										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'subscriptions' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
-										Subskrypcje
-									</button>
-									<button
-										onClick={() => setActiveTab('payments')}
-										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
-										Historia płatności
-									</button>
+									{isAdmin ? (
+										<>
+											<button
+												onClick={() => setActiveTab('admin-pending')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-pending' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Kandydatury ({restaurants.filter(r => r.status === 'PENDING').length})
+											</button>
+											<button
+												onClick={() => setActiveTab('admin-approved')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-approved' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Zatwierdzone ({restaurants.filter(r => r.status === 'APPROVED').length})
+											</button>
+										</>
+									) : (
+										<>
+											<button
+												onClick={() => setActiveTab('stats')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'stats' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Lokale i statystyki
+											</button>
+											<button
+												onClick={() => setActiveTab('new')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'new' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Zgłoś nową restaurację
+											</button>
+											<button
+												onClick={() => setActiveTab('subscriptions')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'subscriptions' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Subskrypcje
+											</button>
+											<button
+												onClick={() => setActiveTab('payments')}
+												className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+												Historia płatności
+											</button>
+										</>
+									)}
 								</nav>
 							</div>
 
-							{activeTab === 'stats' && (
+							{isAdmin && activeTab === 'admin-pending' && (
 								<section className='space-y-6'>
-									<h2 className='text-xl font-bold font-serif text-stone-900'>
+									<div className='flex justify-between items-center'>
+										<h2 className='text-xl font-bold font-serif text-stone-900 text-left'>
+											Kandydatury oczekujące na akceptację ({restaurants.filter(r => r.status === 'PENDING').length})
+										</h2>
+										<button
+											onClick={loadAdminRestaurants}
+											disabled={loading}
+											className='px-3 py-1.5 border border-stone-200 hover:border-black font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer bg-white text-stone-900 shadow-sm'>
+											<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+											Odśwież
+										</button>
+									</div>
+
+									{loading ? (
+										<div className='py-24 text-center border border-dashed border-stone-200'>
+											<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mx-auto mb-4' />
+											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie kandydatur...</p>
+										</div>
+									) : restaurants.filter(r => r.status === 'PENDING').length === 0 ? (
+										<div className='py-24 text-center border border-dashed border-stone-200'>
+											<Store className='w-12 h-12 text-stone-300 mx-auto mb-4' />
+											<h3 className='text-lg font-bold font-serif text-stone-900'>Brak oczekujących zgłoszeń</h3>
+											<p className='text-stone-500 text-sm mt-1 max-w-sm mx-auto'>
+												Wszystkie zgłoszone lokale zostały już zweryfikowane i obsłużone.
+											</p>
+										</div>
+									) : (
+										<div className='grid grid-cols-1 gap-4'>
+											{restaurants
+												.filter(r => r.status === 'PENDING')
+												.map(restaurant => renderAdminRestaurantCard(restaurant))}
+										</div>
+									)}
+								</section>
+							)}
+
+							{isAdmin && activeTab === 'admin-approved' && (
+								<section className='space-y-6'>
+									<div className='flex justify-between items-center'>
+										<h2 className='text-xl font-bold font-serif text-stone-900 text-left'>
+											Zatwierdzone restauracje ({restaurants.filter(r => r.status === 'APPROVED').length})
+										</h2>
+										<button
+											onClick={loadAdminRestaurants}
+											disabled={loading}
+											className='px-3 py-1.5 border border-stone-200 hover:border-black font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer bg-white text-stone-900 shadow-sm'>
+											<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+											Odśwież
+										</button>
+									</div>
+
+									{loading ? (
+										<div className='py-24 text-center border border-dashed border-stone-200'>
+											<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mx-auto mb-4' />
+											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie restauracji...</p>
+										</div>
+									) : restaurants.filter(r => r.status === 'APPROVED').length === 0 ? (
+										<div className='py-24 text-center border border-dashed border-stone-200'>
+											<Store className='w-12 h-12 text-stone-300 mx-auto mb-4' />
+											<h3 className='text-lg font-bold font-serif text-stone-900'>Brak zatwierdzonych restauracji</h3>
+											<p className='text-stone-500 text-sm mt-1 max-w-sm mx-auto'>
+												Baza danych nie posiada jeszcze żadnych zatwierdzonych lokali.
+											</p>
+										</div>
+									) : (
+										<div className='grid grid-cols-1 gap-4'>
+											{restaurants
+												.filter(r => r.status === 'APPROVED')
+												.map(restaurant => renderAdminRestaurantCard(restaurant))}
+										</div>
+									)}
+								</section>
+							)}
+
+							{!isAdmin && activeTab === 'stats' && (
+								<section className='space-y-6'>
+									<h2 className='text-xl font-bold font-serif text-stone-900 text-left'>
 										Twoje lokale ({ownedRestaurants.length})
 									</h2>
 									{loading ? (
@@ -687,9 +1004,9 @@ export default function ForRestaurantsPage() {
 								</section>
 							)}
 
-							{activeTab === 'new' && (
+							{!isAdmin && activeTab === 'new' && (
 								<section>
-									<div className='bg-white border border-stone-200 p-6 md:p-8 space-y-6'>
+									<div className='bg-white border border-stone-200 p-6 md:p-8 space-y-6 text-left'>
 										<div className='border-b border-stone-100 pb-4'>
 											<h2 className='text-xl font-bold font-serif text-stone-900'>Zgłoś nową restaurację</h2>
 											<p className='text-stone-500 text-xs mt-1'>
@@ -799,7 +1116,7 @@ export default function ForRestaurantsPage() {
 								</section>
 							)}
 
-							{activeTab === 'subscriptions' && (
+							{!isAdmin && activeTab === 'subscriptions' && (
 								<section className='space-y-8 text-left'>
 									<div>
 										<h2 className='text-xl font-bold font-serif text-stone-900'>Twoje aktywne subskrypcje</h2>
@@ -1088,9 +1405,9 @@ export default function ForRestaurantsPage() {
 								</section>
 							)}
 
-							{activeTab === 'payments' && (
+							{!isAdmin && activeTab === 'payments' && (
 								<section>
-									<h2 className='text-xl font-bold font-serif text-stone-900 border-b border-stone-100 pb-2'>
+									<h2 className='text-xl font-bold font-serif text-stone-900 border-b border-stone-100 pb-2 text-left'>
 										Historia płatności
 									</h2>
 									{payments.length === 0 ? (
@@ -1119,16 +1436,16 @@ export default function ForRestaurantsPage() {
 												<tbody className='divide-y divide-stone-200'>
 													{payments.map(payment => (
 														<tr key={payment.id}>
-															<td className='px-6 py-4 whitespace-nowrap text-sm font-mono text-stone-500'>
+															<td className='px-6 py-4 whitespace-nowrap text-sm font-mono text-stone-500 text-left'>
 																{payment.id.split('-')[0]}...
 															</td>
-															<td className='px-6 py-4 whitespace-nowrap text-sm text-stone-800'>
+															<td className='px-6 py-4 whitespace-nowrap text-sm text-stone-800 text-left'>
 																{new Date(payment.createdAt).toLocaleDateString('pl-PL')}
 															</td>
-															<td className='px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-900'>
+															<td className='px-6 py-4 whitespace-nowrap text-sm font-bold text-stone-900 text-left'>
 																{Number(payment.amount).toFixed(2)} {payment.currency}
 															</td>
-															<td className='px-6 py-4 whitespace-nowrap text-sm'>
+															<td className='px-6 py-4 whitespace-nowrap text-sm text-left'>
 																<span
 																	className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'SUCCEEDED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
 																	{payment.status}
@@ -1156,7 +1473,7 @@ export default function ForRestaurantsPage() {
 						</div>
 						<div className='space-y-2'>
 							<h3 className='text-xl font-bold font-serif text-stone-900'>Dołącz do nas</h3>
-							<p className='text-stone-500 text-sm max-w-md mx-auto'>
+							<p className='text-stone-500 text-sm max-w-md mx-auto font-sans'>
 								Aby móc dodać profil restauracji i śledzić statystyki wyświetleń oraz subskrypcje, musisz najpierw
 								założyć konto typu Właściciel.
 							</p>
@@ -1164,12 +1481,12 @@ export default function ForRestaurantsPage() {
 						<div className='flex flex-col sm:flex-row items-center justify-center gap-3'>
 							<Link
 								to='/login'
-								className='w-full sm:w-auto px-6 py-2.5 border border-black hover:bg-stone-50 text-stone-900 font-mono text-xs uppercase tracking-widest text-center cursor-pointer'>
+								className='w-full sm:w-auto px-6 py-2.5 border border-black hover:bg-stone-50 text-stone-900 font-mono text-xs uppercase tracking-widest text-center cursor-pointer font-bold'>
 								Zaloguj się
 							</Link>
 							<Link
 								to='/register'
-								className='w-full sm:w-auto px-6 py-2.5 bg-black text-white hover:bg-stone-900 font-mono text-xs uppercase tracking-widest text-center cursor-pointer'>
+								className='w-full sm:w-auto px-6 py-2.5 bg-black text-white hover:bg-stone-900 font-mono text-xs uppercase tracking-widest text-center cursor-pointer font-bold'>
 								Zarejestruj konto
 							</Link>
 						</div>
@@ -1178,7 +1495,7 @@ export default function ForRestaurantsPage() {
 			)}
 
 			{/* Bottom Carousel Guide for Owners (Visible when logged in at the bottom) */}
-			{isOwnerOrAdmin && (
+			{isOwnerOrAdmin && !isAdmin && (
 				<section className='max-w-4xl mx-auto pt-10 border-t border-stone-200 space-y-6'>
 					<h2 className='text-xl font-bold font-serif text-stone-900 text-center'>
 						Jak poprawnie skonfigurować posty i automatyczne pobieranie?

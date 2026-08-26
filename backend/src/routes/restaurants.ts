@@ -8,6 +8,75 @@ import redisClient from '../lib/redis.js'
 
 const router = Router()
 
+// Pomocnicza funkcja do mapowania listy subskrypcji (1-to-many) z bazy
+// na pojedynczy obiekt subskrypcji (legacy format) oczekiwany przez frontend.
+function mapRestaurantSubscription(restaurant: any) {
+	if (!restaurant.subscriptions || restaurant.subscriptions.length === 0) {
+		const { subscriptions, ...rest } = restaurant
+		return {
+			...rest,
+			subscription: null,
+		}
+	}
+
+	// Znajdź tylko aktywne subskrypcje
+	const activeSubs = restaurant.subscriptions.filter(
+		(sub: any) => sub.status === 'ACTIVE' && new Date(sub.endsAt) > new Date()
+	)
+
+	if (activeSubs.length === 0) {
+		// Jeżeli brak aktywnych, weź najświeższą wygasłą/anulowaną
+		const sortedSubs = [...restaurant.subscriptions].sort(
+			(a: any, b: any) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime()
+		)
+		const latestSub = sortedSubs[0]
+
+		let plan = 'FREE_TRIAL'
+		if (latestSub.type === 'BASE') plan = 'PREMIUM_100'
+		else if (latestSub.type === 'PROMOTION') plan = 'PROMOTE_50'
+		else if (latestSub.type === 'STATIC_MENU') plan = 'OFFER_50'
+
+		const { subscriptions, ...rest } = restaurant
+		return {
+			...rest,
+			subscription: {
+				id: latestSub.id,
+				plan: plan,
+				status: latestSub.status,
+				currentPeriodEnd: latestSub.endsAt,
+			},
+		}
+	}
+
+	// Określ najwyższy poziom planu subskrypcji dla aktywnych planów
+	// Hierarchia: STATIC_MENU ('OFFER_50') > PROMOTION ('PROMOTE_50') > BASE ('PREMIUM_100') > FREE_TRIAL ('FREE_TRIAL')
+	const hasStaticMenu = activeSubs.some((sub: any) => sub.type === 'STATIC_MENU')
+	const hasPromotion = activeSubs.some((sub: any) => sub.type === 'PROMOTION')
+	const hasBase = activeSubs.some((sub: any) => sub.type === 'BASE')
+	const hasTrial = activeSubs.some((sub: any) => sub.type === 'FREE_TRIAL')
+
+	let plan = 'FREE_TRIAL'
+	if (hasStaticMenu) plan = 'OFFER_50'
+	else if (hasPromotion) plan = 'PROMOTE_50'
+	else if (hasBase) plan = 'PREMIUM_100'
+	else if (hasTrial) plan = 'FREE_TRIAL'
+
+	// Jako główną subskrypcję do wyznaczenia okresu ważności wybierz BASE / FREE_TRIAL, lub pierwszą aktywną
+	const primarySub =
+		activeSubs.find((sub: any) => sub.type === 'BASE' || sub.type === 'FREE_TRIAL') || activeSubs[0]
+
+	const { subscriptions, ...rest } = restaurant
+	return {
+		...rest,
+		subscription: {
+			id: primarySub.id,
+			plan: plan,
+			status: 'ACTIVE',
+			currentPeriodEnd: primarySub.endsAt,
+		},
+	}
+}
+
 // GET /api/restaurants
 // Pobiera wszystkie aktywne i zatwierdzone restauracje (dla gości/użytkowników)
 router.get('/', async (req: Request, res: Response) => {
@@ -37,35 +106,49 @@ router.get('/', async (req: Request, res: Response) => {
         const { lat, lon } = coordinates;
         const radius = 20 * 1000; // 20km
 
-        // Prioritize promoted restaurants first
-        const promotedRestaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT r.id FROM "Restaurant" r
-          LEFT JOIN "Subscription" s ON r.id = s."restaurantId"
-          WHERE r."isActive" = true AND r."status" = 'APPROVED' AND s."isPromoted" = true AND s.status = 'ACTIVE' AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (
-            6371000 * acos(cos(radians(${lat})) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(r.latitude)))
+        // 1. Get all restaurant IDs within the given radius
+        const restaurantsInRadius = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "Restaurant"
+          WHERE "isActive" = true AND "status" = 'APPROVED' AND latitude IS NOT NULL AND longitude IS NOT NULL AND (
+            6371000 * acos(cos(radians(${lat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(latitude)))
           ) <= ${radius};
         `;
+        const restaurantIdsInRadius = restaurantsInRadius.map(r => r.id);
 
-        const otherRestaurantIds = await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT r.id FROM "Restaurant" r
-          LEFT JOIN "Subscription" s ON r.id = s."restaurantId"
-          WHERE r."isActive" = true AND r."status" = 'APPROVED' AND (s."isPromoted" IS NULL OR s."isPromoted" = false) AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (
-            6371000 * acos(cos(radians(${lat})) * cos(radians(r.latitude)) * cos(radians(r.longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(r.latitude)))
-          ) <= ${radius};
-        `;
+        // 2. Find which of those restaurants have an active PROMOTION subscription
+        const promotedSubscriptions = await prisma.subscription.findMany({
+          where: {
+            restaurantId: { in: restaurantIdsInRadius },
+            type: 'PROMOTION',
+            status: 'ACTIVE',
+            endsAt: { gt: new Date() }
+          },
+          select: { restaurantId: true }
+        });
+        const promotedRestaurantIds = [...new Set(promotedSubscriptions.map(s => s.restaurantId))]; // Use Set to ensure uniqueness
 
-        const finalIds = [...promotedRestaurantIds.map((r: {id: string}) => r.id), ...otherRestaurantIds.map((r: {id: string}) => r.id)];
-        where.id = { in: finalIds };
+        // 3. The rest are "other" restaurants
+        const otherRestaurantIds = restaurantIdsInRadius.filter(id => !promotedRestaurantIds.includes(id));
+
+        // 4. Combine IDs, putting promoted ones first
+        const finalIds = [...promotedRestaurantIds, ...otherRestaurantIds];
+        
+        if (finalIds.length > 0) {
+          where.id = { in: finalIds };
+        } else {
+          // If no restaurants are in the radius, make sure the query returns nothing
+          where.id = { in: [] };
+        }
 
       } else {
         where.city = { equals: city, mode: 'insensitive' };
       }
     }
 
-		type RestaurantWithSubscription = Restaurant & { subscription: Subscription | null };
-		let restaurants: RestaurantWithSubscription[] = await prisma.restaurant.findMany({
+		type RestaurantWithSubscriptions = Restaurant & { subscriptions: Subscription[] };
+		let restaurants: RestaurantWithSubscriptions[] = await prisma.restaurant.findMany({
 			where,
-			include: { subscription: true },
+			include: { subscriptions: true },
 			orderBy: {
 				name: 'asc',
 			},
@@ -121,15 +204,14 @@ router.get('/', async (req: Request, res: Response) => {
           // Create a mock subscription for the mock restaurant
           const trialEndsAt = new Date();
           trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-          await prisma.subscription.upsert({
-            where: { restaurantId: restaurant.id },
-            create: {
+          await prisma.subscription.create({
+            data: {
               restaurantId: restaurant.id,
-              plan: 'FREE_TRIAL',
+              type: 'FREE_TRIAL',
               status: 'ACTIVE',
-              currentPeriodEnd: trialEndsAt,
-            },
-            update: {},
+              startsAt: new Date(),
+              endsAt: trialEndsAt,
+            }
           });
 
 				} catch (err) {
@@ -140,22 +222,18 @@ router.get('/', async (req: Request, res: Response) => {
 			// Pobierz ponownie po zasileniu bazy
 			restaurants = await prisma.restaurant.findMany({
 				where,
-				include: { subscription: true },
+				include: { subscriptions: true },
 				orderBy: {
 					name: 'asc',
 				},
 			})
 		}
 
-    // In-memory sort to prioritize promoted restaurants (isPromoted = true) at the very top
+    // In-memory sort to prioritize promoted restaurants at the very top
     try {
-      // HACK: Using a type assertion because the build process is using a stale, cached type for the Subscription model.
-      // This forces TypeScript to recognize the new `isPromoted` field.
-      type RestaurantWithFlags = Restaurant & { subscription: { isPromoted?: boolean } | null };
-
-      (restaurants as RestaurantWithFlags[]).sort((a, b) => {
-        const aPromoted = a.subscription?.isPromoted || false;
-        const bPromoted = b.subscription?.isPromoted || false;
+      restaurants.sort((a, b) => {
+        const aPromoted = a.subscriptions.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date());
+        const bPromoted = b.subscriptions.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date());
 
         if (aPromoted && !bPromoted) return -1;
         if (!aPromoted && bPromoted) return 1;
@@ -165,15 +243,17 @@ router.get('/', async (req: Request, res: Response) => {
       console.error('Error prioritizing promoted restaurants:', err);
     }
 
+    const mappedRestaurants = restaurants.map(mapRestaurantSubscription)
+
     if (redisClient.isOpen) {
       try {
-        await redisClient.set(cacheKey, JSON.stringify(restaurants), { EX: 3600 }); // Cache for 1 hour
+        await redisClient.set(cacheKey, JSON.stringify(mappedRestaurants), { EX: 3600 }); // Cache for 1 hour
       } catch (err) {
         console.error('[Redis] Cache write error:', err);
       }
     }
 
-		res.json(restaurants)
+		res.json(mappedRestaurants)
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać restauracji' })
@@ -192,11 +272,11 @@ router.get('/admin/all', authenticate, requireAdmin, async (req: AuthRequest, re
 						name: true,
 					},
 				},
-				subscription: true,
+				subscriptions: true,
 			},
 			orderBy: { createdAt: 'desc' },
 		})
-		res.json(restaurants)
+		res.json(restaurants.map(mapRestaurantSubscription))
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać restauracji' })
@@ -216,10 +296,10 @@ router.get('/owner', authenticate, async (req: AuthRequest, res: Response) => {
 
 		const restaurants = await prisma.restaurant.findMany({
 			where: { userId: req.user.id },
-			include: { subscription: true },
+			include: { subscriptions: true },
 			orderBy: { createdAt: 'desc' },
 		})
-		res.json(restaurants)
+		res.json(restaurants.map(mapRestaurantSubscription))
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać restauracji' })
@@ -361,9 +441,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 		  await prisma.subscription.create({
 		    data: {
 		      restaurantId: restaurant.id,
-		      plan: 'FREE_TRIAL',
+			  type: 'FREE_TRIAL',
 		      status: 'ACTIVE',
-		      currentPeriodEnd: trialEndsAt,
+			  startsAt: new Date(),
+		      endsAt: trialEndsAt,
 		    }
 		  });
 		}

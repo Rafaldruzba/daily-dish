@@ -1,20 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import {
-	Store,
-	Heart,
-	Phone,
-	MapPin,
-	Eye,
-	EyeOff,
-	Trash2,
-	RefreshCw,
-	Search,
-	Star,
-	Shield,
-	Check,
-	X,
-} from 'lucide-react'
+import { Store, Heart, Phone, MapPin, RefreshCw, Search, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 // --- TYPY ---
@@ -44,7 +30,6 @@ const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 export default function RestaurantsPage() {
 	const { user, token, toggleFavorite, isFavorite } = useAuth()
-	const isAdmin = user?.role === 'ADMIN'
 
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [loading, setLoading] = useState(true)
@@ -52,20 +37,18 @@ export default function RestaurantsPage() {
 
 	// Search and filter states
 	const [searchQuery, setSearchQuery] = useState('')
-	const [adminTab, setAdminTab] = useState<'APPROVED' | 'PENDING'>('APPROVED')
 
 	useEffect(() => {
 		loadRestaurants()
-	}, [adminTab])
+	}, [])
 
 	const loadRestaurants = async () => {
 		try {
 			setLoading(true)
 			setError('')
 
-			// Admins can see all, standard users see only active approved
-			const endpoint = isAdmin ? `${API_URL}/restaurants/admin/all` : `${API_URL}/restaurants`
-			const response = await fetch(endpoint, {
+			// Standard endpoint (only returns approved/active restaurants)
+			const response = await fetch(`${API_URL}/restaurants`, {
 				headers: token ? { Authorization: `Bearer ${token}` } : {},
 			})
 			if (!response.ok) throw new Error('Błąd połączenia z API')
@@ -80,104 +63,26 @@ export default function RestaurantsPage() {
 		}
 	}
 
-	const handleStatusApproval = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-		if (!token || !isAdmin) return
-
-		try {
-			setError('')
-			const response = await fetch(`${API_URL}/restaurants/admin/${id}/status`, {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ status }),
-			})
-
-			if (!response.ok) throw new Error('Błąd aktualizacji statusu.')
-
-			// Refresh list
-			loadRestaurants()
-		} catch (err) {
-			console.error(err)
-			setError('Nie udało się zaktualizować statusu restauracji.')
-		}
-	}
-
-	const toggleRestaurantStatus = async (restaurant: Restaurant) => {
-		if (!token || !isAdmin) return
-
-		try {
-			setError('')
-			const response = await fetch(`${API_URL}/restaurants/${restaurant.id}`, {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ isActive: !restaurant.isActive }),
-			})
-
-			if (!response.ok) throw new Error('Nie udało się zmienić statusu restauracji.')
-			const updated = await response.json()
-
-			setRestaurants(prev => prev.map(item => (item.id === updated.id ? updated : item)))
-		} catch (err) {
-			console.error(err)
-			setError('Wystąpił błąd podczas zmiany statusu.')
-		}
-	}
-
-	const deleteRestaurant = async (id: string) => {
-		if (!token || !isAdmin) return
-		if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć tę restaurację z bazy?')) return
-
-		try {
-			setError('')
-			const response = await fetch(`${API_URL}/restaurants/${id}`, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			})
-			if (!response.ok) throw new Error('Nie udało się usunąć restauracji.')
-
-			setRestaurants(prev => prev.filter(item => item.id !== id))
-		} catch (err) {
-			console.error(err)
-			setError('Wystąpił błąd podczas usuwania restauracji.')
-		}
-	}
-
-	// Filter restaurants by search and tab (for admin)
+	// Filter restaurants by search query
 	const filteredRestaurants = restaurants.filter(r => {
-		const matchesSearch =
+		return (
 			r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			r.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(r.address && r.address.toLowerCase().includes(searchQuery.toLowerCase()))
-
-		if (isAdmin) {
-			return matchesSearch && r.status === adminTab
-		}
-
-		return matchesSearch
+		)
 	})
 
 	return (
 		<main className='max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex-grow space-y-10'>
 			{/* Page Header */}
 			<header className='border-b border-stone-200 pb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6'>
-				<div>
-					<span className='text-xs font-mono uppercase tracking-widest text-stone-400'>
-						{isAdmin ? 'Panel Dewelopera' : 'Katalog'}
-					</span>
+				<div className='text-left'>
+					<span className='text-xs font-mono uppercase tracking-widest text-stone-400'>Katalog</span>
 					<h1 className='text-3xl md:text-4xl font-black font-serif tracking-tight text-stone-900 mt-1'>
-						{isAdmin ? 'Panel Moderacyjny' : 'Wyszukaj restaurację'}
+						Wyszukaj restaurację
 					</h1>
 					<p className='text-stone-500 text-sm md:text-base mt-2'>
-						{isAdmin
-							? 'Zatwierdzaj zgłoszenia od restauratorów, wstrzymuj pobieranie i usuwaj lokacje.'
-							: 'Przeglądaj spis restauracji współpracujących z naszym systemem i wybierz swoje ulubione.'}
+						Przeglądaj spis restauracji współpracujących z naszym systemem i wybierz swoje ulubione.
 					</p>
 				</div>
 
@@ -189,27 +94,6 @@ export default function RestaurantsPage() {
 					Odśwież
 				</button>
 			</header>
-
-			{/* Developer Tab Selector */}
-			{isAdmin && (
-				<section className='flex border border-stone-200 p-0.5 bg-stone-50 w-max font-mono text-xs'>
-					<button
-						onClick={() => setAdminTab('APPROVED')}
-						className={`px-4 py-2 transition-colors cursor-pointer flex items-center gap-2 ${
-							adminTab === 'APPROVED' ? 'bg-white text-black font-bold shadow-sm' : 'text-stone-500 hover:text-black'
-						}`}>
-						Zatwierdzone ({restaurants.filter(r => r.status === 'APPROVED').length})
-					</button>
-					<button
-						onClick={() => setAdminTab('PENDING')}
-						className={`px-4 py-2 transition-colors cursor-pointer flex items-center gap-2 ${
-							adminTab === 'PENDING' ? 'bg-white text-black font-bold shadow-sm' : 'text-stone-500 hover:text-black'
-						}`}>
-						<Shield className='w-3.5 h-3.5' />
-						Kandydatury ({restaurants.filter(r => r.status === 'PENDING').length})
-					</button>
-				</section>
-			)}
 
 			{/* Search Bar section */}
 			<section className='relative'>
@@ -233,7 +117,9 @@ export default function RestaurantsPage() {
 			{/* Main Content List */}
 			<section className='space-y-6'>
 				{error && (
-					<div className='p-4 bg-stone-50 border-l-2 border-stone-300 text-xs font-mono text-stone-500'>{error}</div>
+					<div className='p-4 bg-stone-50 border-l-2 border-stone-300 text-xs font-mono text-stone-500 text-left'>
+						{error}
+					</div>
 				)}
 
 				{loading ? (
@@ -257,11 +143,12 @@ export default function RestaurantsPage() {
 							const isFav = isFavorite(restaurant.id)
 							const isPromoted =
 								restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.plan === 'PROMOTE_50'
-							console.log(isPromoted + ' restaruacja:' + restaurant.name)
+
 							return (
-								<article
+								<Link
 									key={restaurant.id}
-									className={`relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
+									to={`/restaurants/${restaurant.slug}`}
+									className={`cursor-pointer relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
 										!restaurant.isActive
 											? 'opacity-65 border-stone-200'
 											: 'border-stone-200 hover:border-black hover:shadow-sm'
@@ -274,7 +161,7 @@ export default function RestaurantsPage() {
 										</div>
 									)}
 
-									<div className='space-y-3 flex-grow pl-2'>
+									<div className='space-y-3 flex-grow pl-2 text-left'>
 										<div className='flex flex-wrap items-start sm:items-center gap-3'>
 											<div className='w-8 h-8 bg-stone-100 flex items-center justify-center font-serif text-sm font-bold border border-stone-200 text-stone-800 shrink-0'>
 												R
@@ -323,59 +210,17 @@ export default function RestaurantsPage() {
 											</span>
 										)}
 
-										{isAdmin ? (
-											<>
-												{restaurant.status === 'PENDING' ? (
-													<>
-														<button
-															onClick={() => handleStatusApproval(restaurant.id, 'APPROVED')}
-															className='px-3 py-2 bg-green-700 text-white hover:bg-green-800 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer'>
-															<Check className='w-3.5 h-3.5' /> Zatwierdź
-														</button>
-														<button
-															onClick={() => handleStatusApproval(restaurant.id, 'REJECTED')}
-															className='px-3 py-2 border border-red-200 text-red-500 hover:border-red-600 hover:bg-red-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer'>
-															<X className='w-3.5 h-3.5' /> Odrzuć
-														</button>
-													</>
-												) : (
-													<>
-														<button
-															onClick={() => toggleRestaurantStatus(restaurant)}
-															className='p-2 border border-stone-200 hover:border-black hover:bg-stone-50 text-stone-700 hover:text-black transition-colors flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer'
-															title={restaurant.isActive ? 'Wstrzymaj' : 'Aktywuj'}>
-															{restaurant.isActive ? (
-																<EyeOff className='w-3.5 h-3.5' />
-															) : (
-																<Eye className='w-3.5 h-3.5' />
-															)}
-															{restaurant.isActive ? 'Pauzuj' : 'Wznów'}
-														</button>
-														<button
-															onClick={() => deleteRestaurant(restaurant.id)}
-															className='p-2 border border-stone-200 hover:border-red-600 hover:bg-red-50 text-stone-500 hover:text-red-600 transition-colors flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer'>
-															<Trash2 className='w-3.5 h-3.5' /> Usuń
-														</button>
-													</>
-												)}
-											</>
-										) : (
-											// Normal user
-											user &&
-											restaurant.status === 'APPROVED' && (
-												<button
-													onClick={() => toggleFavorite(restaurant.id)}
-													className={`p-2 border rounded-full transition-all flex items-center justify-center gap-1 text-xs cursor-pointer ${
-														isFav
-															? 'border-red-200 bg-red-50 text-red-500 hover:scale-105 shadow-sm'
-															: 'border-stone-200 text-stone-400 hover:text-black hover:border-stone-400'
-													}`}>
-													<Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
-													{isFav && (
-														<span className='font-mono text-[10px] uppercase tracking-wider mr-1'>Ulubiona</span>
-													)}
-												</button>
-											)
+										{user && restaurant.status === 'APPROVED' && (
+											<button
+												onClick={() => toggleFavorite(restaurant.id)}
+												className={`p-2 border rounded-full transition-all flex items-center justify-center gap-1 text-xs cursor-pointer ${
+													isFav
+														? 'border-red-200 bg-red-50 text-red-500 hover:scale-105 shadow-sm'
+														: 'border-stone-200 text-stone-400 hover:text-black hover:border-stone-400'
+												}`}>
+												<Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
+												{isFav && <span className='font-mono text-[10px] uppercase tracking-wider mr-1'>Ulubiona</span>}
+											</button>
 										)}
 
 										<Link
@@ -385,16 +230,19 @@ export default function RestaurantsPage() {
 										</Link>
 
 										{restaurant.facebookUrl && (
-											<a
-												href={restaurant.facebookUrl}
-												target='_blank'
-												rel='noopener noreferrer'
-												className='px-3 py-2 border border-stone-200 text-stone-600 hover:border-black hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer'>
+											<button
+												type='button'
+												onClick={e => {
+													e.preventDefault()
+													e.stopPropagation()
+													window.open(restaurant.facebookUrl, '_blank', 'noopener,noreferrer')
+												}}
+												className='px-3 py-2 border border-stone-200 text-stone-600 hover:border-black hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-white'>
 												Facebook
-											</a>
+											</button>
 										)}
 									</div>
-								</article>
+								</Link>
 							)
 						})}
 					</div>
