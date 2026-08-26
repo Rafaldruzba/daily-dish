@@ -17,6 +17,9 @@ import {
 	Save,
 	X,
 	Calendar,
+	Plus,
+	Trash2,
+	Check,
 } from 'lucide-react'
 
 // Define interfaces locally to prevent import issues
@@ -46,6 +49,16 @@ export interface MenuItem {
   description: string | null;
   price: number;
   category: string;
+  order: number;
+}
+
+export interface Subscription {
+  id: string;
+  restaurantId: string;
+  type: string;
+  status: string;
+  startsAt: string;
+  endsAt: string;
 }
 
 export interface RestaurantDetail {
@@ -67,6 +80,7 @@ export interface RestaurantDetail {
 	dishes: DailyDish[]
   standardOffers: StandardOffer[]
   menuItems: MenuItem[]
+  subscriptions?: Subscription[]
 }
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
@@ -96,6 +110,21 @@ export default function RestaurantDetailPage() {
 	// Tab control
 	const [activeTab, setActiveTab] = useState<'dishes' | 'about' | 'menu'>('dishes')
 
+	// Menu items state
+	const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+	const [isEditingMenu, setIsEditingMenu] = useState(false)
+
+	// Dynamic addition rows state (starts with 1 empty row)
+	const [newMenuItems, setNewMenuItems] = useState<Array<{ name: string; description: string; price: string; category: string }>>([
+		{ name: '', description: '', price: '', category: '' }
+	])
+
+	// Item being edited inline
+	const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+	const [menuActionLoading, setMenuActionLoading] = useState(false)
+	const [menuSuccess, setMenuSuccess] = useState('')
+	const [menuError, setMenuError] = useState('')
+
 	// --- 1. Fetch Restaurant Details ---
 	const fetchDetails = async () => {
 		if (!slug) return
@@ -109,6 +138,7 @@ export default function RestaurantDetailPage() {
 			}
 			const data: RestaurantDetail = await response.json()
 			setRestaurant(data)
+			setMenuItems(data.menuItems || [])
 
 			// Pre-fill edit form
 			setEditForm({
@@ -137,6 +167,12 @@ export default function RestaurantDetailPage() {
 
 	// --- 2. Check Ownership ---
 	const isOwner = user && restaurant && (user.role === 'ADMIN' || restaurant.userId === user.id)
+
+	const hasActiveStaticMenuSubscription = restaurant?.subscriptions?.some(sub =>
+		sub.type === 'STATIC_MENU' &&
+		sub.status === 'ACTIVE' &&
+		new Date(sub.endsAt) > new Date()
+	) ?? false;
 
 	// --- 3. Handle Submit Edit ---
 	const handleSave = async (e: FormEvent) => {
@@ -174,6 +210,152 @@ export default function RestaurantDetailPage() {
 			setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisywania.')
 		} finally {
 			setSaving(false)
+		}
+	}
+
+	// --- 4. Menu Actions ---
+	const handleAddNewRow = () => {
+		setNewMenuItems(prev => [
+			...prev,
+			{ name: '', description: '', price: '', category: '' }
+		])
+	}
+
+	const handleRemoveNewRow = (index: number) => {
+		setNewMenuItems(prev => prev.filter((_, i) => i !== index))
+	}
+
+	const handleNewRowChange = (index: number, field: string, value: string) => {
+		setNewMenuItems(prev => prev.map((item, i) => {
+			if (i === index) {
+				return { ...item, [field]: value }
+			}
+			return item
+		}))
+	}
+
+	const handleSaveNewMenuItems = async (e: FormEvent) => {
+		e.preventDefault()
+		if (!restaurant || !token) return
+
+		// Filter out rows that don't have a name
+		const itemsToSubmit = newMenuItems.filter(item => item.name.trim() !== '')
+		if (itemsToSubmit.length === 0) {
+			setMenuError('Podaj przynajmniej nazwę dla dodawanej pozycji.')
+			return
+		}
+
+		try {
+			setMenuActionLoading(true)
+			setMenuError('')
+			setMenuSuccess('')
+
+			const response = await fetch(`${API_URL}/offers/${restaurant.id}/menu-item`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(itemsToSubmit),
+			})
+
+			if (!response.ok) {
+				const data = await response.json()
+				throw new Error(data.message || 'Nie udało się dodać pozycji do menu.')
+			}
+
+			// Refresh details from backend
+			const res = await fetch(`${API_URL}/restaurants/${slug}`)
+			if (res.ok) {
+				const freshData: RestaurantDetail = await res.json()
+				setRestaurant(freshData)
+				setMenuItems(freshData.menuItems || [])
+			}
+
+			setMenuSuccess('Pozycje zostały pomyślnie dodane do menu!')
+			// Reset to single empty row
+			setNewMenuItems([{ name: '', description: '', price: '', category: '' }])
+		} catch (err) {
+			console.error(err)
+			setMenuError(err instanceof Error ? err.message : 'Błąd podczas dodawania pozycji.')
+		} finally {
+			setMenuActionLoading(false)
+		}
+	}
+
+	const handleEditItemStart = (item: MenuItem) => {
+		setEditingItem({ ...item })
+	}
+
+	const handleEditItemChange = (field: string, value: string | number) => {
+		if (!editingItem) return
+		setEditingItem(prev => (prev ? { ...prev, [field]: value } : null))
+	}
+
+	const handleSaveEditItem = async (itemId: string) => {
+		if (!restaurant || !token || !editingItem) return
+
+		try {
+			setMenuActionLoading(true)
+			setMenuError('')
+			setMenuSuccess('')
+
+			const response = await fetch(`${API_URL}/offers/${restaurant.id}/menu-item/${itemId}`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(editingItem),
+			})
+
+			if (!response.ok) {
+				const data = await response.json()
+				throw new Error(data.message || 'Nie udało się zaktualizować pozycji.')
+			}
+
+			// Update local state directly
+			const updatedItem: MenuItem = await response.json()
+			setMenuItems(prev => prev.map(item => item.id === itemId ? updatedItem : item))
+			setEditingItem(null)
+			setMenuSuccess('Pozycja w menu została zaktualizowana!')
+		} catch (err) {
+			console.error(err)
+			setMenuError(err instanceof Error ? err.message : 'Błąd podczas aktualizacji pozycji.')
+		} finally {
+			setMenuActionLoading(false)
+		}
+	}
+
+	const handleDeleteMenuItem = async (itemId: string) => {
+		if (!restaurant || !token) return
+		if (!window.confirm('Czy na pewno chcesz usunąć tę pozycję z menu?')) return
+
+		try {
+			setMenuActionLoading(true)
+			setMenuError('')
+			setMenuSuccess('')
+
+			const response = await fetch(`${API_URL}/offers/${restaurant.id}/menu-item/${itemId}`, {
+				method: 'DELETE',
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
+
+			if (!response.ok) {
+				const data = await response.json()
+				throw new Error(data.message || 'Nie udało się usunąć pozycji.')
+			}
+
+			// Update local state directly
+			setMenuItems(prev => prev.filter(item => item.id !== itemId))
+			setMenuSuccess('Pozycja została usunięta z menu.')
+		} catch (err) {
+			console.error(err)
+			setMenuError(err instanceof Error ? err.message : 'Błąd podczas usuwania pozycji.')
+		} finally {
+			setMenuActionLoading(false)
 		}
 	}
 
@@ -319,23 +501,10 @@ export default function RestaurantDetailPage() {
 							O nas / Opis restauracji
 						</label>
 						<textarea
-							rows={4}
+							rows={6}
 							value={editForm.description}
 							onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
 							placeholder='Napisz kilka słów o Waszej kuchni, godzinach otwarcia i klimacie...'
-							className='w-full px-4 py-2.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-sm text-stone-900 font-sans leading-relaxed'
-						/>
-					</div>
-
-					<div className='space-y-1'>
-						<label className='text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block'>
-							Menu ogólne / Stałe potrawy
-						</label>
-						<textarea
-							rows={6}
-							value={editForm.generalMenu}
-							onChange={e => setEditForm(prev => ({ ...prev, generalMenu: e.target.value }))}
-							placeholder='Podaj listę stałych dań, pizz, deserów i napojów dostępnych w menu głównym...'
 							className='w-full px-4 py-2.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-sm text-stone-900 font-sans leading-relaxed'
 						/>
 					</div>
@@ -465,7 +634,7 @@ export default function RestaurantDetailPage() {
 										<p className='font-mono text-xs text-stone-400 uppercase'>Brak aktualnych dań dnia w systemie.</p>
 									</div>
 								) : (
-									<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+									<div className='grid grid-cols-1 gap-6'>
 										{restaurant.dishes.map(dish => (
 											<article
 												key={dish.id}
@@ -538,22 +707,367 @@ export default function RestaurantDetailPage() {
 						)}
 
 						{activeTab === 'menu' && (
-							<div className='space-y-4'>
-								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-									<BookOpen className='w-4 h-4 text-stone-300' /> Karta Menu Głównego
-								</h2>
-
-								<div className='bg-white border border-stone-200 p-6 md:p-8'>
-									{restaurant.generalMenu ? (
-										<p className='text-stone-700 text-sm leading-relaxed font-sans whitespace-pre-line'>
-											{restaurant.generalMenu}
-										</p>
-									) : (
-										<div className='text-center py-6 text-stone-400 font-mono text-xs uppercase'>
-											Restauracja nie dodała jeszcze karty menu stałego.
-										</div>
+							<div className='space-y-6'>
+								{/* Tab Header / Control */}
+								<div className='flex justify-between items-center border-b border-stone-100 pb-3 flex-wrap gap-4'>
+									<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
+										<BookOpen className='w-4 h-4 text-stone-300' /> Karta Menu Głównego
+									</h2>
+									{isOwner && (
+										<button
+											onClick={() => {
+												setIsEditingMenu(!isEditingMenu)
+												setMenuSuccess('')
+												setMenuError('')
+											}}
+											className='inline-flex items-center gap-1.5 px-3 py-1.5 border border-stone-950 text-stone-950 hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider font-bold cursor-pointer'
+										>
+											{isEditingMenu ? <X className='w-3.5 h-3.5' /> : <Edit className='w-3.5 h-3.5' />}
+											{isEditingMenu ? 'Wyjdź z edycji' : 'Zarządzaj Menu'}
+										</button>
 									)}
 								</div>
+
+								{/* Success & Error alerts for Menu Actions */}
+								{menuSuccess && (
+									<div className='p-4 bg-stone-50 border-l-2 border-black text-xs font-mono text-stone-800 flex items-center gap-2'>
+										<Check className='w-4 h-4 text-stone-800' />
+										<span>{menuSuccess}</span>
+									</div>
+								)}
+
+								{menuError && (
+									<div className='p-4 bg-red-50 border-l-2 border-red-600 text-xs font-mono text-red-600 flex items-center gap-2'>
+										<X className='w-4 h-4' />
+										<span>{menuError}</span>
+									</div>
+								)}
+
+								{/* Subscription Warning Block for Owner */}
+								{isOwner && !hasActiveStaticMenuSubscription && (
+									<div className='p-4 bg-yellow-50 border-2 border-yellow-400 text-stone-800 text-xs md:text-sm font-sans flex items-start gap-3 rounded-none mb-4 text-left shadow-sm'>
+										<span className='text-yellow-600 font-bold shrink-0 text-base'>⚠️</span>
+										<div className='space-y-1'>
+											<p className='font-bold text-stone-950 font-mono text-xs uppercase tracking-wider'>Subskrypcja "Karta Menu" jest nieaktywna</p>
+											<p className='text-stone-700 leading-relaxed text-xs'>
+												Twój lokal nie posiada aktywnej subskrypcji na <strong>Kartę Menu Głównego</strong>. Możesz zarządzać swoimi pozycjami i dodawać nowe, jednak <strong>nie będą one widoczne dla klientów</strong>, dopóki subskrypcja nie zostanie aktywowana w panelu rozliczeń.
+											</p>
+										</div>
+									</div>
+								)}
+
+								{/* Editor View */}
+								{isEditingMenu && isOwner ? (
+									<div className='space-y-8 text-left'>
+										{/* 1. Existing Menu Items List & Edit Form */}
+										<div className='space-y-4'>
+											<h3 className='font-mono text-xs uppercase tracking-widest text-stone-500 font-bold'>
+												Istniejące pozycje w menu ({menuItems.length})
+											</h3>
+											{menuItems.length === 0 ? (
+												<p className='text-stone-400 font-mono text-xs py-4 text-center border border-dashed border-stone-200 bg-stone-50'>
+													Brak pozycji. Dodaj nowe pozycje poniżej.
+												</p>
+											) : (
+												<div className='space-y-3'>
+													{menuItems.map(item => {
+														const isThisEditing = editingItem && editingItem.id === item.id;
+														return (
+															<div
+																key={item.id}
+																className='border border-stone-200 p-4 bg-white hover:border-stone-400 transition-colors space-y-3 text-sm font-mono'
+															>
+																{isThisEditing ? (
+																	<div className='space-y-3'>
+																		<div className='grid grid-cols-1 md:grid-cols-12 gap-3'>
+																			<div className='md:col-span-4'>
+																				<label className='text-[10px] uppercase text-stone-400 font-bold block mb-1'>Nazwa</label>
+																				<input
+																					type='text'
+																					value={editingItem.name}
+																					onChange={e => handleEditItemChange('name', e.target.value)}
+																					className='w-full px-3 py-1.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
+																					required
+																				/>
+																			</div>
+																			<div className='md:col-span-3'>
+																				<label className='text-[10px] uppercase text-stone-400 font-bold block mb-1'>Kategoria</label>
+																				<input
+																					type='text'
+																					value={editingItem.category}
+																					onChange={e => handleEditItemChange('category', e.target.value)}
+																					placeholder='np. Dania główne'
+																					className='w-full px-3 py-1.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
+																				/>
+																			</div>
+																			<div className='md:col-span-2'>
+																				<label className='text-[10px] uppercase text-stone-400 font-bold block mb-1'>Cena (zł)</label>
+																				<input
+																					type='number'
+																					step='0.01'
+																					value={editingItem.price}
+																					onChange={e => handleEditItemChange('price', e.target.value)}
+																					className='w-full px-3 py-1.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
+																					required
+																				/>
+																			</div>
+																			<div className='md:col-span-1'>
+																				<label className='text-[10px] uppercase text-stone-400 font-bold block mb-1'>Kolejność</label>
+																				<input
+																					type='number'
+																					value={editingItem.order || 0}
+																					onChange={e => handleEditItemChange('order', e.target.value)}
+																					className='w-full px-3 py-1.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
+																				/>
+																			</div>
+																			<div className='md:col-span-2 flex items-end gap-1.5 justify-end'>
+																				<button
+																					type='button'
+																					disabled={menuActionLoading}
+																					onClick={() => handleSaveEditItem(item.id)}
+																					className='p-2 bg-black text-white hover:bg-stone-900 transition-colors border border-black cursor-pointer'
+																					title='Zapisz pozycję'
+																				>
+																					<Check className='w-4 h-4' />
+																				</button>
+																				<button
+																					type='button'
+																					onClick={() => setEditingItem(null)}
+																					className='p-2 bg-white text-stone-700 hover:text-black hover:border-black transition-colors border border-stone-200 cursor-pointer'
+																					title='Anuluj'
+																				>
+																					<X className='w-4 h-4' />
+																				</button>
+																			</div>
+																		</div>
+																		<div>
+																			<label className='text-[10px] uppercase text-stone-400 font-bold block mb-1'>Opis</label>
+																			<textarea
+																				rows={2}
+																				value={editingItem.description || ''}
+																				onChange={e => handleEditItemChange('description', e.target.value)}
+																				placeholder='Opcjonalny opis składników, gramatury itp.'
+																				className='w-full px-3 py-1.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
+																			/>
+																		</div>
+																	</div>
+																) : (
+																	<div className='flex justify-between items-start gap-4 flex-wrap'>
+																		<div className='space-y-1 max-w-xl'>
+																			<div className='flex items-center gap-2 flex-wrap'>
+																				<span className='font-bold text-stone-900 text-sm'>{item.name}</span>
+																				<span className='text-[10px] uppercase tracking-wider bg-stone-100 px-2 py-0.5 text-stone-600 rounded font-bold'>
+																					{item.category || 'Ogólne'}
+																				</span>
+																				{item.order > 0 && (
+																					<span className='text-[9px] text-stone-400 font-bold'>
+																						Kolejność: {item.order}
+																					</span>
+																				)}
+																			</div>
+																			{item.description && (
+																				<p className='text-stone-500 font-sans text-xs leading-relaxed'>{item.description}</p>
+																			)}
+																		</div>
+																		<div className='flex items-center gap-3 shrink-0 ml-auto'>
+																			<span className='font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 text-stone-800 text-xs shrink-0'>
+																				{item.price.toFixed(2)} zł
+																			</span>
+																			<div className='flex gap-1'>
+																				<button
+																					type='button'
+																					onClick={() => handleEditItemStart(item)}
+																					className='p-1.5 hover:text-black border border-transparent hover:border-stone-200 bg-stone-50 hover:bg-white text-stone-500 transition-all cursor-pointer'
+																					title='Edytuj pozycję'
+																				>
+																					<Edit className='w-3.5 h-3.5' />
+																				</button>
+																				<button
+																					type='button'
+																					disabled={menuActionLoading}
+																					onClick={() => handleDeleteMenuItem(item.id)}
+																					className='p-1.5 hover:text-red-600 border border-transparent hover:border-red-100 bg-stone-50 hover:bg-red-50 text-stone-500 transition-all cursor-pointer'
+																					title='Usuń pozycję'
+																				>
+																					<Trash2 className='w-3.5 h-3.5' />
+																				</button>
+																			</div>
+																		</div>
+																	</div>
+																)}
+															</div>
+														);
+													})}
+												</div>
+											)}
+										</div>
+
+										{/* 2. Bulk Add Form */}
+										<div className='border-t border-stone-200 pt-6 space-y-4'>
+											<h3 className='font-mono text-xs uppercase tracking-widest text-stone-500 font-bold flex items-center gap-1'>
+												<Plus className='w-4 h-4' /> Dodaj nowe pozycje do menu (jedną lub wiele na raz)
+											</h3>
+
+											<form onSubmit={handleSaveNewMenuItems} className='space-y-4'>
+												<div className='space-y-4'>
+													{newMenuItems.map((item, index) => (
+														<div
+															key={index}
+															className='border border-stone-200 p-4 bg-stone-50 flex flex-col space-y-3 font-mono text-xs relative'
+														>
+															<div className='flex justify-between items-center border-b border-stone-100 pb-2 mb-1'>
+																<span className='font-bold text-stone-600'>Pozycja #{index + 1}</span>
+																{newMenuItems.length > 1 && (
+																	<button
+																		type='button'
+																		onClick={() => handleRemoveNewRow(index)}
+																		className='p-1 hover:text-red-600 text-stone-400 transition-colors cursor-pointer'
+																		title='Usuń tę pozycję z formularza'
+																	>
+																		<Trash2 className='w-4 h-4 font-bold' />
+																	</button>
+																)}
+															</div>
+
+															<div className='grid grid-cols-1 md:grid-cols-3 gap-3'>
+																<div className='space-y-1'>
+																	<label className='text-[10px] uppercase text-stone-500 font-bold block'>Nazwa dania *</label>
+																	<input
+																		type='text'
+																		value={item.name}
+																		onChange={e => handleNewRowChange(index, 'name', e.target.value)}
+																		placeholder='np. Kotlet schabowy z ziemniakami'
+																		className='w-full px-3 py-2 bg-white border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
+																		required={index === 0 || item.price !== '' || item.category !== '' || item.description !== ''}
+																	/>
+																</div>
+
+																<div className='space-y-1'>
+																	<label className='text-[10px] uppercase text-stone-500 font-bold block'>Cena (zł) *</label>
+																	<input
+																		type='number'
+																		step='0.01'
+																		value={item.price}
+																		onChange={e => handleNewRowChange(index, 'price', e.target.value)}
+																		placeholder='np. 28.50'
+																		className='w-full px-3 py-2 bg-white border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
+																		required={index === 0 || item.name !== '' || item.category !== '' || item.description !== ''}
+																	/>
+																</div>
+
+																<div className='space-y-1'>
+																	<label className='text-[10px] uppercase text-stone-500 font-bold block'>Kategoria</label>
+																	<input
+																		type='text'
+																		value={item.category}
+																		onChange={e => handleNewRowChange(index, 'category', e.target.value)}
+																		placeholder='np. Dania główne, Zupy, Desery'
+																		className='w-full px-3 py-2 bg-white border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
+																	/>
+																</div>
+															</div>
+
+															<div className='space-y-1'>
+																<label className='text-[10px] uppercase text-stone-500 font-bold block'>Krótki opis / składniki</label>
+																<textarea
+																	rows={2}
+																	value={item.description}
+																	onChange={e => handleNewRowChange(index, 'description', e.target.value)}
+																	placeholder='np. Klasyczny kotlet schabowy smażony na smalcu, serwowany z młodymi ziemniaczkami i mizerią.'
+																	className='w-full px-3 py-2 bg-white border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
+				                        />
+															</div>
+														</div>
+													))}
+												</div>
+
+												<div className='flex justify-between items-center pt-3 border-t border-stone-100 flex-wrap gap-4'>
+													<button
+														type='button'
+														onClick={handleAddNewRow}
+														className='inline-flex items-center gap-1.5 px-4 py-2 border border-stone-300 hover:border-black bg-white text-stone-800 transition-colors font-mono text-xs uppercase tracking-wider font-bold cursor-pointer'
+													>
+														<Plus className='w-4 h-4 font-bold' /> Dodaj kolejną pozycję
+													</button>
+
+													<button
+														type='submit'
+														disabled={menuActionLoading}
+														className='inline-flex items-center gap-1.5 px-5 py-2 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-xs uppercase tracking-wider font-bold cursor-pointer disabled:opacity-50'
+													>
+														<Save className='w-4 h-4' />
+														{menuActionLoading ? 'Zapisywanie...' : 'Zapisz nowe pozycje'}
+													</button>
+												</div>
+											</form>
+										</div>
+									</div>
+								) : (
+									/* Normal Menu Display (Grouped by Category) */
+									<div className='space-y-6'>
+										{!hasActiveStaticMenuSubscription && !isOwner ? (
+											<div className='text-center py-12 border border-dashed border-stone-200 bg-stone-50 text-stone-400 font-mono text-xs uppercase'>
+												Karta menu tej restauracji jest obecnie niedostępna.
+											</div>
+										) : menuItems.length === 0 ? (
+											/* Fallback to legacy generalMenu text block if exists, otherwise show empty notice */
+											<div className='bg-white border border-stone-200 p-6 md:p-8'>
+												{restaurant.generalMenu ? (
+													<p className='text-stone-700 text-sm leading-relaxed font-sans whitespace-pre-line'>
+														{restaurant.generalMenu}
+													</p>
+												) : (
+													<div className='text-center py-12 border border-dashed border-stone-200 bg-stone-50 text-stone-400 font-mono text-xs uppercase'>
+														Restauracja nie dodała jeszcze karty menu stałego.
+													</div>
+												)}
+											</div>
+										) : (
+											/* Structured Menu Grouped by Category */
+											<div className='space-y-10'>
+												{(() => {
+													// Group menuItems by category
+													const grouped = menuItems.reduce((acc, item) => {
+														const cat = item.category?.trim() || 'Inne'
+														if (!acc[cat]) acc[cat] = []
+														acc[cat].push(item)
+														return acc
+													}, {} as Record<string, MenuItem[]>)
+
+													return Object.entries(grouped).map(([category, items]) => (
+														<section key={category} className='space-y-4'>
+															{/* Category Header */}
+															<div className='border-b-2 border-black pb-1.5'>
+																<h3 className='font-serif text-lg font-black tracking-wide text-stone-950 uppercase'>
+																	{category}
+																</h3>
+															</div>
+
+															{/* Category Items List */}
+															<div className='grid grid-cols-1 gap-y-4 pt-1'>
+																{items.map(item => (
+																	<div key={item.id} className='flex flex-col justify-between border-b border-stone-100 pb-3 hover:bg-stone-50/50 transition-colors px-1'>
+																		<div className='flex justify-between items-start gap-4'>
+																			<h4 className='font-bold text-stone-950 font-serif text-base'>{item.name}</h4>
+																			<span className='font-mono text-sm font-bold bg-stone-50 border border-stone-100 px-2 py-0.5 shrink-0 text-stone-900'>
+																				{item.price.toFixed(2)} zł
+																			</span>
+																		</div>
+																		{item.description && (
+																			<p className='text-stone-600 text-xs md:text-sm font-sans leading-relaxed mt-1'>
+																				{item.description}
+																			</p>
+																		)}
+																	</div>
+																))}
+															</div>
+														</section>
+													))
+												})()}
+											</div>
+										)}
+									</div>
+								)}
 							</div>
 						)}
 					</div>

@@ -1,48 +1,24 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
-import { Plus, CheckCircle, BarChart2, RefreshCw, Mail, HelpCircle, Check, X, Eye, EyeOff, Trash2, MapPin, Phone, Star, Store } from 'lucide-react'
-
-interface Subscription {
-	id: string
-	plan: string
-	status: string
-	currentPeriodEnd: string
-}
-
-interface Restaurant {
-	id: string
-	name: string
-	slug: string
-	phone: string | null
-	address: string | null
-	city: string
-	facebookUrl: string | null
-	isActive: boolean
-	rating: number | null
-	status: string
-	views: number
-	subscription?: Subscription | null
-}
-
-interface RestaurantForm {
-	name: string
-	slug: string
-	phone: string
-	address: string
-	city: string
-	facebookUrl: string
-	rating: number
-}
-
-interface Payment {
-	id: string
-	amount: number
-	currency: string
-	status: string
-	provider: string
-	createdAt: string
-}
+import {
+	Plus,
+	CheckCircle,
+	BarChart2,
+	RefreshCw,
+	Mail,
+	HelpCircle,
+	Check,
+	X,
+	Eye,
+	EyeOff,
+	Trash2,
+	MapPin,
+	Phone,
+	Star,
+	Store,
+} from 'lucide-react'
+import type { Payment, Restaurant, RestaurantForm } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 const INITIAL_FORM_STATE: RestaurantForm = {
@@ -249,7 +225,9 @@ export default function ForRestaurantsPage() {
 			})
 
 			if (!response.ok) throw new Error('Błąd aktualizacji statusu.')
-			setSuccess(`Status restauracji został pomyślnie zmieniony na: ${status === 'APPROVED' ? 'Zatwierdzona' : 'Odrzucona'}`)
+			setSuccess(
+				`Status restauracji został pomyślnie zmieniony na: ${status === 'APPROVED' ? 'Zatwierdzona' : 'Odrzucona'}`,
+			)
 			loadAdminRestaurants()
 		} catch (err) {
 			console.error(err)
@@ -275,7 +253,9 @@ export default function ForRestaurantsPage() {
 			const updated = await response.json()
 
 			setRestaurants(prev => prev.map(item => (item.id === updated.id ? updated : item)))
-			setSuccess(`Scrapowanie dla restauracji „${updated.name}” zostało ${updated.isActive ? 'wznowione' : 'wstrzymane'}.`)
+			setSuccess(
+				`Scrapowanie dla restauracji „${updated.name}” zostało ${updated.isActive ? 'wznowione' : 'wstrzymane'}.`,
+			)
 		} catch (err) {
 			console.error(err)
 			setError('Wystąpił błąd podczas zmiany statusu.')
@@ -369,7 +349,6 @@ export default function ForRestaurantsPage() {
 			setSaving(false)
 		}
 	}
-
 	// Calculate remaining trial days
 	const getDaysLeft = (endsAtStr: string | null) => {
 		if (!endsAtStr) return 0
@@ -380,15 +359,14 @@ export default function ForRestaurantsPage() {
 
 	const renderAdminRestaurantCard = (restaurant: Restaurant) => {
 		const isPromoted =
-			restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.plan === 'PROMOTE_50'
+			restaurant.isPromoted ||
+			(restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.type === 'PROMOTION')
 
 		return (
 			<article
 				key={restaurant.id}
 				className={`relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
-					!restaurant.isActive
-						? 'opacity-65 border-stone-200'
-						: 'border-stone-200 hover:border-black hover:shadow-sm'
+					!restaurant.isActive ? 'opacity-65 border-stone-200' : 'border-stone-200 hover:border-black hover:shadow-sm'
 				}`}>
 				{isPromoted && (
 					<div className='absolute top-0 left-0 w-16 h-16 overflow-hidden pointer-events-none z-10'>
@@ -614,9 +592,9 @@ export default function ForRestaurantsPage() {
 									<strong className='text-stone-900'>
 										{mockPlanId === 'PREMIUM_100'
 											? 'Abonament za lokal'
-											: mockPlanId === 'PROMOTE_50'
+											: mockPlanId === 'PROMOTION'
 												? 'Promowanie na górze'
-												: 'Stałe menu bez FB'}
+												: 'stałe menu'}
 									</strong>
 								</p>
 								<p className='text-xs font-mono text-stone-600'>
@@ -737,7 +715,9 @@ export default function ForRestaurantsPage() {
 									{loading ? (
 										<div className='py-24 text-center border border-dashed border-stone-200'>
 											<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mx-auto mb-4' />
-											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie kandydatur...</p>
+											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>
+												Ładowanie kandydatur...
+											</p>
 										</div>
 									) : restaurants.filter(r => r.status === 'PENDING').length === 0 ? (
 										<div className='py-24 text-center border border-dashed border-stone-200'>
@@ -775,7 +755,9 @@ export default function ForRestaurantsPage() {
 									{loading ? (
 										<div className='py-24 text-center border border-dashed border-stone-200'>
 											<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mx-auto mb-4' />
-											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie restauracji...</p>
+											<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>
+												Ładowanie restauracji...
+											</p>
 										</div>
 									) : restaurants.filter(r => r.status === 'APPROVED').length === 0 ? (
 										<div className='py-24 text-center border border-dashed border-stone-200'>
@@ -814,8 +796,34 @@ export default function ForRestaurantsPage() {
 									) : (
 										<div className='space-y-4'>
 											{ownedRestaurants.map(rest => {
+												const activeSubs =
+													rest.subscriptions?.filter(
+														sub => sub.status === 'ACTIVE' && new Date(sub.endsAt) > new Date(),
+													) || []
+
+												const hasBase = activeSubs.some(s => s.type === 'BASE')
+												const hasPromotion = activeSubs.some(s => s.type === 'PROMOTION')
+												const hasStaticMenu = activeSubs.some(s => s.type === 'STATIC_MENU')
+												const hasTrial = activeSubs.some(s => s.type === 'FREE_TRIAL')
+
+												let planLabel = 'Brak'
+												if (hasTrial) {
+													planLabel = 'Free Trial'
+												} else {
+													const activePlanNames = []
+													if (hasBase) activePlanNames.push('Podstawowy')
+													if (hasPromotion) activePlanNames.push('Promowanie')
+													if (hasStaticMenu) activePlanNames.push('Karta Menu')
+
+													if (activePlanNames.length === 3) {
+														planLabel = 'Wszystkie aktywne'
+													} else if (activePlanNames.length > 0) {
+														planLabel = activePlanNames.join(' + ')
+													}
+												}
+
+												const hasActiveSub = activeSubs.length > 0
 												const daysLeft = getDaysLeft(rest.subscription?.currentPeriodEnd || null)
-												const hasActiveSub = rest.subscription?.status === 'ACTIVE' && daysLeft > 0
 
 												return (
 													<div
@@ -855,15 +863,7 @@ export default function ForRestaurantsPage() {
 															<div className='bg-stone-50 p-3'>
 																<span className='text-[9px] font-mono text-stone-400 uppercase block'>Subskrypcja</span>
 																<span className='text-xs font-bold font-mono text-stone-900 block mt-1'>
-																	{rest.subscription?.plan === 'FREE_TRIAL'
-																		? 'Free Trial'
-																		: rest.subscription?.plan === 'PREMIUM_100'
-																			? 'Zapłacone'
-																			: rest.subscription?.plan === 'PROMOTE_50'
-																				? 'Zapłacone + Promowana'
-																				: rest.subscription?.plan === 'OFFER_50'
-																					? 'Zapłacone + Promowana + Stała oferta'
-																					: 'Brak'}
+																	{planLabel}
 																</span>
 															</div>
 															<div className='bg-stone-50 p-3'>
@@ -872,7 +872,7 @@ export default function ForRestaurantsPage() {
 																	<span className='text-xs font-bold font-mono text-stone-900 block mt-1'>
 																		{hasActiveSub ? `${daysLeft} dni` : 'Wygasła / Brak'}
 																	</span>
-																	{rest.subscription?.plan === 'FREE_TRIAL' && hasActiveSub && (
+																	{hasTrial && hasActiveSub && (
 																		<button
 																			onClick={e => {
 																				e.preventDefault()
@@ -908,13 +908,13 @@ export default function ForRestaurantsPage() {
 																			</button>
 																			<button
 																				disabled={true}
-																				onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
+																				onClick={() => handleCheckout(rest.id, 'PROMOTION')}
 																				className='px-3 py-2 border border-stone-400 hover:border-black transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
 																				Promowanie na górze (50 PLN)
 																			</button>
 																			<button
 																				disabled={true}
-																				onClick={() => handleCheckout(rest.id, 'OFFER_50')}
+																				onClick={() => handleCheckout(rest.id, 'STATIC_MENU')}
 																				className='px-3 py-2 bg-black text-white hover:bg-stone-900 transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
 																				Stałe menu bez FB (50 PLN)
 																			</button>
@@ -922,7 +922,7 @@ export default function ForRestaurantsPage() {
 																	</>
 																) : (
 																	<>
-																		{rest.subscription?.plan === 'FREE_TRIAL' && (
+																		{rest.subscription?.type === 'FREE_TRIAL' && (
 																			<>
 																				<p className='text-xs font-mono text-stone-500 uppercase tracking-wider font-bold'>
 																					Przejdź z okresu próbnego na pakiet abonamentowy:
@@ -935,13 +935,13 @@ export default function ForRestaurantsPage() {
 																					</button>
 																					<button
 																						disabled={true}
-																						onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
+																						onClick={() => handleCheckout(rest.id, 'PROMOTION')}
 																						className='px-3 py-2 border border-stone-400 hover:border-black transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
 																						Promowanie na górze (50 PLN)
 																					</button>
 																					<button
 																						disabled={true}
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
+																						onClick={() => handleCheckout(rest.id, 'STATIC_MENU')}
 																						className='px-3 py-2 bg-black text-white hover:bg-stone-900 transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
 																						Stałe menu bez FB (50 PLN)
 																					</button>
@@ -949,19 +949,19 @@ export default function ForRestaurantsPage() {
 																			</>
 																		)}
 
-																		{rest.subscription?.plan === 'PREMIUM_100' && (
+																		{rest.subscription?.type === 'PREMIUM_100' && (
 																			<>
 																				<p className='text-xs font-mono text-stone-500 uppercase tracking-wider font-bold'>
 																					Dokup pakiety dodatkowe dla tego lokalu:
 																				</p>
 																				<div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
 																					<button
-																						onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
+																						onClick={() => handleCheckout(rest.id, 'PROMOTION')}
 																						className='px-3 py-2 border border-stone-400 hover:border-black transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
 																						Promowanie na górze (+50 PLN)
 																					</button>
 																					<button
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
+																						onClick={() => handleCheckout(rest.id, 'STATIC_MENU')}
 																						className='px-3 py-2 bg-black text-white hover:bg-stone-900 transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
 																						Stałe menu bez FB (+50 PLN)
 																					</button>
@@ -969,7 +969,7 @@ export default function ForRestaurantsPage() {
 																			</>
 																		)}
 
-																		{rest.subscription?.plan === 'PROMOTE_50' && (
+																		{rest.subscription?.type === 'PROMOTION' && (
 																			<>
 																				<p className='text-xs font-mono text-stone-500 uppercase tracking-wider font-bold'>
 																					Dokup pakiety dodatkowe dla tego lokalu:
@@ -979,7 +979,7 @@ export default function ForRestaurantsPage() {
 																						✓ Promowanie na górze (Aktywne)
 																					</div>
 																					<button
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
+																						onClick={() => handleCheckout(rest.id, 'STATIC_MENU')}
 																						className='px-3 py-2 bg-black text-white hover:bg-stone-900 transition-all text-[10px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
 																						Stałe menu bez FB (+50 PLN)
 																					</button>
@@ -987,7 +987,7 @@ export default function ForRestaurantsPage() {
 																			</>
 																		)}
 
-																		{rest.subscription?.plan === 'OFFER_50' && (
+																		{rest.subscription?.type === 'STATIC_MENU' && (
 																			<p className='text-xs font-mono text-green-700 uppercase tracking-wider font-bold flex items-center gap-1.5'>
 																				<span>✓ Wszystkie pakiety dodatkowe są aktywne dla tego lokalu</span>
 																			</p>
@@ -1134,22 +1134,37 @@ export default function ForRestaurantsPage() {
 									) : (
 										<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
 											{ownedRestaurants.map(rest => {
-												const planName =
-													rest.subscription?.plan === 'FREE_TRIAL'
-														? 'Darmowy Okres Próbny'
-														: rest.subscription?.plan === 'PREMIUM_100'
-															? 'Abonament za lokal (100 zł)'
-															: rest.subscription?.plan === 'PROMOTE_50'
-																? 'Pakiet Promowania na górze (50 zł)'
-																: rest.subscription?.plan === 'OFFER_50'
-																	? 'Stałe Wyświetlane Menu bez FB (50 zł)'
-																	: 'Brak Subskrypcji'
+												const activeSubs =
+													rest.subscriptions?.filter(
+														sub => sub.status === 'ACTIVE' && new Date(sub.endsAt) > new Date(),
+													) || []
+
+												const hasBase = activeSubs.some(s => s.type === 'BASE')
+												const hasPromotion = activeSubs.some(s => s.type === 'PROMOTION')
+												const hasStaticMenu = activeSubs.some(s => s.type === 'STATIC_MENU')
+												const hasTrial = activeSubs.some(s => s.type === 'FREE_TRIAL')
+
+												let planName = 'Brak Subskrypcji'
+												if (hasTrial) {
+													planName = 'Darmowy Okres Próbny'
+												} else {
+													const activePlanNames = []
+													if (hasBase) activePlanNames.push('Abonament za lokal (100 zł)')
+													if (hasPromotion) activePlanNames.push('Promowanie (50 zł)')
+													if (hasStaticMenu) activePlanNames.push('Karta Menu (50 zł)')
+
+													if (activePlanNames.length === 3) {
+														planName = 'Wszystkie pakiety aktywne'
+													} else if (activePlanNames.length > 0) {
+														planName = activePlanNames.join(' + ')
+													}
+												}
+
 												const expDate = rest.subscription?.currentPeriodEnd
 													? new Date(rest.subscription.currentPeriodEnd).toLocaleDateString('pl-PL')
 													: 'Nieokreślono'
 
-												const daysLeft = getDaysLeft(rest.subscription?.currentPeriodEnd || null)
-												const hasActiveSub = rest.subscription?.status === 'ACTIVE' && daysLeft > 0
+												const hasActiveSub = activeSubs.length > 0
 
 												return (
 													<div key={rest.id} className='border border-stone-200 p-5 bg-white space-y-3 shadow-sm'>
@@ -1161,8 +1176,8 @@ export default function ForRestaurantsPage() {
 																</span>
 															</div>
 															<span
-																className={`px-2 py-0.5 text-[9px] font-mono uppercase font-bold tracking-wider ${rest.subscription?.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-stone-100 text-stone-600'}`}>
-																{rest.subscription?.status === 'ACTIVE' ? 'Aktywna' : 'Nieaktywna'}
+																className={`px-2 py-0.5 text-[9px] font-mono uppercase font-bold tracking-wider ${hasActiveSub ? 'bg-green-100 text-green-800' : 'bg-stone-100 text-stone-600'}`}>
+																{hasActiveSub ? 'Aktywna' : 'Nieaktywna'}
 															</span>
 														</div>
 														<div className='border-t border-stone-100 pt-3 space-y-1 font-mono text-xs'>
@@ -1175,7 +1190,7 @@ export default function ForRestaurantsPage() {
 														</div>
 														<div className='pt-2'>
 															<span className='text-[10px] text-stone-400 font-sans italic'>
-																{rest.subscription?.plan === 'FREE_TRIAL'
+																{hasTrial
 																	? '✓ Dzienny FB bot scraper, podstawowe statystyki.'
 																	: '✓ Wszystkie wybrane funkcje tego planu są aktywne.'}
 															</span>
@@ -1201,22 +1216,22 @@ export default function ForRestaurantsPage() {
 																				100 PLN
 																			</button>
 																			<button
-																				disabled={rest.subscription?.plan !== 'PREMIUM_100'}
-																				onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
-																				className='px-2 py-1.5 border border-stone-400 hover:border-black transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
+																				disabled={true}
+																				className='px-2 py-1.5 border border-stone-200 text-stone-400 bg-stone-50 text-[9px] font-mono uppercase tracking-wider cursor-not-allowed font-bold text-center'
+																				title='Najpierw aktywuj abonament podstawowy.'>
 																				50 PLN
 																			</button>
 																			<button
-																				disabled={rest.subscription?.plan !== 'PREMIUM_100'}
-																				onClick={() => handleCheckout(rest.id, 'OFFER_50')}
-																				className='px-2 py-1.5 bg-black text-white hover:bg-stone-900 transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
+																				disabled={true}
+																				className='px-2 py-1.5 border border-stone-200 text-stone-400 bg-stone-50 text-[9px] font-mono uppercase tracking-wider cursor-not-allowed font-bold text-center'
+																				title='Najpierw aktywuj abonament podstawowy.'>
 																				50 PLN
 																			</button>
 																		</div>
 																	</>
 																) : (
 																	<>
-																		{rest.subscription?.plan === 'FREE_TRIAL' && (
+																		{hasTrial && (
 																			<>
 																				<p className='text-[10px] font-mono text-stone-500 uppercase tracking-wider font-bold'>
 																					Przejdź na pakiet abonamentowy:
@@ -1229,62 +1244,59 @@ export default function ForRestaurantsPage() {
 																					</button>
 																					<button
 																						disabled={true}
-																						onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
-																						className='px-2 py-1.5 border border-stone-400 hover:border-black transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
+																						className='px-2 py-1.5 border border-stone-200 text-stone-400 bg-stone-50 text-[9px] font-mono uppercase tracking-wider cursor-not-allowed font-bold text-center'
+																						title='Najpierw aktywuj abonament podstawowy.'>
 																						50 PLN
 																					</button>
 																					<button
 																						disabled={true}
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
-																						className='px-2 py-1.5 bg-black text-white hover:bg-stone-900 transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center disabled:opacity-50 disabled:cursor-not-allowed'>
+																						className='px-2 py-1.5 border border-stone-200 text-stone-400 bg-stone-50 text-[9px] font-mono uppercase tracking-wider cursor-not-allowed font-bold text-center'
+																						title='Najpierw aktywuj abonament podstawowy.'>
 																						50 PLN
 																					</button>
 																				</div>
 																			</>
 																		)}
 
-																		{rest.subscription?.plan === 'PREMIUM_100' && (
+																		{!hasTrial && hasBase && (
 																			<>
-																				<p className='text-[10px] font-mono text-stone-500 uppercase tracking-wider font-bold'>
-																					Dokup pakiety dodatkowe dla tego lokalu:
-																				</p>
-																				<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-																					<button
-																						onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
-																						className='px-2 py-1.5 border border-stone-400 hover:border-black transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
-																						Promowanie na górze (+50 PLN)
-																					</button>
-																					<button
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
-																						className='px-2 py-1.5 bg-black text-white hover:bg-stone-900 transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
-																						Stałe menu bez FB (+50 PLN)
-																					</button>
-																				</div>
-																			</>
-																		)}
+																				{hasPromotion && hasStaticMenu ? (
+																					<p className='text-[10px] font-mono text-green-700 uppercase tracking-wider font-bold flex items-center gap-1.5'>
+																						<span>✓ Wszystkie pakiety dodatkowe są aktywne</span>
+																					</p>
+																				) : (
+																					<>
+																						<p className='text-[10px] font-mono text-stone-500 uppercase tracking-wider font-bold'>
+																							Dokup pakiety dodatkowe dla tego lokalu:
+																						</p>
+																						<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+																							{hasPromotion ? (
+																								<div className='px-2 py-1.5 border border-dashed border-stone-200 bg-stone-50 text-[9px] font-mono uppercase tracking-wider text-stone-400 text-center flex items-center justify-center font-bold'>
+																									✓ Promowanie (Aktywne)
+																								</div>
+																							) : (
+																								<button
+																									onClick={() => handleCheckout(rest.id, 'PROMOTE_50')}
+																									className='px-2 py-1.5 border border-stone-400 hover:border-black transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
+																									Promowanie (+50 PLN)
+																								</button>
+																							)}
 
-																		{rest.subscription?.plan === 'PROMOTE_50' && (
-																			<>
-																				<p className='text-[10px] font-mono text-stone-500 uppercase tracking-wider font-bold'>
-																					Dokup pakiety dodatkowe dla tego lokalu:
-																				</p>
-																				<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-																					<div className='px-2 py-1.5 border border-dashed border-stone-200 bg-stone-50 text-[9px] font-mono uppercase tracking-wider text-stone-400 text-center flex items-center justify-center font-bold'>
-																						✓ Promowanie (Aktywne)
-																					</div>
-																					<button
-																						onClick={() => handleCheckout(rest.id, 'OFFER_50')}
-																						className='px-2 py-1.5 bg-black text-white hover:bg-stone-900 transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
-																						Stałe menu bez FB (+50 PLN)
-																					</button>
-																				</div>
+																							{hasStaticMenu ? (
+																								<div className='px-2 py-1.5 border border-dashed border-stone-200 bg-stone-50 text-[9px] font-mono uppercase tracking-wider text-stone-400 text-center flex items-center justify-center font-bold'>
+																									✓ Karta menu (Aktywne)
+																								</div>
+																							) : (
+																								<button
+																									onClick={() => handleCheckout(rest.id, 'OFFER_50')}
+																									className='px-2 py-1.5 bg-black text-white hover:bg-stone-900 transition-all text-[9px] font-mono uppercase tracking-wider cursor-pointer font-bold text-center'>
+																									Karta menu (+50 PLN)
+																								</button>
+																							)}
+																						</div>
+																					</>
+																				)}
 																			</>
-																		)}
-
-																		{rest.subscription?.plan === 'OFFER_50' && (
-																			<p className='text-[10px] font-mono text-green-700 uppercase tracking-wider font-bold flex items-center gap-1.5'>
-																				<span>✓ Wszystkie pakiety dodatkowe są aktywne</span>
-																			</p>
 																		)}
 																	</>
 																)}
@@ -1331,7 +1343,7 @@ export default function ForRestaurantsPage() {
 														<X className='w-3.5 h-3.5 text-stone-300 shrink-0' /> Promowanie na górze
 													</li>
 													<li className='flex items-center gap-2 text-stone-400 line-through'>
-														<X className='w-3.5 h-3.5 text-stone-300 shrink-0' /> Stałe menu bez FB
+														<X className='w-3.5 h-3.5 text-stone-300 shrink-0' /> stałe menu
 													</li>
 												</ul>
 											</div>
@@ -1365,19 +1377,19 @@ export default function ForRestaurantsPage() {
 														<Check className='w-3.5 h-3.5 text-green-700 shrink-0' /> FB Bot Scraper (12:00)
 													</li>
 													<li className='flex items-center gap-2 text-stone-400 line-through'>
-														<X className='w-3.5 h-3.5 text-stone-300 shrink-0' /> Stałe menu bez FB
+														<X className='w-3.5 h-3.5 text-stone-300 shrink-0' /> stałe menu
 													</li>
 												</ul>
 											</div>
 										</div>
 
-										{/* Plan 3: Stałe menu bez FB */}
+										{/* Plan 3: stałe menu */}
 										<div className='border border-stone-200 p-6 bg-stone-50 flex flex-col justify-between space-y-6'>
 											<div className='space-y-3'>
 												<span className='text-[9px] font-mono uppercase tracking-widest text-stone-400 font-bold'>
 													Wygoda
 												</span>
-												<h3 className='font-serif font-bold text-xl text-stone-900'>Stałe menu bez FB</h3>
+												<h3 className='font-serif font-bold text-xl text-stone-900'>stałe menu</h3>
 												<p className='font-mono text-lg font-bold text-stone-900'>
 													50 PLN <span className='text-xs font-mono text-stone-400'>/ miesiąc</span>
 												</p>

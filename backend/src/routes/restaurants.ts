@@ -12,9 +12,9 @@ const router = Router()
 // na pojedynczy obiekt subskrypcji (legacy format) oczekiwany przez frontend.
 function mapRestaurantSubscription(restaurant: any) {
 	if (!restaurant.subscriptions || restaurant.subscriptions.length === 0) {
-		const { subscriptions, ...rest } = restaurant
 		return {
-			...rest,
+			...restaurant,
+			isPromoted: false,
 			subscription: null,
 		}
 	}
@@ -36,12 +36,13 @@ function mapRestaurantSubscription(restaurant: any) {
 		else if (latestSub.type === 'PROMOTION') plan = 'PROMOTE_50'
 		else if (latestSub.type === 'STATIC_MENU') plan = 'OFFER_50'
 
-		const { subscriptions, ...rest } = restaurant
 		return {
-			...rest,
+			...restaurant,
+			isPromoted: false,
 			subscription: {
 				id: latestSub.id,
 				plan: plan,
+				type: latestSub.type,
 				status: latestSub.status,
 				currentPeriodEnd: latestSub.endsAt,
 			},
@@ -65,12 +66,13 @@ function mapRestaurantSubscription(restaurant: any) {
 	const primarySub =
 		activeSubs.find((sub: any) => sub.type === 'BASE' || sub.type === 'FREE_TRIAL') || activeSubs[0]
 
-	const { subscriptions, ...rest } = restaurant
 	return {
-		...rest,
+		...restaurant,
+		isPromoted: hasPromotion,
 		subscription: {
 			id: primarySub.id,
 			plan: plan,
+			type: primarySub.type,
 			status: 'ACTIVE',
 			currentPeriodEnd: primarySub.endsAt,
 		},
@@ -335,19 +337,27 @@ router.get('/:id', async (req, res) => {
 
 		let restaurant = null
 
-		// Próba wyszukania po UUID, jeśli id pasuje do formatu UUID
-		if (id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-			restaurant = await prisma.restaurant.findUnique({
-				where: { id },
-				include: { dishes: { orderBy: { date: 'desc' } } },
-			})
-		}
+		// Próba wyszukania po unikalnym ID
+		restaurant = await prisma.restaurant.findUnique({
+			where: { id },
+			include: {
+				dishes: { orderBy: { date: 'desc' } },
+				menuItems: { orderBy: { order: 'asc' } },
+				standardOffers: true,
+				subscriptions: true,
+			},
+		})
 
 		// Fallback: próba wyszukania po unikalnym slugu
 		if (!restaurant) {
 			restaurant = await prisma.restaurant.findUnique({
 				where: { slug: id },
-				include: { dishes: { orderBy: { date: 'desc' } } },
+				include: {
+					dishes: { orderBy: { date: 'desc' } },
+					menuItems: { orderBy: { order: 'asc' } },
+					standardOffers: true,
+					subscriptions: true,
+				},
 			})
 		}
 

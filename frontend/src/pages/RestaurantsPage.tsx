@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Store, Heart, Phone, MapPin, RefreshCw, Search, Star } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 // --- TYPY ---
 export interface Restaurant {
@@ -19,8 +19,9 @@ export interface Restaurant {
 	subscriptionPlan: string
 	latitude?: number | null
 	longitude?: number | null
+	isPromoted?: boolean
 	subscription?: {
-		plan: string
+		type: string
 		status: string
 		currentPeriodEnd: string
 	} | null
@@ -30,6 +31,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 export default function RestaurantsPage() {
 	const { user, token, toggleFavorite, isFavorite } = useAuth()
+	const navigate = useNavigate()
 
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [loading, setLoading] = useState(true)
@@ -142,12 +144,20 @@ export default function RestaurantsPage() {
 						{filteredRestaurants.map(restaurant => {
 							const isFav = isFavorite(restaurant.id)
 							const isPromoted =
-								restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.plan === 'PROMOTE_50'
+								restaurant.isPromoted ||
+								(restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.type === 'PROMOTION')
+							console.log(isPromoted)
 
 							return (
-								<Link
+								<div
 									key={restaurant.id}
-									to={`/restaurants/${restaurant.slug}`}
+									onClick={e => {
+										// Prevent navigating if the user clicked an interactive element (button, link, etc.) inside the card
+										if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
+											return
+										}
+										navigate(`/restaurants/${restaurant.slug}`)
+									}}
 									className={`cursor-pointer relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
 										!restaurant.isActive
 											? 'opacity-65 border-stone-200'
@@ -242,7 +252,7 @@ export default function RestaurantsPage() {
 											</button>
 										)}
 									</div>
-								</Link>
+								</div>
 							)
 						})}
 					</div>

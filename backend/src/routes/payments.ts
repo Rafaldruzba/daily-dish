@@ -202,8 +202,20 @@ router.post('/webhook', async (req: Request, res: Response) => {
 					},
 				})
 
-				// 3. Activate Restaurant if it was a base plan
+				// If transitioning to BASE plan, cancel any active FREE_TRIAL subscriptions
 				if (type === 'BASE') {
+					await prisma.subscription.updateMany({
+						where: {
+							restaurantId,
+							type: 'FREE_TRIAL',
+							status: 'ACTIVE',
+						},
+						data: {
+							status: 'CANCELLED',
+							endsAt: new Date(),
+						},
+					})
+
 					await prisma.restaurant.update({
 						where: { id: restaurantId },
 						data: { isActive: true },
@@ -345,21 +357,35 @@ router.post('/confirm-mock', authenticate, async (req: AuthRequest, res: Respons
 			},
 		})
 
-		// 3. Activate Restaurant if it was a base plan and invalidate cache
+		// If transitioning to BASE plan, cancel any active FREE_TRIAL subscriptions
 		if (type === 'BASE') {
-			const updatedRestaurant = await prisma.restaurant.update({
+			await prisma.subscription.updateMany({
+				where: {
+					restaurantId,
+					type: 'FREE_TRIAL',
+					status: 'ACTIVE',
+				},
+				data: {
+					status: 'CANCELLED',
+					endsAt: new Date(),
+				},
+			})
+
+			await prisma.restaurant.update({
 				where: { id: restaurantId },
 				data: { isActive: true },
 			})
+		}
 
-			if (redisClient.isOpen) {
-				try {
-					await redisClient.del(`restaurants:${updatedRestaurant.city}`)
-					await redisClient.del('restaurants:all')
-					console.log(`🧹 [Redis] Cache invalidated for city: ${updatedRestaurant.city}`)
-				} catch (err) {
-					console.error('[Redis] Cache invalidation error:', err)
-				}
+		// 4. Invalidate Redis cache for any subscription type
+		const updatedRestaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
+		if (updatedRestaurant && redisClient.isOpen) {
+			try {
+				await redisClient.del(`restaurants:${updatedRestaurant.city}`)
+				await redisClient.del('restaurants:all')
+				console.log(`🧹 [Redis] Cache invalidated for city: ${updatedRestaurant.city}`)
+			} catch (err) {
+				console.error('[Redis] Cache invalidation error:', err)
 			}
 		}
 

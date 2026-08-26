@@ -24,6 +24,7 @@ function Navigation() {
 		window.location.reload() // Force a reload to re-evaluate the context state
 	}
 	console.log(user?.role)
+	console.log(user?.id)
 
 	return (
 		<div className='relative'>

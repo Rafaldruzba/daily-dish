@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLocation } from '../context/LocationContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export interface Restaurant {
 	id: string
@@ -43,6 +43,7 @@ const formatDate = (date: Date = new Date()) => {
 export default function HomePage() {
 	const { user, toggleFavorite, isFavorite } = useAuth()
 	const { city } = useLocation()
+	const navigate = useNavigate()
 	const [dishes, setDishes] = useState<DailyDish[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
@@ -323,8 +324,16 @@ export default function HomePage() {
 										)}
 
 										{/* Dish Info Body */}
-										<Link to={`/restaurants/${dish.restaurant.slug}`}>
-										<div className='p-6 flex flex-col flex-grow justify-between relative'>
+										<div
+											onClick={e => {
+												// Prevent navigating if the user clicked an interactive element (button, link, etc.) inside the card
+												if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
+													return
+												}
+												navigate(`/restaurants/${dish.restaurant.slug}`)
+											}}
+											className='cursor-pointer p-6 flex flex-col flex-grow justify-between relative'
+										>
 											<div className='space-y-3'>
 												{/* Restaurant details */}
 												<div className='flex items-center justify-between gap-2 border-b border-stone-100 pb-2'>
@@ -411,7 +420,6 @@ export default function HomePage() {
 												)}
 											</div>
 										</div>
-										</Link>
 									</article>
 								)
 							})}

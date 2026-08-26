@@ -91,23 +91,41 @@ router.delete('/:restaurantId/standard-offer/:offerId', authenticate, isOwnerOrA
 
 // --- MenuItem Routes ---
 
-// Create MenuItem
+// Create MenuItem (supports single item or array of items)
 router.post('/:restaurantId/menu-item', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { restaurantId } = req.params as { restaurantId: string };
-    const { name, description, price, category, order } = req.body;
+    const isArray = Array.isArray(req.body);
+    const items = isArray ? req.body : [req.body];
 
-    const item = await prisma.menuItem.create({
-      data: {
-        restaurantId,
-        name,
-        description,
-        price,
-        category,
-        order,
-      },
-    });
-    res.status(201).json(item);
+    const dataToInsert = items
+      .filter((item: any) => item && item.name)
+      .map((item: any) => {
+        let rawCategory = item.category?.trim() || 'Inne';
+        if (rawCategory.length > 0) {
+          rawCategory = rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1);
+        } else {
+          rawCategory = 'Inne';
+        }
+        return {
+          restaurantId,
+          name: item.name.trim(),
+          description: item.description?.trim() || null,
+          price: Number(item.price || 0),
+          category: rawCategory,
+          order: Number(item.order || 0),
+        };
+      });
+
+    if (dataToInsert.length === 0) {
+      return res.status(400).json({ success: false, message: 'Brak poprawnych pozycji do dodania' });
+    }
+
+    const createdItems = await Promise.all(
+      dataToInsert.map((data: any) => prisma.menuItem.create({ data }))
+    );
+
+    res.status(201).json(isArray ? createdItems : createdItems[0]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Nie udało się dodać pozycji do menu' });
@@ -120,14 +138,20 @@ router.put('/:restaurantId/menu-item/:itemId', authenticate, isOwnerOrAdmin, asy
     const { itemId } = req.params as { itemId: string };
     const { name, description, price, category, order } = req.body;
 
+    let formattedCategory = undefined;
+    if (category !== undefined) {
+      const trimmed = category.trim();
+      formattedCategory = trimmed.length > 0 ? (trimmed.charAt(0).toUpperCase() + trimmed.slice(1)) : 'Inne';
+    }
+
     const item = await prisma.menuItem.update({
       where: { id: itemId },
       data: {
-        name,
-        description,
-        price,
-        category,
-        order,
+        ...(name !== undefined && { name: name.trim() }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(price !== undefined && { price: Number(price) }),
+        ...(formattedCategory !== undefined && { category: formattedCategory }),
+        ...(order !== undefined && { order: Number(order) }),
       },
     });
     res.json(item);
