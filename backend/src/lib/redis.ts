@@ -4,6 +4,7 @@ import { createClient } from 'redis';
 const redisUrl = process.env.REDIS_URL;
 const host = process.env.REDIS_HOST || 'localhost';
 const port = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
+const password = process.env.REDIS_PASSWORD || undefined;
 
 if (redisUrl) {
   // Obfuscate password in connection URL for safe logging
@@ -16,6 +17,7 @@ if (redisUrl) {
 export const redisClient = redisUrl
   ? createClient({ url: redisUrl })
   : createClient({
+      password: password,
       socket: {
         host: host,
         port: port,
