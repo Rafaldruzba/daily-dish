@@ -1,63 +1,30 @@
-export interface MockRestaurant {
-	id: string
-	name: string
-	slug: string
-	phone: string
-	address: string
-	city: string
-	facebookUrl: string
-	isActive: boolean
-	status: string
-	rating: number
-	description: string
-	generalMenu: string
-	latitude?: number
-	longitude?: number
-	userId?: string
-}
+import prisma from '../src/lib/prisma.js'
 
-export interface MockDish {
-	name: string
-	description: string
-	price: number
-	imageUrl: string
-	sourceUrl: string
-	sourcePostId: string
-}
-
-export interface MockOwner {
-	id: string;
-	email: string;
-	password: string;
-	name: string;
-	role: string;
-}
-
-export const MOCK_OWNERS: MockOwner[] = [
+const MOCK_OWNERS = [
 	{
 		id: 'owner-borowianka-uuid-1111',
 		email: 'borowianka@owner.com',
-		password: 'password123',
+		password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // password123
 		name: 'Właściciel Borowianki',
 		role: 'OWNER'
 	},
 	{
 		id: 'owner-lochowianka-uuid-2222',
 		email: 'lochowianka@owner.com',
-		password: 'password123',
+		password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // password123
 		name: 'Właściciel Lochowianki',
 		role: 'OWNER'
 	},
 	{
 		id: 'owner-hustawka-uuid-3333',
 		email: 'hustawka@owner.com',
-		password: 'password123',
+		password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // password123
 		name: 'Właściciel Huśtawki',
 		role: 'OWNER'
 	}
 ]
 
-export const MOCK_RESTAURANTS: MockRestaurant[] = [
+const MOCK_RESTAURANTS = [
 	{
 		id: '7a1a6b0c-99fa-4785-b82b-5813f8c8715a',
 		name: 'Zielona Miska',
@@ -207,7 +174,7 @@ export const MOCK_RESTAURANTS: MockRestaurant[] = [
 	}
 ]
 
-export const MOCK_DISHES: Record<string, MockDish> = {
+const MOCK_DISHES: Record<string, { name: string; description: string; price: number; imageUrl: string; sourceUrl: string; sourcePostId: string }> = {
 	'7a1a6b0c-99fa-4785-b82b-5813f8c8715a': {
 		name: 'Wegańskie curry z ciecierzycą & Krem z pieczonej dyni',
 		description: 'Pyszne, rozgrzewające wegańskie curry z ciecierzycą, warzywami i mleczkiem kokosowym serwowane z puszystym ryżem jaśminowym. W zestawie aksamitny krem z dyni hokkaido z nutą imbiru i prażonymi pestkami dyni. Idealny i pożywny lunch!',
@@ -281,3 +248,132 @@ export const MOCK_DISHES: Record<string, MockDish> = {
 		sourcePostId: 'fb_post_hustawka_101'
 	}
 }
+
+async function main() {
+	console.log('🤖 [Prisma Seed] Rozpoczynam seeding bazy danych...')
+
+	// 1. Seed Owners
+	for (const owner of MOCK_OWNERS) {
+		await prisma.user.upsert({
+			where: { id: owner.id },
+			update: {
+				email: owner.email,
+				name: owner.name,
+				role: owner.role
+			},
+			create: {
+				id: owner.id,
+				email: owner.email,
+				password: owner.password,
+				name: owner.name,
+				role: owner.role
+			}
+		})
+	}
+	console.log('🤖 [Prisma Seed] Testowi właściciele zostali dodani.')
+
+	// 2. Seed Restaurants
+	for (const r of MOCK_RESTAURANTS) {
+		await prisma.restaurant.upsert({
+			where: { id: r.id },
+			update: {
+				name: r.name,
+				slug: r.slug,
+				phone: r.phone,
+				address: r.address,
+				city: r.city,
+				facebookUrl: r.facebookUrl,
+				isActive: r.isActive,
+				status: r.status,
+				rating: r.rating,
+				description: r.description,
+				generalMenu: r.generalMenu,
+				latitude: r.latitude || null,
+				longitude: r.longitude || null,
+				userId: r.userId || null
+			},
+			create: {
+				id: r.id,
+				name: r.name,
+				slug: r.slug,
+				phone: r.phone,
+				address: r.address,
+				city: r.city,
+				facebookUrl: r.facebookUrl,
+				isActive: r.isActive,
+				status: r.status,
+				rating: r.rating,
+				description: r.description,
+				generalMenu: r.generalMenu,
+				latitude: r.latitude || null,
+				longitude: r.longitude || null,
+				userId: r.userId || null
+			}
+		})
+
+		// Create trial subscription
+		const trialEndsAt = new Date()
+		trialEndsAt.setDate(trialEndsAt.getDate() + 30)
+
+		// Delete existing if any to avoid uniqueness/index crash, and create new active FREE_TRIAL sub
+		await prisma.subscription.deleteMany({
+			where: { restaurantId: r.id }
+		})
+
+		await prisma.subscription.create({
+			data: {
+				restaurantId: r.id,
+				type: 'FREE_TRIAL',
+				status: 'ACTIVE',
+				startsAt: new Date(),
+				endsAt: trialEndsAt
+			}
+		})
+
+		// Seed today's dish
+		const today = new Date()
+		today.setUTCHours(0, 0, 0, 0)
+		const dish = MOCK_DISHES[r.id]
+		if (dish) {
+			await prisma.dailyDish.upsert({
+				where: {
+					restaurantId_date: {
+						restaurantId: r.id,
+						date: today
+					}
+				},
+				update: {
+					name: dish.name,
+					description: dish.description,
+					price: dish.price,
+					imageUrl: dish.imageUrl,
+					sourceUrl: dish.sourceUrl,
+					sourcePostId: dish.sourcePostId,
+					publishedAt: new Date()
+				},
+				create: {
+					restaurantId: r.id,
+					name: dish.name,
+					description: dish.description,
+					price: dish.price,
+					imageUrl: dish.imageUrl,
+					sourceUrl: dish.sourceUrl,
+					sourcePostId: dish.sourcePostId,
+					date: today,
+					publishedAt: new Date()
+				}
+			})
+		}
+	}
+
+	console.log('✅ [Prisma Seed] Seeding bazy danych zakończony sukcesem!')
+}
+
+main()
+	.catch((e) => {
+		console.error('❌ [Prisma Seed] Błąd podczas seedingu:', e)
+		process.exit(1)
+	})
+	.finally(async () => {
+		await prisma.$disconnect()
+	})

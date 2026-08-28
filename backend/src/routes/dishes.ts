@@ -1,8 +1,8 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
 import { fetchTodayDishes } from '../services/daily-dish.service.js'
-import { authenticate, type AuthRequest } from '../middleware/auth.js'
-import { geocodeCity } from '../services/geolocation.service.js'
+import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
+import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import redisClient from '../lib/redis.js'
 
 const router = Router()
@@ -54,35 +54,10 @@ router.get('/today', async (req: Request, res: Response) => {
 		const endOfDay = new Date()
 		endOfDay.setHours(23, 59, 59, 999)
 
-		let restaurantIds: string[] | undefined = undefined;
-
-		if (city) {
-			const coordinates = await geocodeCity(city);
-			if (coordinates) {
-				const { lat, lon } = coordinates;
-				// 20km radius
-				const radius = 20 * 1000;
-
-				const restaurantsInRadius: { id: string }[] = await prisma.$queryRaw`
-					SELECT id FROM "Restaurant"
-					WHERE "isActive" = true AND "status" = 'APPROVED' AND latitude IS NOT NULL AND longitude IS NOT NULL AND (
-						6371000 * acos(
-							cos(radians(${lat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${lon})) +
-							sin(radians(${lat})) * sin(radians(latitude))
-						)
-					) <= ${radius};
-				`;
-				restaurantIds = restaurantsInRadius.map((r: { id: string }) => r.id);
-
-			} else {
-				// If geocoding fails, fall back to simple city name matching
-				const restaurants = await prisma.restaurant.findMany({
-					where: { city: { equals: city, mode: 'insensitive' }, isActive: true, status: 'APPROVED' },
-					select: { id: true }
-				});
-				restaurantIds = restaurants.map((r: { id: string }) => r.id);
-			}
-		}
+		// Get active, approved restaurant IDs with active subscriptions
+		const restaurantIds = city
+			? await getRestaurantIdsForCity(city)
+			: await getAllActiveRestaurantIds();
 
 		let dishes = await prisma.dailyDish.findMany({
 			where: {
@@ -90,10 +65,7 @@ router.get('/today', async (req: Request, res: Response) => {
 					gte: startOfDay,
 					lte: endOfDay,
 				},
-				restaurant: {
-					isActive: true,
-					...(restaurantIds && { id: { in: restaurantIds } })
-				},
+				restaurantId: { in: restaurantIds },
 			},
 			include: {
 				restaurant: true,
@@ -104,33 +76,6 @@ router.get('/today', async (req: Request, res: Response) => {
 				},
 			},
 		})
-
-		// Na localhost automatycznie pobieramy (i generujemy) dania dnia, jeśli ich dzisiaj nie ma
-		if (process.env.NODE_ENV !== 'production' && dishes.length === 0) {
-			console.log('🤖 [LOCAL MOCK] Dzisiejsze dania są puste. Generuję dane testowe...')
-			await fetchTodayDishes(city)
-
-			dishes = await prisma.dailyDish.findMany({
-				where: {
-					date: {
-						gte: startOfDay,
-						lte: endOfDay,
-					},
-					restaurant: {
-						isActive: true,
-						...(restaurantIds && { id: { in: restaurantIds } })
-					},
-				},
-				include: {
-					restaurant: true,
-				},
-				orderBy: {
-					restaurant: {
-						name: 'asc',
-					},
-				},
-			})
-		}
 
     if (redisClient.isOpen) {
       try {
@@ -210,6 +155,26 @@ router.get('/:id', async (req, res) => {
 		res.status(500).json({
 			success: false,
 			message: 'Nie udało się pobrać dania',
+		})
+	}
+})
+
+// POST /api/dishes/admin/fetch-now
+// Wyzwala natychmiastowe, awaryjne skrapowanie wszystkich lokali za pomocą kolejki BullMQ (Tylko ADMIN)
+router.post('/admin/fetch-now', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		const { queueAllScrapingJobs } = await import('../services/scraper-queue.service.js')
+		const jobs = await queueAllScrapingJobs()
+		res.json({
+			success: true,
+			message: `Awaryjne skrapowanie zostało pomyślnie zainicjowane. Zakolejkowano ${jobs.length} zadań.`,
+			jobs,
+		})
+	} catch (error: any) {
+		console.error('❌ Error triggering emergency scrape:', error)
+		res.status(500).json({
+			success: false,
+			message: 'Wystąpił błąd podczas wyzwalania awaryjnego pobierania.',
 		})
 	}
 })

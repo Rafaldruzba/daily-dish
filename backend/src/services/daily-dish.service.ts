@@ -1,6 +1,5 @@
 import prisma from '../lib/prisma.js'
 import { fetchRestaurantDish } from './facebook.service.js'
-import { MOCK_RESTAURANTS, MOCK_OWNERS } from '../data/mockDishes.js'
 import { geocodeCity } from './geolocation.service.js'
 
 async function getRestaurantsToFetch(city?: string) {
@@ -39,72 +38,6 @@ async function getRestaurantsToFetch(city?: string) {
 }
 
 export async function fetchTodayDishes(city?: string) {
-	// Na localhost upewniamy się, że restauracje testowe istnieją w bazie danych
-	if (process.env.NODE_ENV !== 'production') {
-		console.log('🤖 [LOCAL MOCK] Zapewnianie istnienia testowych właścicieli i restauracji...')
-		
-    // 1. Seed Mock Owners
-    for (const owner of MOCK_OWNERS) {
-      try {
-        await prisma.user.upsert({
-          where: { id: owner.id },
-          update: {
-            email: owner.email,
-            name: owner.name,
-            role: owner.role
-          },
-          create: {
-            id: owner.id,
-            email: owner.email,
-            password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // hash for password123
-            name: owner.name,
-            role: owner.role
-          }
-        })
-      } catch (err) {
-        console.error(`❌ Błąd podczas upsertowania właściciela testowego ${owner.name}:`, err)
-      }
-    }
-
-    // 2. Seed Mock Restaurants
-    for (const r of MOCK_RESTAURANTS) {
-			try {
-        // Geocode mock restaurants if they don't have coordinates
-        const restaurantInDb = await prisma.restaurant.findUnique({ where: { id: r.id } });
-        let lat = restaurantInDb?.latitude;
-        let lon = restaurantInDb?.longitude;
-        if (!lat || !lon) {
-          const coords = await geocodeCity(`${r.address}, ${r.city}`);
-          if (coords) {
-            lat = coords.lat;
-            lon = coords.lon;
-          }
-        }
-
-        const restaurant = await prisma.restaurant.upsert({
-        where: { id: r.id },
-          update: { name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
-          create: { id: r.id, name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
-        });
-
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-        await prisma.subscription.create({
-          data: {
-            restaurantId: restaurant.id,
-            type: 'FREE_TRIAL',
-            status: 'ACTIVE',
-            startsAt: new Date(),
-            endsAt: trialEndsAt,
-          }
-        });
-
-        } catch (err) {
-				console.error(`❌ Błąd podczas upsertowania restauracji testowej ${r.name}:`, err)
-			}
-		}
-	}
-
 	const restaurants = await getRestaurantsToFetch(city);
 
 	const results = []

@@ -2,7 +2,7 @@ import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
 import type { Restaurant, Subscription } from '@prisma/client'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
-import { MOCK_RESTAURANTS, MOCK_OWNERS } from '../data/mockDishes.js'
+import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import { geocodeCity } from '../services/geolocation.service.js'
 import redisClient from '../lib/redis.js'
 
@@ -97,141 +97,24 @@ router.get('/', async (req: Request, res: Response) => {
       }
     }
 
-    let where: any = {
-      isActive: true,
-      status: 'APPROVED',
-    };
+    // Pobierz identyfikatory restauracji posiadających aktywne subskrypcje w zadanym obszarze
+    const restaurantIds = city
+      ? await getRestaurantIdsForCity(city)
+      : await getAllActiveRestaurantIds();
 
-    if (city) {
-      const coordinates = await geocodeCity(city);
-      if (coordinates) {
-        const { lat, lon } = coordinates;
-        const radius = 20 * 1000; // 20km
+    let restaurants = await prisma.restaurant.findMany({
+      where: {
+        id: { in: restaurantIds },
+        isActive: true,
+        status: 'APPROVED',
+      },
+      include: { subscriptions: true },
+      orderBy: {
+        name: 'asc',
+      },
+    });
 
-        // 1. Get all restaurant IDs within the given radius
-        const restaurantsInRadius = await prisma.$queryRaw<Array<{ id: string }>>`
-          SELECT id FROM "Restaurant"
-          WHERE "isActive" = true AND "status" = 'APPROVED' AND latitude IS NOT NULL AND longitude IS NOT NULL AND (
-            6371000 * acos(cos(radians(${lat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${lon})) + sin(radians(${lat})) * sin(radians(latitude)))
-          ) <= ${radius};
-        `;
-        const restaurantIdsInRadius = restaurantsInRadius.map(r => r.id);
-
-        // 2. Find which of those restaurants have an active PROMOTION subscription
-        const promotedSubscriptions = await prisma.subscription.findMany({
-          where: {
-            restaurantId: { in: restaurantIdsInRadius },
-            type: 'PROMOTION',
-            status: 'ACTIVE',
-            endsAt: { gt: new Date() }
-          },
-          select: { restaurantId: true }
-        });
-        const promotedRestaurantIds = [...new Set(promotedSubscriptions.map(s => s.restaurantId))]; // Use Set to ensure uniqueness
-
-        // 3. The rest are "other" restaurants
-        const otherRestaurantIds = restaurantIdsInRadius.filter(id => !promotedRestaurantIds.includes(id));
-
-        // 4. Combine IDs, putting promoted ones first
-        const finalIds = [...promotedRestaurantIds, ...otherRestaurantIds];
-        
-        if (finalIds.length > 0) {
-          where.id = { in: finalIds };
-        } else {
-          // If no restaurants are in the radius, make sure the query returns nothing
-          where.id = { in: [] };
-        }
-
-      } else {
-        where.city = { equals: city, mode: 'insensitive' };
-      }
-    }
-
-		type RestaurantWithSubscriptions = Restaurant & { subscriptions: Subscription[] };
-		let restaurants: RestaurantWithSubscriptions[] = await prisma.restaurant.findMany({
-			where,
-			include: { subscriptions: true },
-			orderBy: {
-				name: 'asc',
-			},
-		})
-
-		// Na localhost automatycznie inicjalizujemy restauracje testowe, jeśli baza jest pusta
-		if (process.env.NODE_ENV !== 'production' && restaurants.length === 0) {
-			console.log('🤖 [LOCAL MOCK] Inicjalizacja testowych właścicieli i restauracji...')
-			
-      // 1. Seed Mock Owners
-      for (const owner of MOCK_OWNERS) {
-        try {
-          await prisma.user.upsert({
-            where: { id: owner.id },
-            update: {
-              email: owner.email,
-              name: owner.name,
-              role: owner.role
-            },
-            create: {
-              id: owner.id,
-              email: owner.email,
-              password: '$2a$10$954tU7yQp.E8S3vTsh7C/.E/2B2tX8F.a8vPqX89yMhFvx7t5xIym', // hash for password123
-              name: owner.name,
-              role: owner.role
-            }
-          })
-        } catch (err) {
-          console.error(`❌ Błąd podczas upsertowania właściciela testowego ${owner.name}:`, err)
-        }
-      }
-
-      // 2. Seed Mock Restaurants
-      for (const r of MOCK_RESTAURANTS) {
-				try {
-          const restaurantInDb = await prisma.restaurant.findUnique({ where: { id: r.id } });
-          let lat = restaurantInDb?.latitude;
-          let lon = restaurantInDb?.longitude;
-          if (!lat || !lon) {
-            const coords = await geocodeCity(`${r.address}, ${r.city}`);
-            if (coords) {
-              lat = coords.lat;
-              lon = coords.lon;
-            }
-          }
-
-					const restaurant = await prisma.restaurant.upsert({
-						where: { id: r.id },
-            update: { name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
-            create: { id: r.id, name: r.name, slug: r.slug, phone: r.phone, address: r.address, city: r.city, facebookUrl: r.facebookUrl, isActive: r.isActive, status: r.status, rating: r.rating, description: r.description, generalMenu: r.generalMenu, latitude: lat, longitude: lon, userId: r.userId || null },
-					});
-
-          // Create a mock subscription for the mock restaurant
-          const trialEndsAt = new Date();
-          trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-          await prisma.subscription.create({
-            data: {
-              restaurantId: restaurant.id,
-              type: 'FREE_TRIAL',
-              status: 'ACTIVE',
-              startsAt: new Date(),
-              endsAt: trialEndsAt,
-            }
-          });
-
-				} catch (err) {
-					console.error(`❌ Błąd podczas upsertowania restauracji testowej ${r.name}:`, err)
-				}
-			}
-
-			// Pobierz ponownie po zasileniu bazy
-			restaurants = await prisma.restaurant.findMany({
-				where,
-				include: { subscriptions: true },
-				orderBy: {
-					name: 'asc',
-				},
-			})
-		}
-
-    // In-memory sort to prioritize promoted restaurants at the very top
+    // Sortowanie promujące aktywne subskrypcje PROMOTION na samą górę (tylko w okolicy/promieniu)
     try {
       restaurants.sort((a, b) => {
         const aPromoted = a.subscriptions.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date());
@@ -477,20 +360,182 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 			return res.status(400).json({ success: false, message: 'Nieprawidłowe dane' })
 		}
 
-		const restaurant = await prisma.restaurant.update({
-			where: { id },
-			data: { status },
-		})
+		let restaurant;
 
-    if (redisClient.isOpen) {
-      await redisClient.del(`restaurants:${restaurant.city}`);
-      await redisClient.del('restaurants:all');
-    }
+		if (status === 'APPROVED') {
+			const trialEndsAt = new Date()
+			trialEndsAt.setDate(trialEndsAt.getDate() + 30)
+
+			restaurant = await prisma.$transaction(async (tx) => {
+				const rest = await tx.restaurant.update({
+					where: { id },
+					data: { status: 'ACTIVE' },
+				})
+
+				// Usuwamy stare i tworzymy nową subskrypcję FREE_TRIAL
+				await tx.subscription.deleteMany({
+					where: { restaurantId: id }
+				})
+
+				await tx.subscription.create({
+					data: {
+						restaurantId: id,
+						type: 'FREE_TRIAL',
+						status: 'ACTIVE',
+						startsAt: new Date(),
+						endsAt: trialEndsAt
+					}
+				})
+
+				return rest
+			})
+		} else {
+			restaurant = await prisma.restaurant.update({
+				where: { id },
+				data: { status: 'REJECTED' },
+			})
+		}
+
+		if (redisClient.isOpen) {
+			await redisClient.del(`restaurants:${restaurant.city}`);
+			await redisClient.del('restaurants:all');
+		}
 
 		res.json(restaurant)
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Błąd aktualizacji statusu' })
+	}
+})
+
+// PUT /api/restaurants/admin/:id/subscription
+// Admin ręcznie zarządza planem subskrypcji lub blokuje restaurację (karencja 3 miesiące)
+router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		const id = req.params.id as string
+		const { action } = req.body // EXTEND_TRIAL, ACTIVATE_BASE, BLOCK
+
+		if (!id || !['EXTEND_TRIAL', 'ACTIVATE_BASE', 'BLOCK'].includes(action)) {
+			return res.status(400).json({ success: false, message: 'Nieprawidłowe dane lub akcja.' })
+		}
+
+		const restaurant = await prisma.restaurant.findUnique({
+			where: { id },
+			include: { user: true }
+		})
+
+		if (!restaurant) {
+			return res.status(404).json({ success: false, message: 'Restauracja nie istnieje.' })
+		}
+
+		const now = new Date()
+		const expiresAt = new Date()
+		expiresAt.setDate(expiresAt.getDate() + 30)
+
+		if (action === 'EXTEND_TRIAL') {
+			await prisma.$transaction([
+				// 1. Upewnij się, że restauracja jest aktywna
+				prisma.restaurant.update({
+					where: { id },
+					data: { status: 'ACTIVE', isActive: true }
+				}),
+				// 2. Przedłużenie/nadpisanie subskrypcji próbnej
+				prisma.subscription.deleteMany({
+					where: { restaurantId: id }
+				}),
+				prisma.subscription.create({
+					data: {
+						restaurantId: id,
+						type: 'FREE_TRIAL',
+						status: 'ACTIVE',
+						startsAt: now,
+						endsAt: expiresAt
+					}
+				})
+			])
+		} else if (action === 'ACTIVATE_BASE') {
+			await prisma.$transaction([
+				// 1. Aktywuj restaurację
+				prisma.restaurant.update({
+					where: { id },
+					data: { status: 'ACTIVE', isActive: true }
+				}),
+				// 2. Aktywuj abonament podstawowy
+				prisma.subscription.deleteMany({
+					where: { restaurantId: id }
+				}),
+				prisma.subscription.create({
+					data: {
+						restaurantId: id,
+						type: 'BASE',
+						status: 'ACTIVE',
+						startsAt: now,
+						endsAt: expiresAt
+					}
+				})
+			])
+		} else if (action === 'BLOCK') {
+			// Blokada restauracji — zmiana statusu na REMOVAL (3-miesięczna karencja)
+			await prisma.$transaction([
+				// 1. Zmiana statusu lokalu na REMOVAL
+				prisma.restaurant.update({
+					where: { id },
+					data: {
+						status: 'REMOVAL',
+						removalRequestedAt: now,
+						isActive: false
+					}
+				}),
+				// 2. Anulowanie wszystkich aktywnych subskrypcji
+				prisma.subscription.updateMany({
+					where: { restaurantId: id, status: 'ACTIVE' },
+					data: { status: 'CANCELLED' }
+				})
+			])
+
+			// Wysłanie maila do właściciela o zablokowaniu
+			if (restaurant.user?.email) {
+				try {
+					const nodemailer = await import('nodemailer')
+					const transporter = nodemailer.default.createTransport({
+						service: 'gmail',
+						auth: {
+							user: (process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim(),
+							pass: (process.env.GMAIL_PASS || '').trim(),
+						},
+					})
+					await transporter.sendMail({
+						from: `"Bistromapa Moderator" <${(process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim()}>`,
+						to: restaurant.user.email,
+						subject: 'Twój lokal został zawieszony — Bistromapa.pl',
+						html: `
+							<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
+								<h2 style="color: #c53030; text-align: center;">Twój lokal został zawieszony</h2>
+								<p>Witaj, <strong>${restaurant.user.name || 'Właścicielu'}</strong>.</p>
+								<p>Twój lokal <strong>${restaurant.name}</strong> został zawieszony przez administratora i oznaczony do usunięcia (status REMOVAL).</p>
+								<p>Lokal został natychmiast ukryty i nie będzie wyświetlany na mapie oraz listach wyszukiwania.</p>
+								<p style="background-color: #fffaf0; padding: 15px; border-left: 4px solid #dd6b20; border-radius: 4px; font-size: 13px; color: #7b341e;">
+									Rozpoczął się 3-miesięczny okres karencji. Jeśli chcesz odwołać się od tej decyzji i przywrócić lokal, skontaktuj się z nami odpowiadając na tę wiadomość w ciągu najbliższych 90 dni. Po tym okresie profil lokalu zostanie trwale skasowany.
+								</p>
+							</div>
+						`
+					})
+				} catch (mailErr) {
+					console.error('❌ Błąd wysyłania maila o blokadzie:', mailErr)
+				}
+			}
+		}
+
+		// Czyścimy cache w Redisie
+		if (redisClient.isOpen) {
+			await redisClient.del(`restaurants:${restaurant.city}`)
+			await redisClient.del('restaurants:all')
+		}
+
+		res.json({ success: true, message: `Akcja ${action} została pomyślnie zaimplementowana.` })
+	} catch (error) {
+		console.error('❌ Błąd zarządzania subskrypcją przez admina:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas modyfikacji subskrypcji.' })
 	}
 })
 

@@ -21,6 +21,8 @@ model Restaurant {
 
   latitude           Float?
   longitude          Float?
+  googlePlaceId      String?
+  userRatingsTotal   Int?        @default(0)
   
   status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
   views              Int         @default(0)         // Licznik odwiedzin profilu/dań
@@ -34,6 +36,16 @@ model Restaurant {
   menuItems          MenuItem[]
   subscriptions      Subscription[]
   payments           Payment[]
+  
+  removalRequestedAt DateTime?
+  staticOfferTitle   String?
+  staticOfferDesc    String?
+  staticOfferPrice   Float?
+  staticOfferImg     String?
+  
+  reviews            Review[]
+  declarations       OwnershipDeclaration[]
+  reports            RestaurantReport[]
 
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
@@ -123,16 +135,22 @@ model DailyDish {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("USER") // "USER", "OWNER" or "ADMIN"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  name                String?
+  role                String   @default("USER") // "USER", "OWNER" or "ADMIN"
+  city                String?
+  commentBanExpiresAt DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  favorites   FavoriteRestaurant[]
-  restaurants Restaurant[]
+  favorites    FavoriteRestaurant[]
+  restaurants  Restaurant[]
+  reviews      Review[]
+  declarations OwnershipDeclaration[]
+  reports      RestaurantReport[]
+  commentReports CommentReport[]
 }
 
 model FavoriteRestaurant {
@@ -151,3 +169,62 @@ model SystemStats {
   id    String @id @default("global")
   views Int    @default(0)
 }
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  level     String   // INFO, WARN, ERROR
+  message   String
+  context   String?  // Dodatkowe dane w formacie tekstowym/JSON
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id           String          @id @default(uuid())
+  rating       Int             // Skala 1 do 5
+  comment      String          // Wymagany tekst komentarza
+  userId       String
+  restaurantId String
+  isHidden     Boolean         @default(false) // Dla celów automatycznego ukrywania przy zgłoszeniach
+  createdAt    DateTime        @default(now())
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reports      CommentReport[]
+
+  @@unique([userId, restaurantId]) // Blokada wielu opinii od jednej osoby
+}
+
+model OwnershipDeclaration {
+  id            String     @id @default(uuid())
+  userId        String
+  restaurantId  String?
+  nip           String?    // Opcjonalny NIP firmy
+  ownerPhone    String     // Telefon kontaktowy właściciela
+  representsSelf Boolean    @default(true) // Oświadczenie o uprawnieniu
+  acceptedTerms Boolean    @default(true) // Akceptacja regulaminu
+  createdAt     DateTime   @default(now())
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+}
+
+model RestaurantReport {
+  id           String     @id @default(uuid())
+  restaurantId String
+  userId       String?
+  reason       String     // INCORRECT_DATA, SCAM, IMPERSONATION, OTHER
+  details      String?    // Szczegóły zgłoszenia
+  resolved     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model CommentReport {
+  id        String   @id @default(uuid())
+  reviewId  String
+  userId    String?
+  reason    String   // VULGAR, UNTRUTHFUL, TOS_VIOLATION, RIGHTS_VIOLATION
+  createdAt DateTime @default(now())
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+

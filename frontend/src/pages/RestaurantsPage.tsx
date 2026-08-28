@@ -245,7 +245,7 @@ export default function RestaurantsPage() {
 												onClick={e => {
 													e.preventDefault()
 													e.stopPropagation()
-													window.open(restaurant.facebookUrl, '_blank', 'noopener,noreferrer')
+													window.open(restaurant.facebookUrl as string, '_blank', 'noopener,noreferrer')
 												}}
 												className='px-3 py-2 border border-stone-200 text-stone-600 hover:border-black hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-white'>
 												Facebook

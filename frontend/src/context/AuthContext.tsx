@@ -5,6 +5,7 @@ export interface User {
 	email: string
 	name: string | null
 	role: string
+	city: string | null
 }
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
 	loading: boolean
 	login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
 	register: (email: string, password: string, name?: string, accountType?: string) => Promise<{ success: boolean; message?: string }>
+	verifyRegister: (email: string, code: string) => Promise<{ success: boolean; message?: string }>
 	logout: () => void
 	toggleFavorite: (restaurantId: string) => Promise<boolean>
 	isFavorite: (restaurantId: string) => boolean
@@ -123,12 +125,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				return { success: false, message: data.message || 'Błąd rejestracji' }
 			}
 
+			return { success: true, message: data.message }
+		} catch (error) {
+			console.error('Rejestracja error:', error)
+			return { success: false, message: 'Nie udało się połączyć z serwerem.' }
+		}
+	}
+
+	const verifyRegister = async (email: string, code: string) => {
+		try {
+			const res = await fetch(`${API_URL}/auth/register/verify`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email, code }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				return { success: false, message: data.message || 'Błąd weryfikacji' }
+			}
+
 			localStorage.setItem('dd_token', data.token)
 			setToken(data.token)
 			setUser(data.user)
 			return { success: true }
 		} catch (error) {
-			console.error('Rejestracja error:', error)
+			console.error('Weryfikacja error:', error)
 			return { success: false, message: 'Nie udało się połączyć z serwerem.' }
 		}
 	}
@@ -173,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		loading,
 		login,
 		register,
+		verifyRegister,
 		logout: handleLogout,
 		toggleFavorite,
 		isFavorite,

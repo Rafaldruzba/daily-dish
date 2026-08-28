@@ -1,6 +1,6 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
-import { authenticate, type AuthRequest } from '../middleware/auth.js'
+import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import Stripe from 'stripe'
 import redisClient from '../lib/redis.js'
 
@@ -99,11 +99,12 @@ router.post('/subscribe', authenticate, async (req: AuthRequest, res: Response) 
 				})
 		}
 
-		// 2. If Stripe is NOT configured, run in Mock Mode for seamless localhost testing
+		// 2. If Stripe is NOT configured, fail
 		if (!stripe) {
-			console.log(`🤖 [LOCAL MOCK] Generowanie linku płatności (MOCK) dla: ${restaurant.name} (${planName})`)
-			const mockCheckoutUrl = `${FRONTEND_URL}/for-restaurants?mock_checkout=true&restaurantId=${restaurantId}&planId=${planId}&amount=${amount}`
-			return res.json({ success: true, url: mockCheckoutUrl, isMock: true })
+			return res.status(500).json({
+				success: false,
+				message: 'Bramka płatnicza Stripe nie została skonfigurowana. Skontaktuj się z administratorem.',
+			})
 		}
 
 		// 3. Create real Stripe Checkout Session for subscription
@@ -313,89 +314,6 @@ router.post('/webhook', async (req: Request, res: Response) => {
 	}
 })
 
-// Mock Confirmation Endpoint (dev only, to process simulated payments)
-router.post('/confirm-mock', authenticate, async (req: AuthRequest, res: Response) => {
-	if (process.env.NODE_ENV === 'production') {
-		return res.status(403).json({ success: false, message: 'Forbidden' })
-	}
-
-	const { restaurantId, planId, amount } = req.body
-	const user = req.user
-
-	if (!user || !restaurantId || !planId) {
-		return res.status(400).json({ success: false, message: 'Brakujące dane' })
-	}
-
-	try {
-		const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
-		if (!restaurant || restaurant.userId !== user.id) {
-			return res.status(403).json({ success: false, message: 'Forbidden' })
-		}
-
-		const { type, startsAt, endsAt } = getSubscriptionDetails(planId)
-
-		// 1. Create mock payment record
-		await prisma.payment.create({
-			data: {
-				restaurantId,
-				amount: Number(amount || 0),
-				currency: 'PLN',
-				status: 'SUCCEEDED',
-				provider: 'MOCK',
-				providerPaymentId: `mock_${Date.now()}`,
-			},
-		})
-
-		// 2. Create a new subscription record
-		await prisma.subscription.create({
-			data: {
-				restaurantId,
-				type,
-				startsAt,
-				endsAt,
-				status: 'ACTIVE',
-			},
-		})
-
-		// If transitioning to BASE plan, cancel any active FREE_TRIAL subscriptions
-		if (type === 'BASE') {
-			await prisma.subscription.updateMany({
-				where: {
-					restaurantId,
-					type: 'FREE_TRIAL',
-					status: 'ACTIVE',
-				},
-				data: {
-					status: 'CANCELLED',
-					endsAt: new Date(),
-				},
-			})
-
-			await prisma.restaurant.update({
-				where: { id: restaurantId },
-				data: { isActive: true },
-			})
-		}
-
-		// 4. Invalidate Redis cache for any subscription type
-		const updatedRestaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } })
-		if (updatedRestaurant && redisClient.isOpen) {
-			try {
-				await redisClient.del(`restaurants:${updatedRestaurant.city}`)
-				await redisClient.del('restaurants:all')
-				console.log(`🧹 [Redis] Cache invalidated for city: ${updatedRestaurant.city}`)
-			} catch (err) {
-				console.error('[Redis] Cache invalidation error:', err)
-			}
-		}
-
-		res.json({ success: true, message: 'Mock payment approved successfully' })
-	} catch (error) {
-		console.error('Error confirming mock payment:', error)
-		res.status(500).json({ success: false, message: 'Internal server error' })
-	}
-})
-
 // Get Payment History for a restaurant
 router.get('/history/:restaurantId', authenticate, async (req: AuthRequest, res: Response) => {
 	const { restaurantId } = req.params as { restaurantId: string }
@@ -419,6 +337,27 @@ router.get('/history/:restaurantId', authenticate, async (req: AuthRequest, res:
 		res.json(payments)
 	} catch (error) {
 		console.error('Error fetching payment history:', error)
+		res.status(500).json({ success: false, message: 'Nie udało się pobrać historii płatności' })
+	}
+})
+
+// GET /api/payments/admin/all
+// Pobiera historię wszystkich płatności w systemie (tylko Admin)
+router.get('/admin/all', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		const payments = await prisma.payment.findMany({
+			include: {
+				restaurant: {
+					select: {
+						name: true,
+					},
+				},
+			},
+			orderBy: { createdAt: 'desc' },
+		})
+		res.json(payments)
+	} catch (error) {
+		console.error('Error fetching all payments for admin:', error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać historii płatności' })
 	}
 })

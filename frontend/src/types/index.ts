@@ -65,6 +65,7 @@ export interface Restaurant {
 	isPromoted?: boolean
 	subscription?: Subscription | null
 	subscriptions?: RawSubscription[]
+	user?: { name: string | null; email: string } | null
 }
 
 export interface RestaurantDetail extends Restaurant {

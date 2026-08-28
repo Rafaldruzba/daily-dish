@@ -96,7 +96,7 @@ function Navigation() {
 					}>
 					<span className='flex items-center gap-1.5'>
 						<Building className='w-3.5 h-3.5' />
-						{user?.role === 'ADMIN' ? 'ADMIN' : user?.role === 'OWNER' ? 'PANEL' : 'DLA RESTAURACJI'}
+						{user ? 'PROFIL' : 'DLA RESTAURACJI'}
 					</span>
 				</NavLink>
 
@@ -186,7 +186,7 @@ function Navigation() {
 								`py-2 flex items-center gap-2 ${isActive ? 'text-black font-bold' : 'text-stone-500'}`
 							}>
 							<Building className='w-4 h-4' />
-							{user?.role === 'ADMIN' ? 'ADMIN' : user?.role === 'OWNER' ? 'PANEL' : 'DLA RESTAURACJI'}
+							{user ? 'PROFIL' : 'DLA RESTAURACJI'}
 						</NavLink>
 					</div>
 

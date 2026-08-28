@@ -1,10 +1,5 @@
-import { ApifyClient } from 'apify-client'
-import { GREETING_PATTERNS } from '../data/words.js'
-import { MOCK_DISHES } from '../data/mockDishes.js'
-
-const client = new ApifyClient({
-	token: process.env.APIFY_API_TOKEN,
-})
+import axios from 'axios'
+import logger from './logger.service.js'
 
 export interface FacebookDishResult {
 	name: string
@@ -16,160 +11,46 @@ export interface FacebookDishResult {
 	publishedAt?: Date
 }
 
-const DISH_KEYWORDS = [
-	'danie dnia',
-	'lunch',
-	'zestaw',
-	'menu',
-	'dzisiaj',
-	'dziś',
-	'dzis',
-	'polecamy',
-	'zupa',
-	'drugie danie',
-	'dzień dobry',
-	'poniedziałek',
-	'wtorek',
-	'środa',
-	'czwartek',
-	'piątek',
-	'sobota',
-	'niedziela',
-	'obiad',
-	'propozycja',
-]
+const SCRAPPER_URL = process.env.SCRAPPER_URL || 'http://localhost:3001'
 
-// Zwroty, które należy zignorować przy ustalaniu NAZWY dania
-// const GREETING_PATTERNS = ['dzień dobry', 'witajcie', 'cześć', 'hej', 'witam', 'smacznego', 'zapraszamy', 'Danie dnia', 'Danie dnia!', 'Polecamy', 'Dziś polecamy', 'Dzisiaj polecamy']
-
+/**
+ * Deleguje zadanie pobrania menu dnia dla restauracji do zewnętrznego microserwisu skrapującego.
+ */
 export async function fetchRestaurantDish(restaurant: {
 	id: string
 	name: string
 	facebookUrl: string | null
 }): Promise<FacebookDishResult | null> {
-	if (process.env.NODE_ENV !== 'production') {
-		console.log(`🤖 [LOCAL MOCK] Zwracam statyczne dane testowe dla: ${restaurant.name}`)
-		const mockDish = MOCK_DISHES[restaurant.id]
-		if (mockDish) {
-			return {
-				name: mockDish.name,
-				description: mockDish.description,
-				price: mockDish.price,
-				imageUrl: mockDish.imageUrl,
-				sourceUrl: mockDish.sourceUrl,
-				sourcePostId: mockDish.sourcePostId,
-				publishedAt: new Date(),
-			}
-		}
-
-		// Fallback dla dowolnych innych restauracji dodanych lokalnie
-		return {
-			name: `Przykładowe Danie Dnia w ${restaurant.name}`,
-			description: 'To jest automatycznie wygenerowany lokalny opis dania dnia dla celów testowych (brak dopasowania ID w mockDishes.ts).',
-			price: 29.90,
-			imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
-			sourceUrl: restaurant.facebookUrl || 'https://facebook.com',
-			sourcePostId: 'mock_post_id',
-			publishedAt: new Date(),
-		}
-	}
-
 	if (!restaurant.facebookUrl) {
 		console.log(`⚠️ ${restaurant.name}: brak adresu Facebook`)
 		return null
 	}
 
-	console.log(`🔎 Sprawdzam Facebook restauracji: ${restaurant.name}`)
+	console.log(`🔎 [Main Backend] Delegowanie skrapowania dla: ${restaurant.name} do mikrousługi scrapper...`)
 
 	try {
-		const run = await client.actor('apify/facebook-posts-scraper').call({
-			startUrls: [{ url: restaurant.facebookUrl }],
-			resultsLimit: 5,
-		})
+		const response = await axios.post(`${SCRAPPER_URL}/api/scrape`, {
+			name: restaurant.name,
+			facebookUrl: restaurant.facebookUrl,
+		}, { timeout: 45000 }) // 45 sekund timeoutu ze względu na czas uruchamiania przeglądarki
 
-		const { items } = await client.dataset(run.defaultDatasetId).listItems()
-
-		if (!items || items.length === 0) {
-			console.log(`❌ Nie znaleziono postów dla: ${restaurant.name}`)
+		if (response.data && response.data.success) {
+			const { dish } = response.data
+			await logger.info(`Pomyślnie pobrano i zapisano danie dnia dla ${restaurant.name} z mikrousługi scrapper.`)
+			return {
+				name: dish.name,
+				description: dish.description,
+				imageUrl: dish.imageUrl,
+				sourceUrl: dish.sourceUrl,
+				sourcePostId: dish.sourcePostId,
+				publishedAt: dish.publishedAt ? new Date(dish.publishedAt) : new Date(),
+			}
+		} else {
+			console.warn(`⚠️ Mikrousługa scrapper nie znalazła dań dla ${restaurant.name}: ${response.data.message || 'Brak dopasowania'}`)
 			return null
 		}
-
-		const todayStr = new Date().toLocaleDateString('sv-SE')
-
-		// 1. Szukamy posta z dzisiaj ze słowami kluczowymi
-		let todayPost = items.find((post: any) => {
-			const rawText = (post.text || post.message || post.postText || '').toLowerCase()
-			const postDateRaw = post.time || post.timestamp || post.date
-			const postDateStr = postDateRaw ? new Date(postDateRaw).toLocaleDateString('sv-SE') : null
-
-			return postDateStr === todayStr && DISH_KEYWORDS.some(keyword => rawText.includes(keyword))
-		}) as Record<string, any> | undefined
-
-		// 2. Fallback: jakikolwiek dzisiejszy post
-		if (!todayPost) {
-			todayPost = items.find((post: any) => {
-				const postDateRaw = post.time || post.timestamp || post.date
-				const postDateStr = postDateRaw ? new Date(postDateRaw).toLocaleDateString('sv-SE') : null
-				return postDateStr === todayStr
-			}) as Record<string, any> | undefined
-		}
-
-		if (!todayPost) {
-			console.log(`ℹ️ Brak dzisiejszego posta dla: ${restaurant.name}`)
-			return null
-		}
-
-		const postText: string = todayPost.text || todayPost.message || todayPost.postText || ''
-		const textLines = postText
-			.split('\n')
-			.map(line => line.trim())
-			.filter(line => line.length > 0)
-
-		// Odcedzamy nagłówki/powitania (np. "Dzień dobry! 😊"), aby nie stały się nazwą dania
-		const dishLines = textLines.filter(line => {
-			const lowerLine = line.toLowerCase()
-			const isGreeting = GREETING_PATTERNS.some(g => lowerLine.startsWith(g) && lowerLine.length < 35)
-			return !isGreeting
-		})
-
-		// Nazwa to pierwsza linia PO powitaniu (lub pierwsza linia posta, jeśli filtr usunąłby wszystko)
-		const parsedName = (dishLines[0] || textLines[0] || 'Danie Dnia').substring(0, 255)
-
-		// Opis to wszystkie pozostałe linie
-		const remainingLines = textLines.filter(line => line !== parsedName)
-		const parsedDescription = remainingLines.length > 0 ? remainingLines.join('\n') : undefined
-
-		// Szukanie ceny (np. "35 zł", "35PLN", "35,00 zł")
-		const priceMatch = postText.match(/(\d+[\.,]?\d*)\s*(zł|zl|pln)/i)
-		const parsedPrice = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : undefined
-
-		const rawImageUrl =
-			todayPost.mediaUrl ||
-			todayPost.imageUrl ||
-			(Array.isArray(todayPost.images) && todayPost.images[0]) ||
-			(Array.isArray(todayPost.media) && todayPost.media[0]?.url) ||
-			(Array.isArray(todayPost.media) && todayPost.media[0]?.photoUrl) ||
-			(Array.isArray(todayPost.attachedMedia) && todayPost.attachedMedia[0]?.photoUrl) ||
-			(Array.isArray(todayPost.attachments) && todayPost.attachments[0]?.media?.image?.src) ||
-			undefined
-
-		// Walidacja: odrzucamy linki będące podstronami HTML Facebooka (np. /photo/, /permalink), które przeglądarka blokuje polityką CORS (ERR_BLOCKED_BY_RESPONSE)
-		// Dopuszczamy wyłącznie bezpośrednie adresy CDN do plików graficznych (np. fbcdn.net, scontent)
-		const imageUrl = (rawImageUrl && typeof rawImageUrl === 'string' && !rawImageUrl.includes('facebook.com/') && !rawImageUrl.includes('/photo') && !rawImageUrl.includes('/permalink'))
-			? rawImageUrl
-			: undefined
-
-		return {
-			name: parsedName,
-			description: parsedDescription,
-			price: parsedPrice,
-			imageUrl: imageUrl,
-			sourceUrl: todayPost.url || restaurant.facebookUrl,
-			sourcePostId: todayPost.id || todayPost.postId || undefined,
-			publishedAt: todayPost.time ? new Date(todayPost.time) : new Date(),
-		}
-	} catch (error) {
-		console.error(`❌ Błąd podczas skrapowania ${restaurant.name}:`, error)
+	} catch (error: any) {
+		await logger.error(`Błąd delegacji skrapowania dla ${restaurant.name} do mikrousługi:`, error.message || error)
 		return null
 	}
 }

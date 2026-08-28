@@ -3,14 +3,17 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import prisma from '../lib/prisma.js'
 import { authenticate, type AuthRequest } from '../middleware/auth.js'
+import redisClient from '../lib/redis.js'
+import { sendVerificationCode } from '../services/email.service.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-daily-dish-key'
 
 // POST /api/auth/register
+// Generuje i wysyła kod weryfikacyjny (OTP) na maila
 router.post('/register', async (req, res) => {
 	try {
-		const { email, password, name, accountType } = req.body
+		const { email, password, name, accountType, city, nip, ownerPhone, representsSelf, acceptedTerms } = req.body
 
 		if (!email || !password) {
 			return res.status(400).json({
@@ -26,6 +29,28 @@ router.post('/register', async (req, res) => {
 			})
 		}
 
+		if (!acceptedTerms) {
+			return res.status(400).json({
+				success: false,
+				message: 'Musisz zaakceptować regulamin serwisu.',
+			})
+		}
+
+		if (accountType === 'OWNER') {
+			if (!ownerPhone) {
+				return res.status(400).json({
+					success: false,
+					message: 'Numer telefonu jest wymagany dla konta restauracji.',
+				})
+			}
+			if (!representsSelf) {
+				return res.status(400).json({
+					success: false,
+					message: 'Musisz potwierdzić, że jesteś właścicielem lub posiadasz uprawnienia do reprezentacji lokalu.',
+				})
+			}
+		}
+
 		const existingUser = await prisma.user.findUnique({
 			where: { email: email.toLowerCase().trim() },
 		})
@@ -37,29 +62,149 @@ router.post('/register', async (req, res) => {
 			})
 		}
 
-		const hashedPassword = await bcrypt.hash(password, 10)
+		// Generowanie 6-cyfrowego kodu weryfikacyjnego
+		const code = Math.floor(100000 + Math.random() * 900000).toString()
+
+		// Zapisanie danych tymczasowych w Redis na 15 minut (TTL 900 sekund)
+		if (redisClient.isOpen) {
+			const pendingData = {
+				email: email.toLowerCase().trim(),
+				password, // Haszowanie nastąpi dopiero przy zatwierdzeniu weryfikacji
+				name: name?.trim() || null,
+				accountType,
+				city: city?.trim() || null,
+				nip: nip?.trim() || null,
+				ownerPhone: ownerPhone?.trim() || null,
+				representsSelf: !!representsSelf,
+				acceptedTerms: !!acceptedTerms,
+				code,
+			}
+			await redisClient.set(`pending_register:${email.toLowerCase().trim()}`, JSON.stringify(pendingData), {
+				EX: 900,
+			})
+		} else {
+			return res.status(500).json({
+				success: false,
+				message: 'Usługa weryfikacji jest tymczasowo niedostępna (Redis błąd).',
+			})
+		}
+
+		// Wysłanie e-maila z kodem weryfikacyjnym
+		const mailSent = await sendVerificationCode(email.toLowerCase().trim(), code)
+		if (!mailSent) {
+			return res.status(500).json({
+				success: false,
+				message: 'Nie udało się wysłać kodu weryfikacyjnego na podany adres e-mail.',
+			})
+		}
+
+		res.status(200).json({
+			success: true,
+			message: 'Kod weryfikacyjny został wysłany na podany e-mail. Wpisz go, aby dokończyć rejestrację.',
+		})
+	} catch (error) {
+		console.error('Błąd żądania rejestracji:', error)
+		res.status(500).json({
+			success: false,
+			message: 'Wystąpił błąd podczas żądania rejestracji.',
+		})
+	}
+})
+
+// POST /api/auth/register/verify
+// Odbiera kod, sprawdza go w Redis, tworzy konto użytkownika i loguje (JWT)
+router.post('/register/verify', async (req, res) => {
+	try {
+		const { email, code } = req.body
+
+		if (!email || !code) {
+			return res.status(400).json({
+				success: false,
+				message: 'Email oraz kod są wymagane.',
+			})
+		}
+
+		const cacheKey = `pending_register:${email.toLowerCase().trim()}`
+		if (!redisClient.isOpen) {
+			return res.status(500).json({
+				success: false,
+				message: 'Serwer weryfikacji nie odpowiada.',
+			})
+		}
+
+		const cachedData = await redisClient.get(cacheKey)
+		if (!cachedData) {
+			return res.status(400).json({
+				success: false,
+				message: 'Kod weryfikacyjny wygasł lub nie został wygenerowany. Poproś o nowy kod rejestracyjny.',
+			})
+		}
+
+		const pendingUser = JSON.parse(cachedData)
+
+		if (pendingUser.code !== code.trim()) {
+			return res.status(400).json({
+				success: false,
+				message: 'Podany kod weryfikacyjny jest nieprawidłowy.',
+			})
+		}
+
+		// Kod jest poprawny! Tworzymy użytkownika w bazie danych.
+		const existingUser = await prisma.user.findUnique({
+			where: { email: pendingUser.email },
+		})
+
+		if (existingUser) {
+			return res.status(409).json({
+				success: false,
+				message: 'Konto o tym adresie email zostało już utworzone w międzyczasie.',
+			})
+		}
+
+		const hashedPassword = await bcrypt.hash(pendingUser.password, 10)
 
 		// Sprawdzamy czy to pierwszy użytkownik lub ma email admina
 		const userCount = await prisma.user.count()
 		const isFirstUser = userCount === 0
 		const isAdminEmail =
-			email.toLowerCase().trim() === 'admin@dailydish.com' || email.toLowerCase().trim().startsWith('admin@')
+			pendingUser.email === 'admin@dailydish.com' || pendingUser.email.startsWith('admin@')
 
 		let role = 'USER'
 		if (isFirstUser || isAdminEmail) {
 			role = 'ADMIN'
-		} else if (accountType === 'OWNER') {
+		} else if (pendingUser.accountType === 'OWNER') {
 			role = 'OWNER'
 		}
 
-		const user = await prisma.user.create({
-			data: {
-				email: email.toLowerCase().trim(),
-				password: hashedPassword,
-				name: name?.trim() || null,
-				role,
-			},
+		// Tworzymy użytkownika oraz oświadczenie własności w transakcji
+		const user = await prisma.$transaction(async (tx) => {
+			const u = await tx.user.create({
+				data: {
+					email: pendingUser.email,
+					password: hashedPassword,
+					name: pendingUser.name,
+					role,
+					city: pendingUser.city,
+				},
+			})
+
+			if (role === 'OWNER') {
+				await tx.ownershipDeclaration.create({
+					data: {
+						userId: u.id,
+						nip: pendingUser.nip,
+						ownerPhone: pendingUser.ownerPhone || '',
+						representsSelf: pendingUser.representsSelf,
+						acceptedTerms: pendingUser.acceptedTerms,
+					},
+				})
+			}
+
+			return u
 		})
+
+		// Usuwamy dane z Redis po udanej rejestracji
+		await redisClient.del(cacheKey)
 
 		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
 
@@ -74,10 +219,10 @@ router.post('/register', async (req, res) => {
 			},
 		})
 	} catch (error) {
-		console.error('Błąd rejestracji:', error)
+		console.error('Błąd weryfikacji kodu rejestracji:', error)
 		res.status(500).json({
 			success: false,
-			message: 'Wystąpił błąd podczas rejestracji.',
+			message: 'Wystąpił błąd podczas weryfikacji konta.',
 		})
 	}
 })
@@ -112,6 +257,19 @@ router.post('/login', async (req, res) => {
 				success: false,
 				message: 'Nieprawidłowy email lub hasło.',
 			})
+		}
+
+		if (user.role === 'OWNER') {
+			const ownedRestaurants = await prisma.restaurant.findMany({
+				where: { userId: user.id }
+			})
+			const allInRemoval = ownedRestaurants.length > 0 && ownedRestaurants.every(r => r.status === 'REMOVAL')
+			if (allInRemoval) {
+				return res.status(403).json({
+					success: false,
+					message: 'Twoje konto jest w trakcie usuwania (okres karencji 3 miesięcy). Skontaktuj się z administratorem, jeśli chcesz cofnąć tę decyzję.'
+				})
+			}
 		}
 
 		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
@@ -173,6 +331,117 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 			success: false,
 			message: 'Wystąpił błąd podczas pobierania danych użytkownika.',
 		})
+	}
+})
+
+// PUT /api/auth/me
+// Aktualizuje profil zalogowanego użytkownika (imię, miejscowość)
+router.put('/me', authenticate, async (req: AuthRequest, res: Response) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ success: false, message: 'Nieuwierzytelniony.' })
+		}
+
+		const { name, city } = req.body
+
+		const updatedUser = await prisma.user.update({
+			where: { id: req.user.id },
+			data: {
+				name: name?.trim() || null,
+				city: city?.trim() || null,
+			},
+			select: {
+				id: true,
+				email: true,
+				name: true,
+				role: true,
+				city: true,
+			},
+		})
+
+		res.json({
+			success: true,
+			message: 'Profil został pomyślnie zaktualizowany.',
+			user: updatedUser,
+		})
+	} catch (error) {
+		console.error('Error updating user profile:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas aktualizacji profilu.' })
+	}
+})
+
+// DELETE /api/auth/me
+// Usuwanie własnego konta (USER: natychmiast, OWNER: zmiana statusu na REMOVAL na 3 miesiące)
+router.delete('/me', authenticate, async (req: AuthRequest, res: Response) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ success: false, message: 'Nieuwierzytelniony.' })
+		}
+
+		const userId = req.user.id
+		const userRole = req.user.role
+
+		if (userRole === 'OWNER') {
+			// Właściciel: Ustawiamy status REMOVAL i datę karencji na 3 miesiące
+			const now = new Date()
+
+			await prisma.$transaction([
+				// 1. Zmiana statusu wszystkich restauracji właściciela na REMOVAL
+				prisma.restaurant.updateMany({
+					where: { userId },
+					data: {
+						status: 'REMOVAL',
+						removalRequestedAt: now,
+						isActive: false, // Wstrzymujemy automatyczne pobieranie dań dnia
+					},
+				}),
+				// 2. Anulowanie/wygaśnięcie wszystkich subskrypcji właściciela
+				prisma.subscription.updateMany({
+					where: {
+						restaurant: { userId },
+						status: 'ACTIVE',
+					},
+					data: {
+						status: 'CANCELLED',
+					},
+				}),
+			])
+
+			// Czyścimy Redis cache dla wszystkich miast powiązanych z lokalami tego właściciela
+			try {
+				const ownedRestaurants = await prisma.restaurant.findMany({
+					where: { userId },
+					select: { city: true },
+				})
+				if (redisClient.isOpen) {
+					const cities = [...new Set(ownedRestaurants.map(r => r.city))]
+					for (const city of cities) {
+						await redisClient.del(`restaurants:${city}`)
+					}
+					await redisClient.del('restaurants:all')
+				}
+			} catch (err) {
+				console.error('Error invalidating Redis cache during deletion:', err)
+			}
+
+			res.json({
+				success: true,
+				message: 'Twoje lokale zostały zawieszone i ukryte, a konto zostało oznaczone do usunięcia. Okres karencji wynosi 3 miesiące, w ciągu których możesz odwołać tę operację kontaktując się z nami.',
+			})
+		} else {
+			// Zwykły użytkownik: Natychmiastowe usunięcie kaskadowe
+			await prisma.user.delete({
+				where: { id: userId },
+			})
+
+			res.json({
+				success: true,
+				message: 'Twoje konto zostało bezpowrotnie usunięte z systemu BistroMapa. Dziękujemy za wspólny czas!',
+			})
+		}
+	} catch (error) {
+		console.error('Error deleting account:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas usuwania konta.' })
 	}
 })
 

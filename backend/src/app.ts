@@ -7,6 +7,9 @@ import authRouter from './routes/auth.js'
 import statsRouter from './routes/stats.js'
 import offersRouter from './routes/offers.js'
 import paymentsRouter from './routes/payments.js'
+import logsRouter from './routes/logs.js'
+import reviewsRouter from './routes/reviews.js'
+import reportsRouter from './routes/reports.js'
 
 const app = express()
 
@@ -60,5 +63,8 @@ app.use('/api/auth', authRouter)
 app.use('/api/stats', statsRouter)
 app.use('/api/offers', offersRouter)
 app.use('/api/payments', paymentsRouter)
+app.use('/api/logs', logsRouter)
+app.use('/api/reviews', reviewsRouter)
+app.use('/api/reports', reportsRouter)
 
 export default app
