@@ -16,10 +16,10 @@ export const Preloader: React.FC = () => {
 		<div className='fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4'>
 			<div className='w-full max-w-md text-center'>
 				{/* Logo */}
-				<img src='/favicon.svg' alt='Daily Dish Logo' className='w-16 h-16 mx-auto mb-4' />
+				<img src='/favicon.svg' alt='Bistro Mapa Logo' className='w-16 h-16 mx-auto mb-4' />
 
 				{/* Title */}
-				<h1 className='text-4xl font-black font-serif tracking-tight text-stone-900 mb-2'>Witaj w Daily Dish!</h1>
+				<h1 className='text-4xl font-black font-serif tracking-tight text-stone-900 mb-2'>Witaj w BistroMapa!</h1>
 				<p className='text-stone-500 mb-8'>Zanim zaczniemy, powiedz nam, gdzie szukasz jedzenia.</p>
 
 				{/* City Input */}

@@ -53,7 +53,7 @@ app.use(
 app.get('/api/health', (_req, res) => {
 	res.json({
 		success: true,
-		message: 'Daily Dish API działa!',
+		message: 'BISTRO MAPA API działa!',
 	})
 })
 

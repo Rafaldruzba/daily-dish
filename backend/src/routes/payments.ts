@@ -37,7 +37,7 @@ const getSubscriptionDetails = (
 			type = 'BASE'
 			planName = 'Abonament za restaurację'
 			planDescription = 'Standardowy FB bot scraper pobierający Twoje codzienne dania dnia.'
-			amount = 100
+			amount = 99
 			endsAt.setDate(startsAt.getDate() + 30)
 			break
 		case 'PROMOTION':

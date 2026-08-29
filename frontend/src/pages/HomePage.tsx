@@ -332,8 +332,7 @@ export default function HomePage() {
 												}
 												navigate(`/restaurants/${dish.restaurant.slug}`)
 											}}
-											className='cursor-pointer p-6 flex flex-col flex-grow justify-between relative'
-										>
+											className='cursor-pointer p-6 flex flex-col flex-grow justify-between relative'>
 											<div className='space-y-3'>
 												{/* Restaurant details */}
 												<div className='flex items-center justify-between gap-2 border-b border-stone-100 pb-2'>
@@ -354,7 +353,7 @@ export default function HomePage() {
 														{/* Inline heart button if no image is rendered */}
 														{!dish.imageUrl && user && (
 															<button
-																onClick={(e) => {
+																onClick={e => {
 																	e.preventDefault()
 																	e.stopPropagation()
 																	toggleFavorite(dish.restaurant.id)
@@ -395,7 +394,7 @@ export default function HomePage() {
 													{dish.restaurant.phone && (
 														<a
 															href={`tel:${dish.restaurant.phone}`}
-															onClick={(e) => e.stopPropagation()}
+															onClick={e => e.stopPropagation()}
 															className='text-stone-500 hover:text-black text-xs font-mono flex items-center gap-1.5 transition-colors'
 															title='Zadzwoń do restauracji'>
 															<Phone className='w-3' />
@@ -409,7 +408,7 @@ export default function HomePage() {
 														href={dish.sourceUrl}
 														target='_blank'
 														rel='noopener noreferrer'
-														onClick={(e) => {
+														onClick={e => {
 															e.stopPropagation()
 															handleRecordView(dish.restaurant.id)
 														}}
@@ -485,7 +484,7 @@ export default function HomePage() {
 			<section className='bg-stone-50 border border-stone-200 p-6 md:p-8 flex flex-col md:flex-row items-start gap-4'>
 				<Info className='w-6 h-6 text-stone-600 shrink-0 mt-0.5' />
 				<div>
-					<h4 className='font-bold text-sm font-serif text-stone-900 mb-1'>O serwisie Daily Dish</h4>
+					<h4 className='font-bold text-sm font-serif text-stone-900 mb-1'>O serwisie BistroMapa</h4>
 					<p className='text-stone-500 text-xs leading-relaxed'>
 						Nasz inteligentny system sprawdza posty wiodących restauracji na Facebooku, analizując treść w poszukiwaniu
 						dzisiejszych propozycji obiadowych i dań dnia. Oferty są aktualizowane automatycznie. Jeśli prowadzisz

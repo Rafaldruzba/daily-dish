@@ -110,9 +110,9 @@ export default function RestaurantDetailPage() {
 	})
 
 	// New Menu Item Form States
-	const [newMenuItems, setNewMenuItems] = useState<Array<{ name: string; description: string; price: string; category: string }>>([
-		{ name: '', description: '', price: '', category: '' }
-	])
+	const [newMenuItems, setNewMenuItems] = useState<
+		Array<{ name: string; description: string; price: string; category: string }>
+	>([{ name: '', description: '', price: '', category: '' }])
 	const [menuActionLoading, setMenuActionLoading] = useState(false)
 	const [menuError, setMenuError] = useState('')
 	const [menuSuccess, setMenuSuccess] = useState('')
@@ -165,7 +165,8 @@ export default function RestaurantDetailPage() {
 				generalMenu: data.generalMenu || '',
 				staticOfferTitle: data.staticOfferTitle || '',
 				staticOfferDesc: data.staticOfferDesc || '',
-				staticOfferPrice: data.staticOfferPrice !== null && data.staticOfferPrice !== undefined ? String(data.staticOfferPrice) : '',
+				staticOfferPrice:
+					data.staticOfferPrice !== null && data.staticOfferPrice !== undefined ? String(data.staticOfferPrice) : '',
 			})
 
 			// Wczytanie opinii
@@ -218,7 +219,7 @@ export default function RestaurantDetailPage() {
 				},
 				body: JSON.stringify({
 					...editForm,
-					staticOfferPrice: editForm.staticOfferPrice ? parseFloat(editForm.staticOfferPrice) : null
+					staticOfferPrice: editForm.staticOfferPrice ? parseFloat(editForm.staticOfferPrice) : null,
 				}),
 			})
 
@@ -244,10 +245,7 @@ export default function RestaurantDetailPage() {
 
 	// --- 4. Menu Actions ---
 	const handleAddNewRow = () => {
-		setNewMenuItems(prev => [
-			...prev,
-			{ name: '', description: '', price: '', category: '' }
-		])
+		setNewMenuItems(prev => [...prev, { name: '', description: '', price: '', category: '' }])
 	}
 
 	const handleRemoveNewRow = (index: number) => {
@@ -255,12 +253,14 @@ export default function RestaurantDetailPage() {
 	}
 
 	const handleNewRowChange = (index: number, field: string, value: string) => {
-		setNewMenuItems(prev => prev.map((item, i) => {
-			if (i === index) {
-				return { ...item, [field]: value }
-			}
-			return item
-		}))
+		setNewMenuItems(prev =>
+			prev.map((item, i) => {
+				if (i === index) {
+					return { ...item, [field]: value }
+				}
+				return item
+			}),
+		)
 	}
 
 	const handleSaveNewMenuItems = async (e: FormEvent) => {
@@ -445,7 +445,9 @@ export default function RestaurantDetailPage() {
 					!
 				</div>
 				<h1 className='text-2xl font-bold font-serif text-stone-900'>Coś poszło nie tak</h1>
-				<p className='text-stone-500 text-sm max-w-md mx-auto leading-relaxed'>{error || 'Restauracja nie została znaleziona.'}</p>
+				<p className='text-stone-500 text-sm max-w-md mx-auto leading-relaxed'>
+					{error || 'Restauracja nie została znaleziona.'}
+				</p>
 				<Link
 					to='/'
 					className='inline-flex items-center gap-1.5 px-4 py-2 border border-black hover:bg-black hover:text-white transition-colors font-mono text-xs uppercase tracking-widest font-bold cursor-pointer'>
@@ -461,7 +463,9 @@ export default function RestaurantDetailPage() {
 		<main className='max-w-4xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex-grow space-y-10'>
 			{/* Back Link */}
 			<div className='text-left'>
-				<Link to='/' className='inline-flex items-center gap-1.5 text-stone-500 hover:text-black font-mono text-xs uppercase tracking-widest transition-colors font-bold'>
+				<Link
+					to='/'
+					className='inline-flex items-center gap-1.5 text-stone-500 hover:text-black font-mono text-xs uppercase tracking-widest transition-colors font-bold'>
 					<ArrowLeft className='w-4 h-4' /> Powrót do mapy
 				</Link>
 			</div>
@@ -483,7 +487,7 @@ export default function RestaurantDetailPage() {
 					<div>
 						<div className='flex flex-wrap items-center gap-3'>
 							<h1 className='text-3xl font-black font-serif text-stone-900 tracking-tight'>{restaurant.name}</h1>
-							
+
 							{restaurant.rating ? (
 								<span className='inline-flex items-center gap-1 text-sm bg-stone-100 px-3 py-1 font-mono font-bold text-stone-900 shadow-sm'>
 									<Star className='w-3.5 h-3.5 fill-black text-black shrink-0' />
@@ -511,7 +515,10 @@ export default function RestaurantDetailPage() {
 						{restaurant.phone && (
 							<p className='flex items-center gap-2'>
 								<Phone className='w-4 h-4 text-stone-400 shrink-0' />
-								<strong>Telefon:</strong> <a href={`tel:${restaurant.phone}`} className='hover:text-black hover:underline'>{restaurant.phone}</a>
+								<strong>Telefon:</strong>{' '}
+								<a href={`tel:${restaurant.phone}`} className='hover:text-black hover:underline'>
+									{restaurant.phone}
+								</a>
 							</p>
 						)}
 					</div>
@@ -537,10 +544,10 @@ export default function RestaurantDetailPage() {
 					{user && (
 						<button
 							onClick={() => setIsReportingRestaurant(true)}
-							className="p-3 border border-stone-200 hover:border-black hover:bg-stone-50 text-stone-500 hover:text-black transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-							title="Zgłoś błąd w danych lokalu">
-							<Flag className="w-4 h-4 text-red-600 shrink-0" />
-							<span className="text-[10px] font-mono uppercase tracking-wider font-bold">Zgłoś błąd</span>
+							className='p-3 border border-stone-200 hover:border-black hover:bg-stone-50 text-stone-500 hover:text-black transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm'
+							title='Zgłoś błąd w danych lokalu'>
+							<Flag className='w-4 h-4 text-red-600 shrink-0' />
+							<span className='text-[10px] font-mono uppercase tracking-wider font-bold'>Zgłoś błąd</span>
 						</button>
 					)}
 
@@ -600,7 +607,6 @@ export default function RestaurantDetailPage() {
 
 				{/* Tab Content Area */}
 				<div className='pt-2 text-left'>
-					
 					{/* Tab 1: Dishes / Today's Offers */}
 					{activeTab === 'dishes' && (
 						<div className='space-y-6'>
@@ -627,7 +633,9 @@ export default function RestaurantDetailPage() {
 												)}
 											</div>
 											{restaurant.staticOfferDesc && (
-												<p className='text-stone-600 text-xs md:text-sm font-sans leading-relaxed'>{restaurant.staticOfferDesc}</p>
+												<p className='text-stone-600 text-xs md:text-sm font-sans leading-relaxed'>
+													{restaurant.staticOfferDesc}
+												</p>
 											)}
 										</div>
 									</article>
@@ -663,8 +671,7 @@ export default function RestaurantDetailPage() {
 											<div className='mt-4 pt-3 border-t border-stone-50 flex justify-between items-center text-[10px] font-mono text-stone-400 uppercase'>
 												<span className='flex items-center gap-1'>
 													<Clock className='w-3 h-3' />
-													Pobrano:{' '}
-													{new Date(dish.publishedAt).toLocaleDateString('pl-PL')}{' '}
+													Pobrano: {new Date(dish.publishedAt).toLocaleDateString('pl-PL')}{' '}
 													{new Date(dish.publishedAt).toLocaleTimeString('pl-PL', {
 														hour: '2-digit',
 														minute: '2-digit',
@@ -701,7 +708,9 @@ export default function RestaurantDetailPage() {
 									<h3 className='font-serif font-bold text-stone-900 text-base'>Dodaj swoją opinię</h3>
 									<form onSubmit={handleSubmitReview} className='space-y-4 font-sans text-sm'>
 										<div className='flex items-center gap-3'>
-											<label className='font-mono text-xs uppercase tracking-wider font-bold text-stone-600'>Ocena lokalu:</label>
+											<label className='font-mono text-xs uppercase tracking-wider font-bold text-stone-600'>
+												Ocena lokalu:
+											</label>
 											<div className='flex gap-1'>
 												{[1, 2, 3, 4, 5].map(val => (
 													<button
@@ -709,13 +718,17 @@ export default function RestaurantDetailPage() {
 														type='button'
 														onClick={() => setNewRating(val)}
 														className='p-1 hover:scale-110 transition-transform cursor-pointer'>
-														<Star className={`w-6 h-6 ${val <= newRating ? 'fill-black text-black' : 'text-stone-300'}`} />
+														<Star
+															className={`w-6 h-6 ${val <= newRating ? 'fill-black text-black' : 'text-stone-300'}`}
+														/>
 													</button>
 												))}
 											</div>
 										</div>
 										<div className='space-y-1.5'>
-											<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>Twój Komentarz *</label>
+											<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+												Twój Komentarz *
+											</label>
 											<textarea
 												rows={4}
 												value={newComment}
@@ -750,12 +763,18 @@ export default function RestaurantDetailPage() {
 							<div className='space-y-4'>
 								{reviews.length === 0 ? (
 									<div className='py-12 border border-dashed border-stone-200 text-center bg-stone-50 rounded-none'>
-										<p className='text-stone-400 text-xs font-mono uppercase'>Ten lokal nie posiada jeszcze żadnych recenzji.</p>
-										<p className='text-stone-400 text-[10px] font-sans italic mt-1'>Bądź pierwszym, który wystawi komentarz!</p>
+										<p className='text-stone-400 text-xs font-mono uppercase'>
+											Ten lokal nie posiada jeszcze żadnych recenzji.
+										</p>
+										<p className='text-stone-400 text-[10px] font-sans italic mt-1'>
+											Bądź pierwszym, który wystawi komentarz!
+										</p>
 									</div>
 								) : (
 									reviews.map(rev => (
-										<div key={rev.id} className='border border-stone-200 p-5 bg-white space-y-3 shadow-sm relative text-left'>
+										<div
+											key={rev.id}
+											className='border border-stone-200 p-5 bg-white space-y-3 shadow-sm relative text-left'>
 											<div className='flex items-center justify-between border-b border-stone-100 pb-2'>
 												<div>
 													<h4 className='font-serif font-bold text-stone-900 text-sm'>{rev.user?.name || 'Smakosz'}</h4>
@@ -843,84 +862,27 @@ export default function RestaurantDetailPage() {
 								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
 									<BookOpen className='w-3.5 h-3.5' /> Karta Menu Głównego
 								</h2>
-
-								{/* Add menu item form only for Owner */}
-								{isOwner && (
-									<button
-										onClick={() => {
-											setActiveTab('menu')
-											// Focus scroll or open accordion could be handled
-										}}
-										className='px-3 py-1.5 border border-stone-200 hover:border-black font-mono text-[10px] uppercase tracking-wider font-bold transition-all flex items-center gap-1 cursor-pointer bg-white text-stone-900 shadow-sm'>
-										<Plus className='w-3.5 h-3.5' /> Dodaj Pozycje
-									</button>
-								)}
 							</div>
-
-							{menuItems.length === 0 ? (
-								<div className='space-y-6'>
-									{/* Fallback do dawnego pola tekstowego generalMenu, jeśli istnieje, w innym wypadku pustka */}
-									{restaurant.generalMenu ? (
-										<div className='bg-stone-50 border border-stone-200 p-6 font-sans text-stone-600 text-xs md:text-sm leading-relaxed whitespace-pre-line text-left shadow-sm'>
-											{restaurant.generalMenu}
-										</div>
-									) : (
-										<div className='py-12 border border-dashed border-stone-200 text-center bg-stone-50 rounded-none'>
-											<p className='text-stone-400 text-xs font-mono uppercase'>To menu główne lokalu nie posiada jeszcze dodanych pozycji.</p>
-										</div>
-									)}
-								</div>
-							) : (
-								<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-									{menuItems.map(item => (
-										<div
-											key={item.id}
-											className='border border-stone-200 p-5 bg-white space-y-2 hover:border-stone-400 transition-colors shadow-sm flex flex-col justify-between'>
-											<div className='space-y-1'>
-												<div className='flex justify-between items-start gap-4'>
-													<h4 className='font-serif font-bold text-stone-900 text-sm'>{item.name}</h4>
-													{item.price && (
-														<span className='font-mono text-xs font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 shrink-0 shadow-sm'>
-															{Number(item.price).toFixed(2)} zł
-														</span>
-													)}
-												</div>
-												{item.description && (
-													<p className='text-stone-500 text-xs leading-relaxed font-sans'>{item.description}</p>
-												)}
-											</div>
-
-											{item.category && (
-												<div className='pt-2 border-t border-stone-50 flex justify-between items-center text-[9px] font-mono text-stone-400 uppercase tracking-widest'>
-													<span>Kategoria: {item.category}</span>
-													{isOwner && (
-														<button
-															onClick={() => handleDeleteMenuItem(item.id)}
-															disabled={menuActionLoading}
-															className='hover:text-red-600 flex items-center gap-0.5 transition-colors cursor-pointer font-bold uppercase'>
-															<Trash2 className='w-3 h-3' /> Usuń
-														</button>
-													)}
-												</div>
-											)}
-										</div>
-									))}
-								</div>
-							)}
 
 							{/* Formularz dodawania pozycji dla Właściciela / ADMINA */}
 							{isOwner && (
 								<div className='border border-stone-200 p-6 md:p-8 bg-stone-50 space-y-6 shadow-sm mt-10 text-left'>
 									<div className='border-b border-stone-100 pb-3'>
 										<h3 className='font-serif font-bold text-stone-900 text-base'>Dodaj nowe pozycje do Menu</h3>
-										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>Możesz dodać wiele pozycji jednocześnie, wpisując je poniżej.</p>
+										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>
+											Możesz dodać wiele pozycji jednocześnie, wpisując je poniżej.
+										</p>
 									</div>
 
 									<form onSubmit={handleSaveNewMenuItems} className='space-y-4 font-sans text-xs'>
 										{newMenuItems.map((item, index) => (
-											<div key={index} className='p-4 border border-stone-200 bg-white grid grid-cols-1 md:grid-cols-12 gap-3 relative shadow-xs'>
+											<div
+												key={index}
+												className='p-4 border border-stone-200 bg-white grid grid-cols-1 md:grid-cols-12 gap-3 relative shadow-xs'>
 												<div className='md:col-span-4 space-y-1'>
-													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Nazwa Pozycji *</label>
+													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
+														Nazwa Pozycji *
+													</label>
 													<input
 														type='text'
 														value={item.name}
@@ -931,7 +893,9 @@ export default function RestaurantDetailPage() {
 													/>
 												</div>
 												<div className='md:col-span-4 space-y-1'>
-													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Krótki opis pozycji</label>
+													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
+														Krótki opis pozycji
+													</label>
 													<input
 														type='text'
 														value={item.description}
@@ -941,7 +905,9 @@ export default function RestaurantDetailPage() {
 													/>
 												</div>
 												<div className='md:col-span-2 space-y-1'>
-													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Cena (PLN) *</label>
+													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
+														Cena (PLN) *
+													</label>
 													<input
 														type='number'
 														step='0.01'
@@ -953,7 +919,9 @@ export default function RestaurantDetailPage() {
 													/>
 												</div>
 												<div className='md:col-span-2 space-y-1 pr-6'>
-													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Kategoria</label>
+													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
+														Kategoria
+													</label>
 													<input
 														type='text'
 														value={item.category}
@@ -1003,6 +971,59 @@ export default function RestaurantDetailPage() {
 									)}
 								</div>
 							)}
+
+							{menuItems.length === 0 ? (
+								<div className='space-y-6'>
+									{/* Fallback do dawnego pola tekstowego generalMenu, jeśli istnieje, w innym wypadku pustka */}
+									{restaurant.generalMenu ? (
+										<div className='bg-stone-50 border border-stone-200 p-6 font-sans text-stone-600 text-xs md:text-sm leading-relaxed whitespace-pre-line text-left shadow-sm'>
+											{restaurant.generalMenu}
+										</div>
+									) : (
+										<div className='py-12 border border-dashed border-stone-200 text-center bg-stone-50 rounded-none'>
+											<p className='text-stone-400 text-xs font-mono uppercase'>
+												To menu główne lokalu nie posiada jeszcze dodanych pozycji.
+											</p>
+										</div>
+									)}
+								</div>
+							) : (
+								<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+									{menuItems.map(item => (
+										<div
+											key={item.id}
+											className='border border-stone-200 p-5 bg-white space-y-2 hover:border-stone-400 transition-colors shadow-sm flex flex-col justify-between'>
+											<div className='space-y-1'>
+												<div className='flex justify-between items-start gap-4'>
+													<h4 className='font-serif font-bold text-stone-900 text-sm'>{item.name}</h4>
+													{item.price && (
+														<span className='font-mono text-xs font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 shrink-0 shadow-sm'>
+															{Number(item.price).toFixed(2)} zł
+														</span>
+													)}
+												</div>
+												{item.description && (
+													<p className='text-stone-500 text-xs leading-relaxed font-sans'>{item.description}</p>
+												)}
+											</div>
+
+											{item.category && (
+												<div className='pt-2 border-t border-stone-50 flex justify-between items-center text-[9px] font-mono text-stone-400 uppercase tracking-widest'>
+													<span>Kategoria: {item.category}</span>
+													{isOwner && (
+														<button
+															onClick={() => handleDeleteMenuItem(item.id)}
+															disabled={menuActionLoading}
+															className='hover:text-red-600 flex items-center gap-0.5 transition-colors cursor-pointer font-bold uppercase'>
+															<Trash2 className='w-3 h-3' /> Usuń
+														</button>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+							)}
 						</div>
 					)}
 				</div>
@@ -1011,8 +1032,8 @@ export default function RestaurantDetailPage() {
 			{/* Support banner block */}
 			<section className='bg-stone-50 border border-stone-200 p-6 md:p-8 text-center max-w-4xl mx-auto shadow-sm'>
 				<p className='text-stone-500 text-xs md:text-sm font-sans'>
-					Oferty pobierane są automatycznie z oficjalnego profilu lokalu na Facebooku raz na dobę. 
-					Jeśli zauważysz błąd w danych restauracji, możesz zgłosić to za pomocą formularza w prawym górnym rogu.
+					Oferty pobierane są automatycznie z oficjalnego profilu lokalu na Facebooku raz na dobę. Jeśli zauważysz błąd
+					w danych restauracji, możesz zgłosić to za pomocą formularza w prawym górnym rogu.
 				</p>
 			</section>
 
@@ -1020,57 +1041,63 @@ export default function RestaurantDetailPage() {
 
 			{/* 1. MODAL ZGŁOSZENIA BŁĘDU LOKALU */}
 			{isReportingRestaurant && (
-				<div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in">
-					<div className="bg-white border border-stone-200 w-full max-w-md p-6 md:p-8 shadow-xl space-y-6 text-left relative animate-scale-up rounded-none">
+				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in'>
+					<div className='bg-white border border-stone-200 w-full max-w-md p-6 md:p-8 shadow-xl space-y-6 text-left relative animate-scale-up rounded-none'>
 						<button
 							onClick={() => setIsReportingRestaurant(false)}
-							className="absolute right-4 top-4 p-1 text-stone-400 hover:text-black transition-colors cursor-pointer">
-							<X className="w-5 h-5" />
+							className='absolute right-4 top-4 p-1 text-stone-400 hover:text-black transition-colors cursor-pointer'>
+							<X className='w-5 h-5' />
 						</button>
-						<div className="border-b border-stone-100 pb-3">
-							<h3 className="text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5">
-								<AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+						<div className='border-b border-stone-100 pb-3'>
+							<h3 className='text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5'>
+								<AlertTriangle className='w-5 h-5 text-red-600 shrink-0' />
 								Zgłoś błąd w danych lokalu
 							</h3>
-							<p className="text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1">Zgłoszenie do moderatora</p>
+							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
+								Zgłoszenie do moderatora
+							</p>
 						</div>
 
-						<form onSubmit={handleReportRestaurant} className="space-y-4 font-sans text-xs">
-							<div className="space-y-1.5">
-								<label className="text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block">Kategoria zgłoszenia *</label>
+						<form onSubmit={handleReportRestaurant} className='space-y-4 font-sans text-xs'>
+							<div className='space-y-1.5'>
+								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+									Kategoria zgłoszenia *
+								</label>
 								<select
 									value={restaurantReportReason}
 									onChange={e => setRestaurantReportReason(e.target.value)}
-									className="w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white">
-									<option value="INCORRECT_DATA">Niepoprawne dane (adres, telefon, menu...)</option>
-									<option value="SCAM">Oszustwo / Nieuczciwość</option>
-									<option value="IMPERSONATION">Podszywanie się pod markę</option>
-									<option value="OTHER">Inne naruszenie</option>
+									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white'>
+									<option value='INCORRECT_DATA'>Niepoprawne dane (adres, telefon, menu...)</option>
+									<option value='SCAM'>Oszustwo / Nieuczciwość</option>
+									<option value='IMPERSONATION'>Podszywanie się pod markę</option>
+									<option value='OTHER'>Inne naruszenie</option>
 								</select>
 							</div>
-							<div className="space-y-1.5">
-								<label className="text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block">Opis szczegółowy *</label>
+							<div className='space-y-1.5'>
+								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+									Opis szczegółowy *
+								</label>
 								<textarea
 									rows={4}
 									value={restaurantReportDetails}
 									onChange={e => setRestaurantReportDetails(e.target.value)}
-									placeholder="Wpisz poprawne dane lub szczegółowo uzasadnij oszustwo lokalu..."
-									className="w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs leading-relaxed font-sans"
+									placeholder='Wpisz poprawne dane lub szczegółowo uzasadnij oszustwo lokalu...'
+									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs leading-relaxed font-sans'
 									required
 								/>
 							</div>
 
-							<div className="flex gap-2 pt-2 font-mono text-[10px] uppercase tracking-wider font-bold">
+							<div className='flex gap-2 pt-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
 								<button
-									type="submit"
+									type='submit'
 									disabled={isSubmittingRestaurantReport}
-									className="px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow">
+									className='px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow'>
 									Wyślij zgłoszenie
 								</button>
 								<button
-									type="button"
+									type='button'
 									onClick={() => setIsReportingRestaurant(false)}
-									className="px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer">
+									className='px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer'>
 									Anuluj
 								</button>
 							</div>
@@ -1081,46 +1108,50 @@ export default function RestaurantDetailPage() {
 
 			{/* 2. MODAL ZGŁOSZENIA OPINII */}
 			{reportingReviewId && (
-				<div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in">
-					<div className="bg-white border border-stone-200 w-full max-w-sm p-6 md:p-8 shadow-xl space-y-6 text-left relative animate-scale-up rounded-none">
+				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in'>
+					<div className='bg-white border border-stone-200 w-full max-w-sm p-6 md:p-8 shadow-xl space-y-6 text-left relative animate-scale-up rounded-none'>
 						<button
 							onClick={() => setReportingReviewId(null)}
-							className="absolute right-4 top-4 p-1 text-stone-400 hover:text-black transition-colors cursor-pointer">
-							<X className="w-5 h-5" />
+							className='absolute right-4 top-4 p-1 text-stone-400 hover:text-black transition-colors cursor-pointer'>
+							<X className='w-5 h-5' />
 						</button>
-						<div className="border-b border-stone-100 pb-3">
-							<h3 className="text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5">
-								<Flag className="w-5 h-5 text-red-600 shrink-0" />
+						<div className='border-b border-stone-100 pb-3'>
+							<h3 className='text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5'>
+								<Flag className='w-5 h-5 text-red-600 shrink-0' />
 								Zgłoś recenzję użytkownika
 							</h3>
-							<p className="text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1">Zgłoszenie do moderatora</p>
+							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
+								Zgłoszenie do moderatora
+							</p>
 						</div>
 
-						<form onSubmit={handleReportReview} className="space-y-4 font-sans text-xs">
-							<div className="space-y-1.5">
-								<label className="text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block">Powód zgłoszenia opinii *</label>
+						<form onSubmit={handleReportReview} className='space-y-4 font-sans text-xs'>
+							<div className='space-y-1.5'>
+								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+									Powód zgłoszenia opinii *
+								</label>
 								<select
 									value={reviewReportReason}
 									onChange={e => setReviewReportReason(e.target.value)}
-									className="w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white">
-									<option value="VULGAR">Komentarz wulgarny / obraźliwy</option>
-									<option value="UNTRUTHFUL">Opinia nieprawdziwa / spam</option>
-									<option value="TOS_VIOLATION">Naruszający regulamin serwisu</option>
-									<option value="RIGHTS_VIOLATION">Naruszający prawa osób trzecich</option>
+									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white'>
+									<option value='VULGAR'>Komentarz wulgarny / obraźliwy</option>
+									<option value='UNTRUTHFUL'>Opinia nieprawdziwa / spam</option>
+									<option value='TOS_VIOLATION'>Naruszający regulamin serwisu</option>
+									<option value='RIGHTS_VIOLATION'>Naruszający prawa osób trzecich</option>
 								</select>
 							</div>
 
-							<div className="flex gap-2 pt-2 font-mono text-[10px] uppercase tracking-wider font-bold">
+							<div className='flex gap-2 pt-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
 								<button
-									type="submit"
+									type='submit'
 									disabled={isSubmittingReviewReport}
-									className="px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow">
+									className='px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow'>
 									Zgłoś i ukryj
 								</button>
 								<button
-									type="button"
+									type='button'
 									onClick={() => setReportingReviewId(null)}
-									className="px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer">
+									className='px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer'>
 									Anuluj
 								</button>
 							</div>
@@ -1219,7 +1250,8 @@ export default function RestaurantDetailPage() {
 									Zarządzanie Ofertą Stałą (Stała propozycja lokalu)
 								</h4>
 								<p className='text-[10px] text-stone-400 font-sans italic leading-relaxed'>
-									Ta oferta będzie wyświetlana klientom jako danie dnia w przypadku, gdy robot nie pobierze nowego posta z Facebooka na dany dzień.
+									Ta oferta będzie wyświetlana klientom jako danie dnia w przypadku, gdy robot nie pobierze nowego posta
+									z Facebooka na dany dzień.
 								</p>
 
 								<div className='space-y-1.5'>

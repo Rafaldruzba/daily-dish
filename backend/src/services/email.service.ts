@@ -25,7 +25,7 @@ export async function sendVerificationCode(email: string, code: string): Promise
 			html: `
 				<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
 					<h2 style="color: #333; text-align: center;">Kod weryfikacyjny Bistromapa</h2>
-					<p>Dziękujemy za rejestrację w aplikacji <strong>Bistromapa / Daily Dish</strong>.</p>
+					<p>Dziękujemy za rejestrację w aplikacji <strong>Bistromapa</strong>.</p>
 					<p>Twój kod weryfikacyjny, aby ukończyć proces zakładania konta, to:</p>
 					<div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; border-radius: 4px; border: 1px dashed #ccc;">
 						${code}

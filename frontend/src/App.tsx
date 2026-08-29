@@ -238,6 +238,8 @@ function Navigation() {
 }
 
 function AppContent() {
+	const isMapPage = location.pathname === '/map'
+
 	return (
 		<div className='min-h-screen bg-[#fdfdfd] text-stone-900 flex flex-col font-sans selection:bg-black selection:text-white'>
 			{/* Topbar */}
@@ -249,11 +251,9 @@ function AppContent() {
 						</div>
 						<div>
 							<span className='font-mono text-sm font-black tracking-widest block text-stone-900 leading-none'>
-								DAILY DISH
+								BISTRO MAPA
 							</span>
-							<span className='text-[10px] text-stone-400 font-sans tracking-wide block mt-1'>
-								B&W Minimal Food Discoverer
-							</span>
+							<span className='text-[10px] text-stone-400 font-sans tracking-wide block mt-1'>Food Discoverer</span>
 						</div>
 					</Link>
 
@@ -275,33 +275,35 @@ function AppContent() {
 			</div>
 
 			{/* Footer */}
-			<footer className='border-t border-stone-200 bg-white py-12 px-4 mt-auto'>
-				<div className='max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6'>
-					<div className='flex items-center gap-2'>
-						<span className='font-mono text-xs tracking-widest text-stone-400 uppercase'>
-							© {new Date().getFullYear()} Daily Dish. Wszystkie prawa zastrzeżone.
-						</span>
-					</div>
+			{!isMapPage && (
+				<footer className='border-t border-stone-200 bg-white py-12 px-4 mt-auto'>
+					<div className='max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6'>
+						<div className='flex items-center gap-2'>
+							<span className='font-mono text-xs tracking-widest text-stone-400 uppercase'>
+								© {new Date().getFullYear()} BistroMapa. Wszystkie prawa zastrzeżone.
+							</span>
+						</div>
 
-					<div className='flex items-center gap-6 font-mono text-xs text-stone-400'>
-						<a href='#' className='hover:text-black transition-colors'>
-							Regulamin
-						</a>
-						<span>•</span>
-						<a href='#' className='hover:text-black transition-colors'>
-							Prywatność
-						</a>
-						<span>•</span>
-						<a
-							href='https://github.com'
-							target='_blank'
-							rel='noreferrer'
-							className='hover:text-black transition-colors'>
-							GitHub
-						</a>
+						<div className='flex items-center gap-6 font-mono text-xs text-stone-400'>
+							<a href='#' className='hover:text-black transition-colors'>
+								Regulamin
+							</a>
+							<span>•</span>
+							<a href='#' className='hover:text-black transition-colors'>
+								Prywatność
+							</a>
+							<span>•</span>
+							<a
+								href='https://github.com'
+								target='_blank'
+								rel='noreferrer'
+								className='hover:text-black transition-colors'>
+								GitHub
+							</a>
+						</div>
 					</div>
-				</div>
-			</footer>
+				</footer>
+			)}
 		</div>
 	)
 }

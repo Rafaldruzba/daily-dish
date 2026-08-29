@@ -51,7 +51,7 @@ export default function MapPage() {
 				const withCoords = activeApproved.map(r => {
 					// Read from DB coordinates if available
 					let coords: Coords | null = r.latitude && r.longitude ? { lat: r.latitude, lng: r.longitude } : null
-					
+
 					// Fallback to localStorage cache
 					if (!coords) {
 						const cached = localStorage.getItem(`geo_cache_v3_${r.id}`)
@@ -63,7 +63,7 @@ export default function MapPage() {
 							}
 						}
 					}
-					
+
 					return {
 						...r,
 						coords,
@@ -141,12 +141,12 @@ export default function MapPage() {
 				const fullAddress = `${rest.address || ''}, ${rest.city}, Poland`
 
 				try {
-					await new Promise<void>((resolve) => {
+					await new Promise<void>(resolve => {
 						geocoder.geocode({ address: fullAddress }, (results, status) => {
 							if (status === 'OK' && results && results[0]) {
 								const location = results[0].geometry.location
 								const coords = { lat: location.lat(), lng: location.lng() }
-								
+
 								// Cache result in localStorage
 								localStorage.setItem(`geo_cache_v3_${rest.id}`, JSON.stringify(coords))
 
@@ -182,7 +182,7 @@ export default function MapPage() {
 		try {
 			setIsSearching(true)
 			setError('')
-			
+
 			const geocoder = new google.maps.Geocoder()
 			geocoder.geocode({ address: searchQuery }, (results, status) => {
 				if (status === 'OK' && results && results[0]) {
@@ -217,7 +217,7 @@ export default function MapPage() {
 	}
 
 	return (
-		<main className='flex flex-col md:flex-row h-[calc(100dvh-4rem)] overflow-hidden'>
+		<main className='flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden'>
 			{/* Left side panel: Info & Search */}
 			<section className='w-full md:w-96 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-md flex-1 md:flex-none min-h-0'>
 				{/* Search header */}
@@ -335,25 +335,17 @@ export default function MapPage() {
 						streetViewControl: false,
 						rotateControl: false,
 						fullscreenControl: true,
-					}}
-				>
+					}}>
 					{/* Restaurants markers */}
 					{restaurants
 						.filter(r => r.coords !== null)
 						.map(rest => (
-							<MarkerF 
-								key={rest.id} 
-								position={rest.coords as Coords}
-								onClick={() => setSelectedRestaurant(rest)}
-							/>
+							<MarkerF key={rest.id} position={rest.coords as Coords} onClick={() => setSelectedRestaurant(rest)} />
 						))}
 
 					{/* Selected Restaurant InfoWindow */}
 					{selectedRestaurant && selectedRestaurant.coords && (
-						<InfoWindowF
-							position={selectedRestaurant.coords}
-							onCloseClick={() => setSelectedRestaurant(null)}
-						>
+						<InfoWindowF position={selectedRestaurant.coords} onCloseClick={() => setSelectedRestaurant(null)}>
 							<div className='p-1 min-w-[200px] font-sans text-stone-900'>
 								<Link to={`/restaurants/${selectedRestaurant.slug}`} className='group/title block'>
 									<h4 className='font-serif text-sm font-bold text-stone-950 mb-1 cursor-pointer group-hover/title:underline'>
@@ -362,7 +354,9 @@ export default function MapPage() {
 								</Link>
 								<p className='text-xs text-stone-600 mb-1.5 flex items-center gap-1'>
 									<MapPin className='w-3.5 h-3.5 text-stone-400 shrink-0' />
-									{selectedRestaurant.address ? `${selectedRestaurant.address}, ${selectedRestaurant.city}` : selectedRestaurant.city}
+									{selectedRestaurant.address
+										? `${selectedRestaurant.address}, ${selectedRestaurant.city}`
+										: selectedRestaurant.city}
 								</p>
 								{selectedRestaurant.phone && (
 									<p className='text-xs text-stone-500 mb-1.5 flex items-center gap-1'>

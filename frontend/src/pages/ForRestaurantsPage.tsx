@@ -493,7 +493,9 @@ export default function ForRestaurantsPage() {
 
 	const handleDeleteRestaurant = async (restaurantId: string, restaurantName: string) => {
 		if (!token) return
-		const confirmDelete = window.confirm(`Czy na pewno chcesz trwale usunąć restaurację "${restaurantName}"? Wszystkie powiązane subskrypcje, oferty i statystyki zostaną bezpowrotnie skasowane.`)
+		const confirmDelete = window.confirm(
+			`Czy na pewno chcesz trwale usunąć restaurację "${restaurantName}"? Wszystkie powiązane subskrypcje, oferty i statystyki zostaną bezpowrotnie skasowane.`,
+		)
 		if (!confirmDelete) return
 
 		try {
@@ -611,6 +613,12 @@ export default function ForRestaurantsPage() {
 		)
 	}
 
+	const dateFormatter = new Intl.DateTimeFormat('pl-PL', {
+		day: '2-digit',
+		month: '2-digit',
+		year: 'numeric',
+	})
+
 	return (
 		<main className='max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex-grow space-y-12'>
 			{/* Header */}
@@ -641,7 +649,7 @@ export default function ForRestaurantsPage() {
 								? 'Zarządzaj swoimi lokalami, śledź wyświetlenia i kontroluj status subskrypcji.'
 								: user
 									? 'Zarządzaj swoimi ustawieniami, przeglądaj ulubione restauracje i śledź wystawione opinie.'
-									: 'Dołącz do platformy Daily Dish i dotrzyj do setek głodnych klientów w Twojej okolicy.'}
+									: 'Dołącz do platformy BistroMapa i dotrzyj do setek głodnych klientów w Twojej okolicy.'}
 					</p>
 				</div>
 			</section>
@@ -1063,12 +1071,19 @@ export default function ForRestaurantsPage() {
 													<span className='text-stone-500'>
 														Plan: <strong className='text-stone-900'>{rest.subscription?.plan || 'Free Trial'}</strong>
 													</span>
+													<span className='text-stone-500'>
+														Data wygaśnięcia:{' '}
+														<strong className='text-stone-900'>
+															{rest.subscription?.currentPeriodEnd
+																? dateFormatter.format(new Date(rest.subscription.currentPeriodEnd))
+																: 'data nieznana'}
+														</strong>
+													</span>
 												</div>
 												<button
 													onClick={() => handleDeleteRestaurant(rest.id, rest.name)}
 													className='px-2.5 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm'
-													title='Usuń restaurację bezpowrotnie'
-												>
+													title='Usuń restaurację bezpowrotnie'>
 													<Trash2 className='w-3.5 h-3.5' /> Usuń lokal
 												</button>
 											</div>
@@ -1220,6 +1235,12 @@ export default function ForRestaurantsPage() {
 																	Abonament wygasł (PAUSE)
 																</span>
 															)}
+															<span className='px-2.5 py-1 text-[9px] font-mono font-bold bg-blue-100 text-blue-800'>
+																Data wygaśnięcia:
+																{rest.subscription?.currentPeriodEnd
+																	? ' ' + dateFormatter.format(new Date(rest.subscription.currentPeriodEnd))
+																	: ' data nieznana'}
+															</span>
 														</div>
 													)}
 												</div>
