@@ -146,7 +146,6 @@ export default function RestaurantsPage() {
 							const isPromoted =
 								restaurant.isPromoted ||
 								(restaurant.subscription?.status === 'ACTIVE' && restaurant.subscription?.type === 'PROMOTION')
-							console.log(isPromoted)
 
 							return (
 								<div

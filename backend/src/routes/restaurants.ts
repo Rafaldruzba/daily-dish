@@ -21,20 +21,20 @@ function mapRestaurantSubscription(restaurant: any) {
 
 	// Znajdź tylko aktywne subskrypcje
 	const activeSubs = restaurant.subscriptions.filter(
-		(sub: any) => sub.status === 'ACTIVE' && new Date(sub.endsAt) > new Date()
+		(sub: any) => sub.status === 'ACTIVE' && new Date(sub.endsAt) > new Date(),
 	)
 
 	if (activeSubs.length === 0) {
 		// Jeżeli brak aktywnych, weź najświeższą wygasłą/anulowaną
 		const sortedSubs = [...restaurant.subscriptions].sort(
-			(a: any, b: any) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime()
+			(a: any, b: any) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime(),
 		)
 		const latestSub = sortedSubs[0]
 
 		let plan = 'FREE_TRIAL'
-		if (latestSub.type === 'BASE') plan = 'PREMIUM_100'
-		else if (latestSub.type === 'PROMOTION') plan = 'PROMOTE_50'
-		else if (latestSub.type === 'STATIC_MENU') plan = 'OFFER_50'
+		if (latestSub.type === 'BASE') plan = 'BASE'
+		else if (latestSub.type === 'PROMOTION') plan = 'PROMOTION'
+		else if (latestSub.type === 'STATIC_MENU') plan = 'STATIC_MENU'
 
 		return {
 			...restaurant,
@@ -50,21 +50,19 @@ function mapRestaurantSubscription(restaurant: any) {
 	}
 
 	// Określ najwyższy poziom planu subskrypcji dla aktywnych planów
-	// Hierarchia: STATIC_MENU ('OFFER_50') > PROMOTION ('PROMOTE_50') > BASE ('PREMIUM_100') > FREE_TRIAL ('FREE_TRIAL')
 	const hasStaticMenu = activeSubs.some((sub: any) => sub.type === 'STATIC_MENU')
 	const hasPromotion = activeSubs.some((sub: any) => sub.type === 'PROMOTION')
 	const hasBase = activeSubs.some((sub: any) => sub.type === 'BASE')
 	const hasTrial = activeSubs.some((sub: any) => sub.type === 'FREE_TRIAL')
 
 	let plan = 'FREE_TRIAL'
-	if (hasStaticMenu) plan = 'OFFER_50'
-	else if (hasPromotion) plan = 'PROMOTE_50'
-	else if (hasBase) plan = 'PREMIUM_100'
+	if (hasStaticMenu) plan = 'STATIC_MENU'
+	else if (hasPromotion) plan = 'PROMOTION'
+	else if (hasBase) plan = 'BASE'
 	else if (hasTrial) plan = 'FREE_TRIAL'
 
 	// Jako główną subskrypcję do wyznaczenia okresu ważności wybierz BASE / FREE_TRIAL, lub pierwszą aktywną
-	const primarySub =
-		activeSubs.find((sub: any) => sub.type === 'BASE' || sub.type === 'FREE_TRIAL') || activeSubs[0]
+	const primarySub = activeSubs.find((sub: any) => sub.type === 'BASE' || sub.type === 'FREE_TRIAL') || activeSubs[0]
 
 	return {
 		...restaurant,
@@ -83,60 +81,78 @@ function mapRestaurantSubscription(restaurant: any) {
 // Pobiera wszystkie aktywne i zatwierdzone restauracje (dla gości/użytkowników)
 router.get('/', async (req: Request, res: Response) => {
 	try {
-    const city = req.query.city as string | undefined;
-    const cacheKey = `restaurants:${city || 'all'}`;
+		const city = req.query.city as string | undefined
+		const cacheKey = `restaurants:${city || 'all'}`
 
-    if (redisClient.isOpen) {
-      try {
-        const cachedRestaurants = await redisClient.get(cacheKey);
-        if (cachedRestaurants) {
-          return res.json(JSON.parse(cachedRestaurants));
-        }
-      } catch (err) {
-        console.error('[Redis] Cache read error:', err);
-      }
-    }
+		if (redisClient.isOpen) {
+			try {
+				const cachedRestaurants = await redisClient.get(cacheKey)
+				if (cachedRestaurants) {
+					return res.json(JSON.parse(cachedRestaurants))
+				}
+			} catch (err) {
+				console.error('[Redis] Cache read error:', err)
+			}
+		}
 
-    // Pobierz identyfikatory restauracji posiadających aktywne subskrypcje w zadanym obszarze
-    const restaurantIds = city
-      ? await getRestaurantIdsForCity(city)
-      : await getAllActiveRestaurantIds();
+		// Pobierz identyfikatory restauracji posiadających aktywne subskrypcje w zadanym obszarze
+		const restaurantIds = city ? await getRestaurantIdsForCity(city) : await getAllActiveRestaurantIds()
 
-    let restaurants = await prisma.restaurant.findMany({
-      where: {
-        id: { in: restaurantIds },
-        isActive: true,
-        status: 'APPROVED',
-      },
-      include: { subscriptions: true },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+		let restaurants = await prisma.restaurant.findMany({
+			where: {
+				id: { in: restaurantIds },
+				isActive: true,
+				status: { in: ['APPROVED', 'ACTIVE'] },
+			},
+			include: { subscriptions: true },
+			orderBy: {
+				name: 'asc',
+			},
+		})
 
-    // Sortowanie promujące aktywne subskrypcje PROMOTION na samą górę (tylko w okolicy/promieniu)
-    try {
-      restaurants.sort((a, b) => {
-        const aPromoted = a.subscriptions.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date());
-        const bPromoted = b.subscriptions.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date());
+		// Sortowanie promujące aktywne subskrypcje PROMOTION na samą górę (tylko w okolicy/promieniu) wg zaawansowanego scoringu
+		try {
+			const calculateScore = (r: any) => {
+				const rating = r.rating || 0.0
+				const googleReviewsCount = r.userRatingsTotal || 0
+				const views = r.views || 0
+				return rating * 10 + Math.log(googleReviewsCount + 1) * 5 + Math.log(views + 1) * 2
+			}
 
-        if (aPromoted && !bPromoted) return -1;
-        if (!aPromoted && bPromoted) return 1;
-        return a.name.localeCompare(b.name, 'pl');
-      });
-    } catch (err) {
-      console.error('Error prioritizing promoted restaurants:', err);
-    }
+			restaurants.sort((a, b) => {
+				const aPromoted = a.subscriptions.some(
+					s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date(),
+				)
+				const bPromoted = b.subscriptions.some(
+					s => s.type === 'PROMOTION' && s.status === 'ACTIVE' && s.endsAt > new Date(),
+				)
 
-    const mappedRestaurants = restaurants.map(mapRestaurantSubscription)
+				if (aPromoted && !bPromoted) return -1
+				if (!aPromoted && bPromoted) return 1
 
-    if (redisClient.isOpen) {
-      try {
-        await redisClient.set(cacheKey, JSON.stringify(mappedRestaurants), { EX: 3600 }); // Cache for 1 hour
-      } catch (err) {
-        console.error('[Redis] Cache write error:', err);
-      }
-    }
+				if (aPromoted && bPromoted) {
+					const scoreA = calculateScore(a)
+					const scoreB = calculateScore(b)
+					if (scoreB !== scoreA) {
+						return scoreB - scoreA // Wyższy Score na górę
+					}
+				}
+
+				return a.name.localeCompare(b.name, 'pl')
+			})
+		} catch (err) {
+			console.error('Error prioritizing promoted restaurants:', err)
+		}
+
+		const mappedRestaurants = restaurants.map(mapRestaurantSubscription)
+
+		if (redisClient.isOpen) {
+			try {
+				await redisClient.set(cacheKey, JSON.stringify(mappedRestaurants), { EX: 3600 }) // Cache for 1 hour
+			} catch (err) {
+				console.error('[Redis] Cache write error:', err)
+			}
+		}
 
 		res.json(mappedRestaurants)
 	} catch (error) {
@@ -286,60 +302,79 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(409).json({ success: false, message: 'Restauracja o takim slug już istnieje' })
 		}
 
-    let lat: number | undefined;
-    let lon: number | undefined;
-    if (address && city) {
-      const coords = await geocodeCity(`${address}, ${city}`);
-      if (coords) {
-        lat = coords.lat;
-        lon = coords.lon;
-      }
-    }
+		let lat: number | undefined
+		let lon: number | undefined
+		if (address && city) {
+			const coords = await geocodeCity(`${address}, ${city}`)
+			if (coords) {
+				lat = coords.lat
+				lon = coords.lon
+			}
+		}
+
+		// Pobranie danych Google Places (rating i userRatingsTotal)
+		let googlePlaceId = null
+		let userRatingsTotal = 0
+		let initialRating = rating !== undefined ? Number(rating) : 5.0
+
+		try {
+			const { fetchGooglePlaceDetails } = await import('../services/google-maps.service.js')
+			const googleDetails = await fetchGooglePlaceDetails(name.trim(), address || null, city.trim())
+			if (googleDetails) {
+				googlePlaceId = googleDetails.googlePlaceId
+				initialRating = googleDetails.rating
+				userRatingsTotal = googleDetails.userRatingsTotal
+			}
+		} catch (gErr) {
+			console.error('⚠️ Błąd pobierania danych z Google Places przy tworzeniu:', gErr)
+		}
 
 		const userId = req.user?.id
 		const isOwner = req.user?.role === 'OWNER'
 
 		// Check if owner already has restaurants
-		const existingCount = await prisma.restaurant.count({ where: { userId: userId } });
-		const hasFreeTrial = existingCount === 0;
+		const existingCount = await prisma.restaurant.count({ where: { userId: userId } })
+		const hasFreeTrial = existingCount === 0
 
 		const restaurant = await prisma.restaurant.create({
-		data: {
-		name: name.trim(),
-		slug: slug.trim().toLowerCase(),
-		phone: phone?.trim() || null,
-		address: address?.trim() || null,
-		city: city.trim(),
-		    latitude: lat,
-		    longitude: lon,
-		facebookUrl: facebookUrl?.trim() || null,
-		rating: rating !== undefined ? Number(rating) : 5.0,
-		...(userId && {
-		user: {
-		connect: {
-		id: userId,
-		},
-		},
-		}),
-		status: 'PENDING', // Always PENDING on start
-		    isActive: hasFreeTrial, // Activate immediately only if it's the first restaurant
-		},
-		});
+			data: {
+				name: name.trim(),
+				slug: slug.trim().toLowerCase(),
+				phone: phone?.trim() || null,
+				address: address?.trim() || null,
+				city: city.trim(),
+				latitude: lat,
+				longitude: lon,
+				facebookUrl: facebookUrl?.trim() || null,
+				rating: initialRating,
+				googlePlaceId,
+				userRatingsTotal,
+				...(userId && {
+					user: {
+						connect: {
+							id: userId,
+						},
+					},
+				}),
+				status: 'PENDING', // Always PENDING on start
+				isActive: hasFreeTrial, // Activate immediately only if it's the first restaurant
+			},
+		})
 
 		// If it's the first restaurant for an owner, create a free trial subscription
 		if (isOwner && hasFreeTrial) {
-		  const trialEndsAt = new Date();
-		  trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+			const trialEndsAt = new Date()
+			trialEndsAt.setDate(trialEndsAt.getDate() + 30)
 
-		  await prisma.subscription.create({
-		    data: {
-		      restaurantId: restaurant.id,
-			  type: 'FREE_TRIAL',
-		      status: 'ACTIVE',
-			  startsAt: new Date(),
-		      endsAt: trialEndsAt,
-		    }
-		  });
+			await prisma.subscription.create({
+				data: {
+					restaurantId: restaurant.id,
+					type: 'FREE_TRIAL',
+					status: 'ACTIVE',
+					startsAt: new Date(),
+					endsAt: trialEndsAt,
+				},
+			})
 		}
 
 		res.status(201).json(restaurant)
@@ -360,21 +395,40 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 			return res.status(400).json({ success: false, message: 'Nieprawidłowe dane' })
 		}
 
-		let restaurant;
+		let restaurant
 
 		if (status === 'APPROVED') {
 			const trialEndsAt = new Date()
 			trialEndsAt.setDate(trialEndsAt.getDate() + 30)
 
-			restaurant = await prisma.$transaction(async (tx) => {
+			// Pobieramy dane z Google przed wejściem w transakcję, żeby nie blokować bazy
+			const existingRest = await prisma.restaurant.findUnique({ where: { id } })
+			let googleData = null
+			if (existingRest) {
+				try {
+					const { fetchGooglePlaceDetails } = await import('../services/google-maps.service.js')
+					googleData = await fetchGooglePlaceDetails(existingRest.name, existingRest.address, existingRest.city)
+				} catch (gErr) {
+					console.error('⚠️ Błąd pobierania danych z Google Places przy zatwierdzaniu:', gErr)
+				}
+			}
+
+			restaurant = await prisma.$transaction(async tx => {
 				const rest = await tx.restaurant.update({
 					where: { id },
-					data: { status: 'ACTIVE' },
+					data: {
+						status: 'ACTIVE',
+						...(googleData && {
+							googlePlaceId: googleData.googlePlaceId,
+							rating: googleData.rating,
+							userRatingsTotal: googleData.userRatingsTotal,
+						}),
+					},
 				})
 
 				// Usuwamy stare i tworzymy nową subskrypcję FREE_TRIAL
 				await tx.subscription.deleteMany({
-					where: { restaurantId: id }
+					where: { restaurantId: id },
 				})
 
 				await tx.subscription.create({
@@ -383,8 +437,8 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 						type: 'FREE_TRIAL',
 						status: 'ACTIVE',
 						startsAt: new Date(),
-						endsAt: trialEndsAt
-					}
+						endsAt: trialEndsAt,
+					},
 				})
 
 				return rest
@@ -397,8 +451,8 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 		}
 
 		if (redisClient.isOpen) {
-			await redisClient.del(`restaurants:${restaurant.city}`);
-			await redisClient.del('restaurants:all');
+			await redisClient.del(`restaurants:${restaurant.city}`)
+			await redisClient.del('restaurants:all')
 		}
 
 		res.json(restaurant)
@@ -421,7 +475,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 
 		const restaurant = await prisma.restaurant.findUnique({
 			where: { id },
-			include: { user: true }
+			include: { user: true },
 		})
 
 		if (!restaurant) {
@@ -437,11 +491,11 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 				// 1. Upewnij się, że restauracja jest aktywna
 				prisma.restaurant.update({
 					where: { id },
-					data: { status: 'ACTIVE', isActive: true }
+					data: { status: 'ACTIVE', isActive: true },
 				}),
 				// 2. Przedłużenie/nadpisanie subskrypcji próbnej
 				prisma.subscription.deleteMany({
-					where: { restaurantId: id }
+					where: { restaurantId: id },
 				}),
 				prisma.subscription.create({
 					data: {
@@ -449,20 +503,20 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 						type: 'FREE_TRIAL',
 						status: 'ACTIVE',
 						startsAt: now,
-						endsAt: expiresAt
-					}
-				})
+						endsAt: expiresAt,
+					},
+				}),
 			])
 		} else if (action === 'ACTIVATE_BASE') {
 			await prisma.$transaction([
 				// 1. Aktywuj restaurację
 				prisma.restaurant.update({
 					where: { id },
-					data: { status: 'ACTIVE', isActive: true }
+					data: { status: 'ACTIVE', isActive: true },
 				}),
 				// 2. Aktywuj abonament podstawowy
 				prisma.subscription.deleteMany({
-					where: { restaurantId: id }
+					where: { restaurantId: id },
 				}),
 				prisma.subscription.create({
 					data: {
@@ -470,9 +524,9 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 						type: 'BASE',
 						status: 'ACTIVE',
 						startsAt: now,
-						endsAt: expiresAt
-					}
-				})
+						endsAt: expiresAt,
+					},
+				}),
 			])
 		} else if (action === 'BLOCK') {
 			// Blokada restauracji — zmiana statusu na REMOVAL (3-miesięczna karencja)
@@ -483,14 +537,14 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 					data: {
 						status: 'REMOVAL',
 						removalRequestedAt: now,
-						isActive: false
-					}
+						isActive: false,
+					},
 				}),
 				// 2. Anulowanie wszystkich aktywnych subskrypcji
 				prisma.subscription.updateMany({
 					where: { restaurantId: id, status: 'ACTIVE' },
-					data: { status: 'CANCELLED' }
-				})
+					data: { status: 'CANCELLED' },
+				}),
 			])
 
 			// Wysłanie maila do właściciela o zablokowaniu
@@ -518,7 +572,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 									Rozpoczął się 3-miesięczny okres karencji. Jeśli chcesz odwołać się od tej decyzji i przywrócić lokal, skontaktuj się z nami odpowiadając na tę wiadomość w ciągu najbliższych 90 dni. Po tym okresie profil lokalu zostanie trwale skasowany.
 								</p>
 							</div>
-						`
+						`,
 					})
 				} catch (mailErr) {
 					console.error('❌ Błąd wysyłania maila o blokadzie:', mailErr)
@@ -600,13 +654,13 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			},
 		})
 
-    if (redisClient.isOpen) {
-      await redisClient.del(`restaurants:${restaurant.city}`);
-      if (restaurantToUpdate.city !== restaurant.city) {
-        await redisClient.del(`restaurants:${restaurantToUpdate.city}`);
-      }
-      await redisClient.del('restaurants:all');
-    }
+		if (redisClient.isOpen) {
+			await redisClient.del(`restaurants:${restaurant.city}`)
+			if (restaurantToUpdate.city !== restaurant.city) {
+				await redisClient.del(`restaurants:${restaurantToUpdate.city}`)
+			}
+			await redisClient.del('restaurants:all')
+		}
 
 		res.json(restaurant)
 	} catch (error) {
@@ -620,8 +674,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 })
 
 // DELETE /api/restaurants/:id
-// Usuwa restaurację (tylko Admin)
-router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+// Usuwa restaurację (Admin lub właściciel lokalu)
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 	try {
 		const { id } = req.params
 
@@ -632,11 +686,33 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: 
 			})
 		}
 
-    const restaurant = await prisma.restaurant.findUnique({ where: { id } });
-    if (restaurant && redisClient.isOpen) {
-      await redisClient.del(`restaurants:${restaurant.city}`);
-      await redisClient.del('restaurants:all');
-    }
+		if (!req.user) {
+			return res.status(401).json({
+				success: false,
+				message: 'Brak autoryzacji',
+			})
+		}
+
+		const restaurant = await prisma.restaurant.findUnique({ where: { id } })
+		if (!restaurant) {
+			return res.status(404).json({
+				success: false,
+				message: 'Restauracja nie istnieje',
+			})
+		}
+
+		// Zabezpieczenie: usunąć może tylko Admin lub właściciel danej restauracji
+		if (req.user.role !== 'ADMIN' && restaurant.userId !== req.user.id) {
+			return res.status(403).json({
+				success: false,
+				message: 'Brak uprawnień do usunięcia tej restauracji',
+			})
+		}
+
+		if (redisClient.isOpen) {
+			await redisClient.del(`restaurants:${restaurant.city}`)
+			await redisClient.del('restaurants:all')
+		}
 
 		await prisma.restaurant.delete({
 			where: {
@@ -644,7 +720,10 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: 
 			},
 		})
 
-		res.status(204).send()
+		res.json({
+			success: true,
+			message: 'Restauracja została pomyślnie usunięta z bazy danych.',
+		})
 	} catch (error) {
 		console.error(error)
 

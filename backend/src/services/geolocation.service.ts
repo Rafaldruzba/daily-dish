@@ -97,7 +97,7 @@ export async function geocodeCity(city: string): Promise<{ lat: number; lon: num
 			}
 
 			const duration = (performance.now() - startTime).toFixed(2)
-			await logger.info(`Udana geolokalizacja "${city}" za pomocą ${provider}. Lat: ${coords.lat}, Lon: ${coords.lon} (Czas: ${duration}ms)`)
+			// await logger.info(`Udana geolokalizacja "${city}" za pomocą ${provider}. Lat: ${coords.lat}, Lon: ${coords.lon} (Czas: ${duration}ms)`)
 			return coords
 		}
 
@@ -105,7 +105,10 @@ export async function geocodeCity(city: string): Promise<{ lat: number; lon: num
 		return null
 	} catch (error: any) {
 		const duration = (performance.now() - startTime).toFixed(2)
-		await logger.error(`Błąd geolokalizacji dla "${city}" przy użyciu ${provider} (Czas: ${duration}ms)`, error.message || error)
+		await logger.error(
+			`Błąd geolokalizacji dla "${city}" przy użyciu ${provider} (Czas: ${duration}ms)`,
+			error.message || error,
+		)
 		return null
 	}
 }

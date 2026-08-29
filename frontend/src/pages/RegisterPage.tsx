@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Lock, Mail, User, ArrowRight, Building } from 'lucide-react'
+import { Lock, Mail, User, ArrowRight, Building, Phone, FileText, MapPin } from 'lucide-react'
 
 export default function RegisterPage() {
 	const { register, verifyRegister } = useAuth()
@@ -12,6 +12,11 @@ export default function RegisterPage() {
 	const [password, setPassword] = useState('')
 	const [confirmPassword, setConfirmPassword] = useState('')
 	const [accountType, setAccountType] = useState('USER') // USER or OWNER
+	const [city, setCity] = useState('')
+	const [nip, setNip] = useState('')
+	const [ownerPhone, setOwnerPhone] = useState('')
+	const [representsSelf, setRepresentsSelf] = useState(false)
+	const [acceptedTerms, setAcceptedTerms] = useState(false)
 	const [error, setError] = useState('')
 	const [submitting, setSubmitting] = useState(false)
 	const [isVerifying, setIsVerifying] = useState(false)
@@ -36,9 +41,35 @@ export default function RegisterPage() {
 			return
 		}
 
+		if (accountType === 'OWNER') {
+			if (!ownerPhone) {
+				setError('Numer telefonu jest wymagany dla konta restauracji.')
+				return
+			}
+			if (!representsSelf) {
+				setError('Musisz potwierdzić, że jesteś właścicielem lub posiadasz uprawnienia do reprezentacji lokalu.')
+				return
+			}
+		}
+
+		if (!acceptedTerms) {
+			setError('Musisz zaakceptować regulamin serwisu.')
+			return
+		}
+
 		try {
 			setSubmitting(true)
-			const result = await register(email, password, name, accountType)
+			const result = await register(
+				email,
+				password,
+				name || undefined,
+				accountType,
+				city || undefined,
+				nip || undefined,
+				ownerPhone || undefined,
+				representsSelf,
+				acceptedTerms
+			)
 			if (result.success) {
 				setIsVerifying(true)
 			} else {
@@ -206,6 +237,22 @@ export default function RegisterPage() {
 
 					<div className="space-y-2">
 						<label className="text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block">
+							Miejscowość (Miasto)
+						</label>
+						<div className="relative">
+							<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+							<input
+								type="text"
+								value={city}
+								onChange={(e) => setCity(e.target.value)}
+								placeholder="np. Warszawa"
+								className="w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-none focus:outline-none focus:border-black text-sm text-stone-900 font-mono transition-colors"
+							/>
+						</div>
+					</div>
+
+					<div className="space-y-2">
+						<label className="text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block">
 							Adres e-mail <span className="text-red-500">*</span>
 						</label>
 						<div className="relative">
@@ -220,6 +267,62 @@ export default function RegisterPage() {
 							/>
 						</div>
 					</div>
+
+					{/* Conditional fields for OWNER account */}
+					{accountType === 'OWNER' && (
+						<div className="space-y-5 p-4 bg-stone-50 border border-stone-200">
+							<span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-stone-500 border-b border-stone-200 pb-1 mb-2">
+								Dane Weryfikacji Lokalu
+							</span>
+							
+							<div className="space-y-2">
+								<label className="text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block">
+									Telefon kontaktowy <span className="text-red-500">*</span>
+								</label>
+								<div className="relative">
+									<Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+									<input
+										type="tel"
+										value={ownerPhone}
+										onChange={(e) => setOwnerPhone(e.target.value)}
+										placeholder="np. +48 123 456 789"
+										className="w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-none focus:outline-none focus:border-black text-sm text-stone-900 font-mono transition-colors"
+										required={accountType === 'OWNER'}
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<label className="text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block">
+									NIP firmy <span className="text-stone-400">(opcjonalny)</span>
+								</label>
+								<div className="relative">
+									<FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+									<input
+										type="text"
+										value={nip}
+										onChange={(e) => setNip(e.target.value)}
+										placeholder="np. 1234567890"
+										className="w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-none focus:outline-none focus:border-black text-sm text-stone-900 font-mono transition-colors"
+									/>
+								</div>
+							</div>
+
+							<div className="flex items-start gap-3 pt-2">
+								<input
+									id="representsSelf"
+									type="checkbox"
+									checked={representsSelf}
+									onChange={(e) => setRepresentsSelf(e.target.checked)}
+									className="w-4 h-4 mt-0.5 accent-black rounded-none cursor-pointer"
+									required={accountType === 'OWNER'}
+								/>
+								<label htmlFor="representsSelf" className="text-[11px] text-stone-600 font-mono select-none leading-relaxed cursor-pointer">
+									Oświadczam, że jestem właścicielem lub posiadam uprawnienia do reprezentowania rejestrowanego lokalu. <span className="text-red-500">*</span>
+								</label>
+							</div>
+						</div>
+					)}
 
 					<div className="space-y-2">
 						<label className="text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block">
@@ -253,6 +356,20 @@ export default function RegisterPage() {
 								required
 							/>
 						</div>
+					</div>
+
+					<div className="flex items-start gap-3 pt-2">
+						<input
+							id="acceptedTerms"
+							type="checkbox"
+							checked={acceptedTerms}
+							onChange={(e) => setAcceptedTerms(e.target.checked)}
+							className="w-4 h-4 mt-0.5 accent-black rounded-none cursor-pointer"
+							required
+						/>
+						<label htmlFor="acceptedTerms" className="text-[11px] text-stone-600 font-mono select-none leading-relaxed cursor-pointer">
+							Akceptuję <Link to="/terms" target="_blank" className="underline font-bold text-black">Regulamin</Link> oraz <Link to="/privacy" target="_blank" className="underline font-bold text-black">Politykę Prywatności</Link> serwisu BistroMapa.pl. <span className="text-red-500">*</span>
+						</label>
 					</div>
 
 					<button

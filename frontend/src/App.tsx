@@ -23,8 +23,6 @@ function Navigation() {
 		localStorage.removeItem('user_city')
 		window.location.reload() // Force a reload to re-evaluate the context state
 	}
-	console.log(user?.role)
-	console.log(user?.id)
 
 	return (
 		<div className='relative'>

@@ -33,21 +33,21 @@ const getSubscriptionDetails = (
 	let planDescription = ''
 
 	switch (planId) {
-		case 'PREMIUM_100':
+		case 'BASE':
 			type = 'BASE'
 			planName = 'Abonament za restaurację'
 			planDescription = 'Standardowy FB bot scraper pobierający Twoje codzienne dania dnia.'
 			amount = 100
 			endsAt.setDate(startsAt.getDate() + 30)
 			break
-		case 'PROMOTE_50':
+		case 'PROMOTION':
 			type = 'PROMOTION'
 			planName = 'Promowanie na górze strony'
 			planDescription = 'Wyróżnienie i podbijanie Twojego lokalu na samą górę listy wyszukiwania w mieście.'
 			amount = 50
 			endsAt.setDate(startsAt.getDate() + 30) // Assuming 30 days for now
 			break
-		case 'OFFER_50':
+		case 'STATIC_MENU':
 			type = 'STATIC_MENU'
 			planName = 'Stałe wyświetlane menu bez FB'
 			planDescription =
@@ -84,19 +84,17 @@ router.post('/subscribe', authenticate, async (req: AuthRequest, res: Response) 
 		const { amount, planName, planDescription } = getSubscriptionDetails(planId)
 
 		// 2. Security check: addon plans can only be purchased if the main subscription is active
-		const isMainPlan = planId === 'PREMIUM_100'
+		const isMainPlan = planId === 'BASE'
 		const hasActiveBaseSubscription = restaurant.subscriptions.some(
 			sub => sub.type === 'BASE' && sub.status === 'ACTIVE' && sub.endsAt > new Date(),
 		)
 
 		if (!isMainPlan && !hasActiveBaseSubscription) {
-			return res
-				.status(403)
-				.json({
-					success: false,
-					message:
-						'Nie możesz dokupić dodatkowego pakietu, ponieważ główny abonament za lokal jest nieaktywny. Najpierw aktywuj restaurację.',
-				})
+			return res.status(403).json({
+				success: false,
+				message:
+					'Nie możesz dokupić dodatkowego pakietu, ponieważ główny abonament za lokal jest nieaktywny. Najpierw aktywuj restaurację.',
+			})
 		}
 
 		// 2. If Stripe is NOT configured, fail

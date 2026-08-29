@@ -32,7 +32,7 @@ export async function getRestaurantIdsInRadius(
 		const result = await prisma.$queryRaw<Array<{ id: string }>>`
 			SELECT r.id FROM "Restaurant" r
 			WHERE r."isActive" = true 
-			  AND r.status = 'APPROVED' 
+			  AND r.status IN ('APPROVED', 'ACTIVE') 
 			  AND r.latitude IS NOT NULL 
 			  AND r.longitude IS NOT NULL 
 			  AND (
@@ -73,7 +73,7 @@ export async function getRestaurantIdsForCity(city: string, radiusInMeters: numb
 			where: {
 				city: { equals: city, mode: 'insensitive' },
 				isActive: true,
-				status: 'APPROVED',
+				status: { in: ['APPROVED', 'ACTIVE'] },
 				subscriptions: {
 					some: {
 						status: 'ACTIVE',
@@ -99,7 +99,7 @@ export async function getAllActiveRestaurantIds(): Promise<string[]> {
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
 				isActive: true,
-				status: 'APPROVED',
+				status: { in: ['APPROVED', 'ACTIVE'] },
 				subscriptions: {
 					some: {
 						status: 'ACTIVE',

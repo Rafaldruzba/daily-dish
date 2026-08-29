@@ -14,7 +14,17 @@ interface AuthContextType {
 	favorites: string[] // IDs of favorite restaurants
 	loading: boolean
 	login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
-	register: (email: string, password: string, name?: string, accountType?: string) => Promise<{ success: boolean; message?: string }>
+	register: (
+		email: string,
+		password: string,
+		name?: string,
+		accountType?: string,
+		city?: string,
+		nip?: string,
+		ownerPhone?: string,
+		representsSelf?: boolean,
+		acceptedTerms?: boolean
+	) => Promise<{ success: boolean; message?: string }>
 	verifyRegister: (email: string, code: string) => Promise<{ success: boolean; message?: string }>
 	logout: () => void
 	toggleFavorite: (restaurantId: string) => Promise<boolean>
@@ -109,14 +119,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	}
 
-	const register = async (email: string, password: string, name?: string, accountType?: string) => {
+	const register = async (
+		email: string,
+		password: string,
+		name?: string,
+		accountType?: string,
+		city?: string,
+		nip?: string,
+		ownerPhone?: string,
+		representsSelf?: boolean,
+		acceptedTerms?: boolean
+	) => {
 		try {
 			const res = await fetch(`${API_URL}/auth/register`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email, password, name, accountType }),
+				body: JSON.stringify({
+					email,
+					password,
+					name,
+					accountType,
+					city,
+					nip,
+					ownerPhone,
+					representsSelf,
+					acceptedTerms,
+				}),
 			})
 
 			const data = await res.json()
