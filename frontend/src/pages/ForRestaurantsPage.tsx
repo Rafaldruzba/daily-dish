@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Link } from 'react-router-dom'
 import {
@@ -14,6 +15,7 @@ import {
 	Lock,
 	Heart,
 	Trash2,
+	X,
 } from 'lucide-react'
 import type { Payment, Restaurant, RestaurantForm } from '../types'
 
@@ -43,13 +45,178 @@ export default function ForRestaurantsPage() {
 	const isAdmin = user?.role === 'ADMIN'
 	const isOwner = user?.role === 'OWNER'
 
-	const [activeTab, setActiveTab] = useState('stats')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const [activeTab, setActiveTab] = useState(() => {
+		const tab = new URLSearchParams(window.location.search).get('tab')
+		const isUserAdmin = user?.role === 'ADMIN'
+		const isUserOwner = user?.role === 'OWNER'
+		if (isUserAdmin) {
+			if (tab === 'approved') return 'admin-approved'
+			if (tab === 'payments') return 'admin-payments'
+			if (tab === 'reports') return 'admin-reports'
+			if (tab === 'logs') return 'admin-logs'
+			return 'admin-pending'
+		} else if (isUserOwner) {
+			if (tab === 'new') return 'new'
+			if (tab === 'sub') return 'subscriptions'
+			if (tab === 'payments') return 'payments'
+			if (tab === 'settings') return 'user-settings'
+			return 'stats'
+		} else {
+			if (tab === 'favorites') return 'user-favorites'
+			if (tab === 'reviews') return 'user-reviews'
+			if (tab === 'settings') return 'user-settings'
+			return 'user-favorites'
+		}
+	})
+
+	useEffect(() => {
+		const tab = searchParams.get('tab')
+		if (isAdmin) {
+			if (tab === 'approved') setActiveTab('admin-approved')
+			else if (tab === 'payments') setActiveTab('admin-payments')
+			else if (tab === 'reports') setActiveTab('admin-reports')
+			else if (tab === 'logs') setActiveTab('admin-logs')
+			else setActiveTab('admin-pending')
+		} else if (isOwner) {
+			if (tab === 'new') setActiveTab('new')
+			else if (tab === 'sub') setActiveTab('subscriptions')
+			else if (tab === 'payments') setActiveTab('payments')
+			else if (tab === 'settings') setActiveTab('user-settings')
+			else setActiveTab('stats')
+		} else {
+			if (tab === 'favorites') setActiveTab('user-favorites')
+			else if (tab === 'reviews') setActiveTab('user-reviews')
+			else if (tab === 'settings') setActiveTab('user-settings')
+			else setActiveTab('user-favorites')
+		}
+	}, [searchParams, isAdmin, isOwner])
+
 	const [ownedRestaurants, setOwnedRestaurants] = useState<Restaurant[]>([])
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [form, setForm] = useState<RestaurantForm>(INITIAL_FORM_STATE)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
 	const [success, setSuccess] = useState('')
+
+	const [deleteModal, setDeleteModal] = useState<{
+		isOpen: boolean
+		type: 'admin_restaurant' | 'owner_restaurant' | 'account'
+		targetId: string
+		targetName: string
+		expectedPhrase: string
+		typedPhrase: string
+		digitsCode: string
+	}>({
+		isOpen: false,
+		type: 'account',
+		targetId: '',
+		targetName: '',
+		expectedPhrase: '',
+		typedPhrase: '',
+		digitsCode: '',
+	})
+
+	const openAdminRestaurantDelete = (id: string) => {
+		const name = restaurants.find(r => r.id === id)?.name || 'Restauracja'
+		const code = Math.floor(100000 + Math.random() * 900000).toString()
+		setDeleteModal({
+			isOpen: true,
+			type: 'admin_restaurant',
+			targetId: id,
+			targetName: name,
+			expectedPhrase: `${name} ${code}`,
+			typedPhrase: '',
+			digitsCode: code,
+		})
+	}
+
+	const openOwnerRestaurantDelete = (id: string, name: string) => {
+		const code = Math.floor(100000 + Math.random() * 900000).toString()
+		setDeleteModal({
+			isOpen: true,
+			type: 'owner_restaurant',
+			targetId: id,
+			targetName: name,
+			expectedPhrase: `${name} ${code}`,
+			typedPhrase: '',
+			digitsCode: code,
+		})
+	}
+
+	const openAccountDelete = () => {
+		const name = user?.email || user?.name || 'Konto'
+		const code = Math.floor(100000 + Math.random() * 900000).toString()
+		setDeleteModal({
+			isOpen: true,
+			type: 'account',
+			targetId: 'me',
+			targetName: name,
+			expectedPhrase: `${name} ${code}`,
+			typedPhrase: '',
+			digitsCode: code,
+		})
+	}
+
+	const handleConfirmDelete = async () => {
+		if (deleteModal.typedPhrase.trim() !== deleteModal.expectedPhrase.trim()) return
+
+		const { type, targetId } = deleteModal
+		setDeleteModal(prev => ({ ...prev, isOpen: false }))
+
+		try {
+			if (type === 'admin_restaurant') {
+				if (!token || !isAdmin) return
+				setError('')
+				const response = await fetch(`${API_URL}/restaurants/${targetId}`, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (response.ok) {
+					setRestaurants(prev => prev.filter(item => item.id !== targetId))
+					setSuccess('Restauracja została usunięta.')
+				} else {
+					setError('Nie udało się usunąć restauracji.')
+				}
+			} else if (type === 'owner_restaurant') {
+				if (!token) return
+				setLoading(true)
+				setError('')
+				setSuccess('')
+				const response = await fetch(`${API_URL}/restaurants/${targetId}`, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				const data = await response.json()
+				if (response.ok && data.success) {
+					setSuccess(data.message || 'Restauracja została pomyślnie usunięta.')
+					loadOwnedRestaurants()
+				} else {
+					setError(data.message || 'Nie udało się usunąć restauracji.')
+				}
+			} else if (type === 'account') {
+				if (!token) return
+				setLoading(true)
+				const res = await fetch(`${API_URL}/auth/me`, {
+					method: 'DELETE',
+					headers: { Authorization: `Bearer ${token}` },
+				})
+				if (res.ok) {
+					localStorage.removeItem('dd_token')
+					window.location.href = '/'
+				} else {
+					setError('Nie udało się usunąć konta.')
+				}
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Wystąpił błąd podczas usuwania.')
+		} finally {
+			if (type !== 'account') {
+				setLoading(false)
+			}
+		}
+	}
 
 	const [payments, setPayments] = useState<Payment[]>([])
 	const [adminPayments, setAdminPayments] = useState<any[]>([])
@@ -145,6 +312,8 @@ export default function ForRestaurantsPage() {
 		)
 	}
 
+	
+
 	const queryParams = new URLSearchParams(window.location.search)
 	const successParam = queryParams.get('success')
 	const cancelParam = queryParams.get('cancel')
@@ -153,9 +322,6 @@ export default function ForRestaurantsPage() {
 		if (user) {
 			setProfileName(user.name || '')
 			setProfileCity(user.city || '')
-			if (user.role === 'ADMIN') setActiveTab('admin-pending')
-			else if (user.role === 'OWNER') setActiveTab('stats')
-			else if (user.role === 'USER') setActiveTab('user-favorites')
 		}
 	}, [user])
 
@@ -261,24 +427,6 @@ export default function ForRestaurantsPage() {
 			}
 		} catch (err) {
 			setError('Błąd zmiany statusu.')
-		}
-	}
-
-	const deleteRestaurant = async (id: string) => {
-		if (!token || !isAdmin) return
-		if (!window.confirm('Czy na pewno chcesz usunąć tę restaurację?')) return
-		try {
-			setError('')
-			const response = await fetch(`${API_URL}/restaurants/${id}`, {
-				method: 'DELETE',
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			if (response.ok) {
-				setRestaurants(prev => prev.filter(item => item.id !== id))
-				setSuccess('Restauracja została usunięta.')
-			}
-		} catch (err) {
-			setError('Błąd podczas usuwania.')
 		}
 	}
 
@@ -467,63 +615,6 @@ export default function ForRestaurantsPage() {
 		}
 	}
 
-	const handleDeleteAccount = async () => {
-		if (!token) return
-		const isOwnerRole = user?.role === 'OWNER'
-		const confirmMsg = isOwnerRole
-			? 'Ostrzeżenie: Usunięcie konta OWNER ukryje wszystkie lokale na 3 miesiące. Czy na pewno chcesz usunąć konto?'
-			: 'Czy na pewno chcesz bezpowrotnie usunąć swoje konto?'
-		if (!window.confirm(confirmMsg)) return
-		try {
-			setLoading(true)
-			const res = await fetch(`${API_URL}/auth/me`, {
-				method: 'DELETE',
-				headers: { Authorization: `Bearer ${token}` },
-			})
-			if (res.ok) {
-				localStorage.removeItem('dd_token')
-				window.location.href = '/'
-			}
-		} catch (err) {
-			console.error(err)
-		} finally {
-			setLoading(false)
-		}
-	}
-
-	const handleDeleteRestaurant = async (restaurantId: string, restaurantName: string) => {
-		if (!token) return
-		const confirmDelete = window.confirm(
-			`Czy na pewno chcesz trwale usunąć restaurację "${restaurantName}"? Wszystkie powiązane subskrypcje, oferty i statystyki zostaną bezpowrotnie skasowane.`,
-		)
-		if (!confirmDelete) return
-
-		try {
-			setLoading(true)
-			setError('')
-			setSuccess('')
-			const response = await fetch(`${API_URL}/restaurants/${restaurantId}`, {
-				method: 'DELETE',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			})
-
-			const data = await response.json()
-			if (response.ok && data.success) {
-				setSuccess(data.message || 'Restauracja została pomyślnie usunięta.')
-				loadOwnedRestaurants()
-			} else {
-				setError(data.message || 'Nie udało się usunąć restauracji.')
-			}
-		} catch (err) {
-			console.error(err)
-			setError('Błąd połączenia z serwerem.')
-		} finally {
-			setLoading(false)
-		}
-	}
-
 	useEffect(() => {
 		if (activeTab === 'admin-payments') loadAdminPayments()
 		else if (activeTab === 'admin-logs') loadAdminLogs()
@@ -597,7 +688,7 @@ export default function ForRestaurantsPage() {
 								{restaurant.isActive ? 'Pauzuj' : 'Wznów'}
 							</button>
 							<button
-								onClick={() => deleteRestaurant(restaurant.id)}
+								onClick={() => openAdminRestaurantDelete(restaurant.id)}
 								className='p-2 border border-stone-200 hover:border-red-600 text-stone-500 hover:text-red-600 transition-colors font-mono text-[10px] uppercase tracking-wider cursor-pointer'>
 								Usuń
 							</button>
@@ -672,27 +763,27 @@ export default function ForRestaurantsPage() {
 							{isAdmin ? (
 								<>
 									<button
-										onClick={() => setActiveTab('admin-pending')}
+										onClick={() => setSearchParams({})}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-pending' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Kandydatury ({restaurants.filter(r => r.status === 'PENDING').length})
 									</button>
 									<button
-										onClick={() => setActiveTab('admin-approved')}
+										onClick={() => setSearchParams({ tab: 'approved' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-approved' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Zatwierdzone ({restaurants.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length})
 									</button>
 									<button
-										onClick={() => setActiveTab('admin-payments')}
+										onClick={() => setSearchParams({ tab: 'payments' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Płatności
 									</button>
 									<button
-										onClick={() => setActiveTab('admin-reports')}
+										onClick={() => setSearchParams({ tab: 'reports' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-reports' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Moderacja Zgłoszeń
 									</button>
 									<button
-										onClick={() => setActiveTab('admin-logs')}
+										onClick={() => setSearchParams({ tab: 'logs' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-logs' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Logi systemowe
 									</button>
@@ -700,27 +791,27 @@ export default function ForRestaurantsPage() {
 							) : isOwner ? (
 								<>
 									<button
-										onClick={() => setActiveTab('stats')}
+										onClick={() => setSearchParams({})}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'stats' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Lokale i statystyki
 									</button>
 									<button
-										onClick={() => setActiveTab('new')}
+										onClick={() => setSearchParams({ tab: 'new' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'new' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Zgłoś nową restaurację
 									</button>
 									<button
-										onClick={() => setActiveTab('subscriptions')}
+										onClick={() => setSearchParams({ tab: 'sub' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'subscriptions' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Subskrypcje
 									</button>
 									<button
-										onClick={() => setActiveTab('payments')}
+										onClick={() => setSearchParams({ tab: 'payments' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Historia płatności
 									</button>
 									<button
-										onClick={() => setActiveTab('user-settings')}
+										onClick={() => setSearchParams({ tab: 'settings' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-settings' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ustawienia konta
 									</button>
@@ -728,17 +819,17 @@ export default function ForRestaurantsPage() {
 							) : (
 								<>
 									<button
-										onClick={() => setActiveTab('user-favorites')}
+										onClick={() => setSearchParams({ tab: 'favorites' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-favorites' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ulubione lokale
 									</button>
 									<button
-										onClick={() => setActiveTab('user-reviews')}
+										onClick={() => setSearchParams({ tab: 'reviews' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-reviews' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Moje opinie
 									</button>
 									<button
-										onClick={() => setActiveTab('user-settings')}
+										onClick={() => setSearchParams({ tab: 'settings' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-settings' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ustawienia konta
 									</button>
@@ -1081,7 +1172,7 @@ export default function ForRestaurantsPage() {
 													</span>
 												</div>
 												<button
-													onClick={() => handleDeleteRestaurant(rest.id, rest.name)}
+													onClick={() => openOwnerRestaurantDelete(rest.id, rest.name)}
 													className='px-2.5 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-sm'
 													title='Usuń restaurację bezpowrotnie'>
 													<Trash2 className='w-3.5 h-3.5' /> Usuń lokal
@@ -1541,7 +1632,7 @@ export default function ForRestaurantsPage() {
 										: 'Usunięcie konta jest nieodwracalne i skasuje profil oraz recenzje.'}
 								</p>
 								<button
-									onClick={handleDeleteAccount}
+									onClick={openAccountDelete}
 									className='px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 font-mono text-xs uppercase tracking-wider font-bold cursor-pointer'>
 									Usuń konto bezpowrotnie
 								</button>
@@ -1601,6 +1692,75 @@ export default function ForRestaurantsPage() {
 					</a>
 				</p>
 			</section>
+
+			{/* --- DELETE CONFIRMATION MODAL --- */}
+			{deleteModal.isOpen && (
+				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in'>
+					<div className='bg-white border border-stone-200 w-full max-w-md p-6 md:p-8 shadow-xl space-y-6 text-left relative animate-scale-up rounded-none'>
+						<button
+							onClick={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
+							className='absolute right-4 top-4 p-1 text-stone-400 hover:text-black transition-colors cursor-pointer'>
+							<X className='w-5 h-5' />
+						</button>
+						<div className='border-b border-stone-100 pb-3'>
+							<h3 className='text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5'>
+								<AlertTriangle className='w-5 h-5 text-red-600 shrink-0' />
+								{deleteModal.type === 'account' ? 'Potwierdź usunięcie konta' : 'Potwierdź usunięcie lokalu'}
+							</h3>
+							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
+								Wymagane dodatkowe potwierdzenie
+							</p>
+						</div>
+
+						<div className='space-y-4 font-sans text-xs'>
+							<p className='text-stone-600 leading-relaxed'>
+								{deleteModal.type === 'account' ? (
+									user?.role === 'OWNER' ? (
+										'Ostrzeżenie: Usunięcie konta OWNER ukryje wszystkie lokale na 3 miesiące. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
+									) : (
+										'Ta operacja jest nieodwracalna. Wszystkie Twoje dane zostaną skasowane. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
+									)
+								) : (
+									`Czy na pewno chcesz usunąć „${deleteModal.targetName}”? Ta operacja jest nieodwracalna. Przepisz dokładnie poniższą frazę, aby kontynuować:`
+								)}
+							</p>
+
+							<div className='bg-stone-50 border border-stone-200 p-3 select-all font-mono text-center text-xs font-bold text-stone-800 tracking-wider break-all'>
+								{deleteModal.expectedPhrase}
+							</div>
+
+							<div className='space-y-1.5'>
+								<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+									Wpisz frazę potwierdzającą *
+								</label>
+								<input
+									type='text'
+									value={deleteModal.typedPhrase}
+									onChange={e => setDeleteModal(prev => ({ ...prev, typedPhrase: e.target.value }))}
+									placeholder='Przepisz dokładnie powyższy tekst...'
+									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white animate-pulse'
+								/>
+							</div>
+
+							<div className='flex gap-2 pt-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
+								<button
+									type='button'
+									onClick={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}
+									className='flex-1 py-2.5 border border-stone-200 text-stone-600 hover:border-black hover:text-black transition-colors cursor-pointer text-center'>
+									Anuluj
+								</button>
+								<button
+									type='button'
+									disabled={deleteModal.typedPhrase.trim() !== deleteModal.expectedPhrase.trim()}
+									onClick={handleConfirmDelete}
+									className='flex-1 py-2.5 bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer text-center font-bold uppercase'>
+									Usuń bezpowrotnie
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 		</main>
 	)
 }

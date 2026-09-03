@@ -5,6 +5,8 @@ import RestaurantsPage from './pages/RestaurantsPage'
 import ForRestaurantsPage from './pages/ForRestaurantsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import NotFoundPage from './pages/NotFoundPage'
 import MapPage from './pages/MapPage'
 import RestaurantDetailPage from './pages/RestaurantDetailPage'
 import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
@@ -271,6 +273,8 @@ function AppContent() {
 					<Route path='/for-restaurants' element={<ForRestaurantsPage />} />
 					<Route path='/login' element={<LoginPage />} />
 					<Route path='/register' element={<RegisterPage />} />
+					<Route path='/reset-password' element={<ResetPasswordPage />} />
+					<Route path='*' element={<NotFoundPage />} />
 				</Routes>
 			</div>
 

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import prisma from '../lib/prisma.js'
 import { authenticate, type AuthRequest } from '../middleware/auth.js'
 import redisClient from '../lib/redis.js'
-import { sendVerificationCode } from '../services/email.service.js'
+import { sendVerificationCode, sendPasswordResetEmail } from '../services/email.service.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-daily-dish-key'
@@ -442,6 +442,123 @@ router.delete('/me', authenticate, async (req: AuthRequest, res: Response) => {
 	} catch (error) {
 		console.error('Error deleting account:', error)
 		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas usuwania konta.' })
+	}
+})
+
+// POST /api/auth/forgot-password
+// Generuje i wysyła link resetujący hasło
+router.post('/forgot-password', async (req, res) => {
+	try {
+		const { email } = req.body
+
+		if (!email) {
+			return res.status(400).json({
+				success: false,
+				message: 'Email jest wymagany.',
+			})
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { email: email.toLowerCase().trim() },
+		})
+
+		if (user) {
+			const token = jwt.sign(
+				{ userId: user.id, purpose: 'password-reset' },
+				JWT_SECRET,
+				{ expiresIn: '1h' }
+			)
+
+			const origin = req.headers.origin || 'http://localhost:5173'
+			const resetLink = `${origin}/reset-password?token=${token}`
+
+			const mailSent = await sendPasswordResetEmail(user.email, resetLink)
+			if (!mailSent) {
+				return res.status(500).json({
+					success: false,
+					message: 'Nie udało się wysłać linku resetującego na podany adres e-mail.',
+				})
+			}
+		}
+
+		res.status(200).json({
+			success: true,
+			message: 'Jeśli podany adres istnieje w naszym systemie, wysłaliśmy na niego link resetujący hasło.',
+		})
+	} catch (error) {
+		console.error('Błąd żądania resetowania hasła:', error)
+		res.status(500).json({
+			success: false,
+			message: 'Wystąpił błąd podczas generowania prośby o resetowanie hasła.',
+		})
+	}
+})
+
+// POST /api/auth/reset-password
+// Odbiera token, weryfikuje go, i zmienia hasło użytkownika
+router.post('/reset-password', async (req, res) => {
+	try {
+		const { token, password } = req.body
+
+		if (!token || !password) {
+			return res.status(400).json({
+				success: false,
+				message: 'Token oraz nowe hasło są wymagane.',
+			})
+		}
+
+		if (password.length < 6) {
+			return res.status(400).json({
+				success: false,
+				message: 'Nowe hasło musi mieć co najmniej 6 znaków.',
+			})
+		}
+
+		let decoded: any
+		try {
+			decoded = jwt.verify(token, JWT_SECRET)
+		} catch (err) {
+			return res.status(400).json({
+				success: false,
+				message: 'Link resetujący wygasł lub jest nieprawidłowy.',
+			})
+		}
+
+		if (decoded.purpose !== 'password-reset' || !decoded.userId) {
+			return res.status(400).json({
+				success: false,
+				message: 'Nieprawidłowy token resetowania hasła.',
+			})
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: decoded.userId },
+		})
+
+		if (!user) {
+			return res.status(404).json({
+				success: false,
+				message: 'Użytkownik nie istnieje.',
+			})
+		}
+
+		const hashedPassword = await bcrypt.hash(password, 10)
+
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { password: hashedPassword },
+		})
+
+		res.status(200).json({
+			success: true,
+			message: 'Twoje hasło zostało pomyślnie zmienione. Możesz teraz się zalogować przy użyciu nowego hasła.',
+		})
+	} catch (error) {
+		console.error('Błąd resetowania hasła:', error)
+		res.status(500).json({
+			success: false,
+			message: 'Wystąpił błąd podczas resetowania hasła.',
+		})
 	}
 })
 

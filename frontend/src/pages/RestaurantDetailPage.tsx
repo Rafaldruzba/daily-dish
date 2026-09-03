@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useState, useMemo, type FormEvent } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
 	MapPin,
@@ -19,6 +19,7 @@ import {
 	Flag,
 	MessageSquare,
 	AlertTriangle,
+	Share2,
 } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
@@ -94,6 +95,57 @@ export default function RestaurantDetailPage() {
 	const [error, setError] = useState('')
 	const [success, setSuccess] = useState('')
 
+	// Share State
+	const [copied, setCopied] = useState(false)
+
+	const handleShare = async () => {
+		const shareData = {
+			title: restaurant?.name || 'Bistromapa',
+			text: `Sprawdź menu i oferty dnia w restauracji ${restaurant?.name} na Bistromapa.pl!`,
+			url: window.location.href,
+		}
+
+		// 1. Sprawdzamy, czy użytkownik korzysta z urządzenia mobilnego
+		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+		// 2. Jeśli TO TELEFON i obsługuje Web Share API -> Wywołujemy natywne menu udostępniania
+		if (isMobile && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+			try {
+				await navigator.share(shareData)
+				return // Udostępnianie zakończone sukcesem
+			} catch (err) {
+				// Jeśli użytkownik po prostu zamknął okno udostępniania (AbortError), nic nie robimy
+				if ((err as Error).name === 'AbortError') {
+					return
+				}
+				console.warn('Udostępnianie natywne nie powiodło się, przechodzę do kopiowania:', err)
+			}
+		}
+
+		// 3. DESKTOP (lub brak obsługi navigator.share na telefonie) -> Kopiowanie do schowka
+		try {
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(window.location.href)
+			} else {
+				// Fallback dla starszych przeglądarek / połączeń HTTP bez SSL
+				const textArea = document.createElement('textarea')
+				textArea.value = window.location.href
+				textArea.style.position = 'fixed'
+				textArea.style.left = '-999999px'
+				document.body.appendChild(textArea)
+				textArea.focus()
+				textArea.select()
+				document.execCommand('copy')
+				document.body.removeChild(textArea)
+			}
+
+			setCopied(true)
+			setTimeout(() => setCopied(false), 2000)
+		} catch (err) {
+			console.error('Nie udało się skopiować linku do schowka:', err)
+		}
+	}
+
 	// Edit Mode States
 	const [isEditing, setIsEditing] = useState(false)
 	const [editForm, setEditForm] = useState<EditFormState>({
@@ -118,7 +170,22 @@ export default function RestaurantDetailPage() {
 	const [menuSuccess, setMenuSuccess] = useState('')
 
 	// Tab Navigator State
-	const [activeTab, setActiveTab] = useState<'dishes' | 'about' | 'menu' | 'opinions'>('dishes')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const [activeTab, setActiveTab] = useState<'dishes' | 'about' | 'menu' | 'opinions'>(() => {
+		const tab = new URLSearchParams(window.location.search).get('tab')
+		if (tab === 'opinions') return 'opinions'
+		if (tab === 'about-us') return 'about'
+		if (tab === 'menu') return 'menu'
+		return 'dishes'
+	})
+
+	useEffect(() => {
+		const tab = searchParams.get('tab')
+		if (tab === 'opinions') setActiveTab('opinions')
+		else if (tab === 'about-us') setActiveTab('about')
+		else if (tab === 'menu') setActiveTab('menu')
+		else setActiveTab('dishes')
+	}, [searchParams])
 
 	// Nowe stany dla opinii, komentarzy i zgłoszeń
 	const [reviews, setReviews] = useState<any[]>([])
@@ -138,6 +205,25 @@ export default function RestaurantDetailPage() {
 	const [reportingReviewId, setReportingReviewId] = useState<string | null>(null)
 	const [reviewReportReason, setReviewReportReason] = useState('VULGAR')
 	const [isSubmittingReviewReport, setIsSubmittingReviewReport] = useState(false)
+
+	// Unique existing categories for the datalist option selection
+	const existingCategories = useMemo<string[]>(() => {
+		const cats = menuItems.map(item => item.category?.trim()).filter((cat): cat is string => Boolean(cat))
+		return Array.from(new Set(cats))
+	}, [menuItems])
+
+	// Grouped menu items by category for layout sorting and rendering
+	const groupedMenuItems = useMemo<Record<string, MenuItem[]>>(() => {
+		const groups: Record<string, MenuItem[]> = {}
+		menuItems.forEach(item => {
+			const cat = item.category?.trim() || 'Inne'
+			if (!groups[cat]) {
+				groups[cat] = []
+			}
+			groups[cat].push(item)
+		})
+		return groups
+	}, [menuItems])
 
 	// --- 1. Fetch Restaurant Details & Reviews ---
 	const fetchDetails = async () => {
@@ -526,6 +612,21 @@ export default function RestaurantDetailPage() {
 
 				{/* Header Actions (Fav & Edit) */}
 				<div className='flex flex-wrap items-center gap-3 shrink-0 self-start md:self-center'>
+					<button
+						onClick={handleShare}
+						disabled={copied}
+						className={`p-3 border transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+							copied
+								? 'border-green-600 bg-green-50 text-green-600 animate-pulse'
+								: 'border-stone-200 text-stone-500 hover:border-black hover:text-black hover:bg-stone-50'
+						}`}
+						title='Udostępnij ten lokal'>
+						<Share2 className='w-4 h-4' />
+						<span className='text-[10px] font-mono uppercase tracking-wider font-bold'>
+							{copied ? 'Skopiowano!' : 'Udostępnij'}
+						</span>
+					</button>
+
 					{/* Favorite Button */}
 					{user && (
 						<button
@@ -567,7 +668,7 @@ export default function RestaurantDetailPage() {
 				<div className='border-b border-stone-200 overflow-x-auto whitespace-nowrap scrollbar-none'>
 					<nav className='flex gap-6 font-mono text-xs uppercase tracking-wider font-bold'>
 						<button
-							onClick={() => setActiveTab('dishes')}
+							onClick={() => setSearchParams({ tab: 'daily-offer' })}
 							className={`py-3 px-1 border-b-2 transition-colors cursor-pointer ${
 								activeTab === 'dishes'
 									? 'border-black text-black'
@@ -576,7 +677,7 @@ export default function RestaurantDetailPage() {
 							Oferta Dnia
 						</button>
 						<button
-							onClick={() => setActiveTab('opinions')}
+							onClick={() => setSearchParams({ tab: 'opinions' })}
 							className={`py-3 px-1 border-b-2 transition-colors cursor-pointer ${
 								activeTab === 'opinions'
 									? 'border-black text-black'
@@ -585,7 +686,7 @@ export default function RestaurantDetailPage() {
 							Opinie ({reviews.length})
 						</button>
 						<button
-							onClick={() => setActiveTab('about')}
+							onClick={() => setSearchParams({ tab: 'about-us' })}
 							className={`py-3 px-1 border-b-2 transition-colors cursor-pointer ${
 								activeTab === 'about'
 									? 'border-black text-black'
@@ -594,7 +695,7 @@ export default function RestaurantDetailPage() {
 							O nas
 						</button>
 						<button
-							onClick={() => setActiveTab('menu')}
+							onClick={() => setSearchParams({ tab: 'menu' })}
 							className={`py-3 px-1 border-b-2 transition-colors cursor-pointer ${
 								activeTab === 'menu'
 									? 'border-black text-black'
@@ -690,6 +791,74 @@ export default function RestaurantDetailPage() {
 											</div>
 										</article>
 									))}
+								</div>
+							)}
+
+							{/* Zarządzanie Ofertą Stałą dla właściciela/admina */}
+							{isOwner && (
+								<div className='border border-stone-200 p-6 bg-stone-50 space-y-4 shadow-sm text-left mt-8'>
+									<div className='border-b border-stone-100 pb-2.5'>
+										<h3 className='font-serif font-bold text-stone-900 text-base flex items-center gap-1.5'>
+											<BookOpen className='w-4.5 h-4.5' />
+											Zarządzaj swoją Ofertą Stałą
+										</h3>
+										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>
+											Ta oferta będzie wyświetlana klientom jako danie dnia w przypadku, gdy robot nie pobierze nowego
+											posta z Facebooka na dany dzień.
+										</p>
+									</div>
+
+									<form onSubmit={handleSave} className='space-y-4 font-sans text-xs'>
+										<div className='space-y-1.5'>
+											<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+												Tytuł Oferty Stałej *
+											</label>
+											<input
+												type='text'
+												value={editForm.staticOfferTitle}
+												onChange={e => setEditForm(prev => ({ ...prev, staticOfferTitle: e.target.value }))}
+												placeholder='np. Lunch Szefa Kuchni (Kotlet schabowy + Zupa krem)'
+												className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-sans text-xs bg-white'
+												required
+											/>
+										</div>
+
+										<div className='grid grid-cols-1 md:grid-cols-3 gap-3 items-end'>
+											<div className='md:col-span-2 space-y-1.5'>
+												<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+													Opis Oferty Stałej
+												</label>
+												<input
+													type='text'
+													value={editForm.staticOfferDesc}
+													onChange={e => setEditForm(prev => ({ ...prev, staticOfferDesc: e.target.value }))}
+													placeholder='Grillowany filet w sosie kurkowym, frytki i bukiet surówek...'
+													className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-sans bg-white'
+												/>
+											</div>
+											<div className='space-y-1.5'>
+												<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+													Cena Oferty Stałej (PLN) *
+												</label>
+												<input
+													type='number'
+													step='0.01'
+													value={editForm.staticOfferPrice}
+													onChange={e => setEditForm(prev => ({ ...prev, staticOfferPrice: e.target.value }))}
+													placeholder='35.00'
+													className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white'
+													required
+												/>
+											</div>
+										</div>
+
+										<button
+											type='submit'
+											disabled={saving}
+											className='px-5 py-2.5 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-[10px] uppercase tracking-widest font-bold disabled:opacity-50 cursor-pointer shadow-sm'>
+											{saving ? 'Zapisywanie...' : 'Zapisz Ofertę Stałą'}
+										</button>
+									</form>
 								</div>
 							)}
 						</div>
@@ -926,6 +1095,7 @@ export default function RestaurantDetailPage() {
 														type='text'
 														value={item.category}
 														onChange={e => handleNewRowChange(index, 'category', e.target.value)}
+														list='categories-list'
 														placeholder='np. Obiady'
 														className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
 													/>
@@ -988,42 +1158,55 @@ export default function RestaurantDetailPage() {
 									)}
 								</div>
 							) : (
-								<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-									{menuItems.map(item => (
-										<div
-											key={item.id}
-											className='border border-stone-200 p-5 bg-white space-y-2 hover:border-stone-400 transition-colors shadow-sm flex flex-col justify-between'>
-											<div className='space-y-1'>
-												<div className='flex justify-between items-start gap-4'>
-													<h4 className='font-serif font-bold text-stone-900 text-sm'>{item.name}</h4>
-													{item.price && (
-														<span className='font-mono text-xs font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 shrink-0 shadow-sm'>
-															{Number(item.price).toFixed(2)} zł
-														</span>
-													)}
-												</div>
-												{item.description && (
-													<p className='text-stone-500 text-xs leading-relaxed font-sans'>{item.description}</p>
-												)}
+								<div className='flex flex-col gap-8'>
+									{Object.entries(groupedMenuItems).map(([category, items]) => (
+										<div key={category} className='space-y-4 text-left'>
+											<h3 className='font-serif font-black text-stone-950 text-sm border-b border-stone-200 pb-2 flex items-center gap-1.5 uppercase tracking-wider'>
+												<span className='w-2 h-2 bg-black shrink-0'></span>
+												{category}
+											</h3>
+											<div className='flex flex-col gap-3'>
+												{items.map(item => (
+													<div
+														key={item.id}
+														className='border border-stone-200 p-5 bg-white hover:border-stone-400 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
+														<div className='space-y-1 flex-grow'>
+															<h4 className='font-serif font-bold text-stone-900 text-sm md:text-base'>{item.name}</h4>
+															{item.description && (
+																<p className='text-stone-500 text-xs md:text-sm font-sans leading-relaxed'>
+																	{item.description}
+																</p>
+															)}
+														</div>
+														<div className='flex items-center gap-4 shrink-0 justify-between sm:justify-end w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100'>
+															{item.price && (
+																<span className='font-mono text-xs md:text-sm font-bold bg-stone-50 px-2.5 py-1 border border-stone-150 shadow-xs shrink-0'>
+																	{Number(item.price).toFixed(2)} zł
+																</span>
+															)}
+															{isOwner && (
+																<button
+																	onClick={() => handleDeleteMenuItem(item.id)}
+																	disabled={menuActionLoading}
+																	className='hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer font-mono text-[9px] uppercase font-bold tracking-wider'>
+																	<Trash2 className='w-3.5 h-3.5' /> Usuń
+																</button>
+															)}
+														</div>
+													</div>
+												))}
 											</div>
-
-											{item.category && (
-												<div className='pt-2 border-t border-stone-50 flex justify-between items-center text-[9px] font-mono text-stone-400 uppercase tracking-widest'>
-													<span>Kategoria: {item.category}</span>
-													{isOwner && (
-														<button
-															onClick={() => handleDeleteMenuItem(item.id)}
-															disabled={menuActionLoading}
-															className='hover:text-red-600 flex items-center gap-0.5 transition-colors cursor-pointer font-bold uppercase'>
-															<Trash2 className='w-3 h-3' /> Usuń
-														</button>
-													)}
-												</div>
-											)}
 										</div>
 									))}
 								</div>
 							)}
+
+							{/* Category suggestions datalist element */}
+							<datalist id='categories-list'>
+								{existingCategories.map(cat => (
+									<option key={cat} value={cat} />
+								))}
+							</datalist>
 						</div>
 					)}
 				</div>
@@ -1241,59 +1424,6 @@ export default function RestaurantDetailPage() {
 									onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
 									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs leading-relaxed font-sans'
 								/>
-							</div>
-
-							{/* SEKCJA OFERTY STAŁEJ */}
-							<div className='pt-4 border-t border-stone-100 space-y-3'>
-								<h4 className='text-xs font-bold font-mono text-stone-800 uppercase flex items-center gap-1.5'>
-									<BookOpen className='w-4 h-4' />
-									Zarządzanie Ofertą Stałą (Stała propozycja lokalu)
-								</h4>
-								<p className='text-[10px] text-stone-400 font-sans italic leading-relaxed'>
-									Ta oferta będzie wyświetlana klientom jako danie dnia w przypadku, gdy robot nie pobierze nowego posta
-									z Facebooka na dany dzień.
-								</p>
-
-								<div className='space-y-1.5'>
-									<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-										Tytuł Oferty Stałej
-									</label>
-									<input
-										type='text'
-										value={editForm.staticOfferTitle}
-										onChange={e => setEditForm(prev => ({ ...prev, staticOfferTitle: e.target.value }))}
-										placeholder='np. Lunch Szefa Kuchni (Kotlet + Krem)'
-										className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-sans text-xs'
-									/>
-								</div>
-
-								<div className='grid grid-cols-1 md:grid-cols-3 gap-3 items-end'>
-									<div className='md:col-span-2 space-y-1.5'>
-										<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-											Opis Oferty Stałej
-										</label>
-										<input
-											type='text'
-											value={editForm.staticOfferDesc}
-											onChange={e => setEditForm(prev => ({ ...prev, staticOfferDesc: e.target.value }))}
-											placeholder='Aromatyczne grillowane piersi w sosie śmietankowo-kurkowym...'
-											className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-sans'
-										/>
-									</div>
-									<div className='space-y-1.5'>
-										<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-											Cena Oferty Stałej (PLN)
-										</label>
-										<input
-											type='number'
-											step='0.01'
-											value={editForm.staticOfferPrice}
-											onChange={e => setEditForm(prev => ({ ...prev, staticOfferPrice: e.target.value }))}
-											placeholder='39.90'
-											className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
-										/>
-									</div>
-								</div>
 							</div>
 
 							<div className='flex gap-2 pt-4 border-t border-stone-100 font-mono text-[10px] uppercase tracking-wider font-bold'>

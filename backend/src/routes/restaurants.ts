@@ -617,7 +617,21 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(403).json({ success: false, message: 'Brak uprawnień do edycji tej restauracji' })
 		}
 
-		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu } = req.body
+		const {
+			name,
+			slug,
+			phone,
+			address,
+			city,
+			facebookUrl,
+			isActive,
+			description,
+			generalMenu,
+			staticOfferTitle,
+			staticOfferDesc,
+			staticOfferPrice,
+			staticOfferImg,
+		} = req.body
 
 		const restaurant = await prisma.restaurant.update({
 			where: {
@@ -650,6 +664,18 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 				}),
 				...(generalMenu !== undefined && {
 					generalMenu: generalMenu?.trim() || null,
+				}),
+				...(staticOfferTitle !== undefined && {
+					staticOfferTitle: staticOfferTitle?.trim() || null,
+				}),
+				...(staticOfferDesc !== undefined && {
+					staticOfferDesc: staticOfferDesc?.trim() || null,
+				}),
+				...(staticOfferPrice !== undefined && {
+					staticOfferPrice: staticOfferPrice !== null && staticOfferPrice !== '' ? parseFloat(staticOfferPrice) : null,
+				}),
+				...(staticOfferImg !== undefined && {
+					staticOfferImg: staticOfferImg?.trim() || null,
 				}),
 			},
 		})
