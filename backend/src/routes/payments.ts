@@ -9,6 +9,7 @@ const router = Router()
 // Initialize Stripe with strict fallback
 const stripeKey = process.env.STRIPE_SECRET_KEY || ''
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
+const stripeApiVersion = process.env.STRIPE_API_VERSION || ''
 
 let FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 if (!FRONTEND_URL.startsWith('http://') && !FRONTEND_URL.startsWith('https://')) {
@@ -17,7 +18,7 @@ if (!FRONTEND_URL.startsWith('http://') && !FRONTEND_URL.startsWith('https://'))
 
 const stripe = stripeKey
 	? new Stripe(stripeKey, {
-			apiVersion: '2025-01-27.acac' as any,
+			apiVersion: stripeApiVersion as any,
 		})
 	: null
 
