@@ -2,7 +2,7 @@ import { Router, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import prisma from '../lib/prisma.js'
-import { authenticate, type AuthRequest } from '../middleware/auth.js'
+import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import redisClient from '../lib/redis.js'
 import { sendVerificationCode, sendPasswordResetEmail } from '../services/email.service.js'
 
@@ -559,6 +559,101 @@ router.post('/reset-password', async (req, res) => {
 			success: false,
 			message: 'Wystąpił błąd podczas resetowania hasła.',
 		})
+	}
+})
+
+// GET /api/auth/admin/removal-users
+// Pobiera użytkowników (role OWNER) będących w okresie karencji (wszystkie ich lokale mają status REMOVAL)
+router.get('/admin/removal-users', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		const allOwners = await prisma.user.findMany({
+			where: {
+				role: 'OWNER',
+			},
+			select: {
+				id: true,
+				email: true,
+				name: true,
+				createdAt: true,
+				restaurants: {
+					select: {
+						id: true,
+						name: true,
+						city: true,
+						status: true,
+						removalRequestedAt: true,
+					},
+				},
+			},
+		})
+
+		const users = allOwners.filter(user => {
+			const hasRestaurants = user.restaurants.length > 0
+			const allInRemoval = hasRestaurants && user.restaurants.every(r => r.status === 'REMOVAL')
+			return allInRemoval
+		})
+
+		res.json({ success: true, users })
+	} catch (error) {
+		console.error('Error fetching removal users for admin:', error)
+		res.status(500).json({ success: false, message: 'Nie udało się pobrać kont w okresie karencji.' })
+	}
+})
+
+// POST /api/auth/admin/restore-user/:userId
+// Cofa proces usuwania konta i przywraca lokale właściciela do statusu APPROVED oraz włącza scraper (isActive = true)
+router.post('/admin/restore-user/:userId', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		const { userId } = req.params
+
+		if (!userId) {
+			return res.status(400).json({ success: false, message: 'ID użytkownika jest wymagane.' })
+		}
+
+		// Sprawdzamy czy użytkownik istnieje
+		const user = await prisma.user.findUnique({
+			where: { id: userId as string },
+		})
+
+		if (!user) {
+			return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' })
+		}
+
+		// Pobieramy lokale użytkownika przed aktualizacją statusu, aby zapamiętać ich miasta do czyszczenia cache
+		const userRestaurants = await prisma.restaurant.findMany({
+			where: { userId: userId as string },
+		})
+
+		// Cofamy status na APPROVED i włączamy isActive
+		await prisma.restaurant.updateMany({
+			where: { userId: userId as string },
+			data: {
+				status: 'APPROVED',
+				isActive: true,
+				removalRequestedAt: null,
+			},
+		})
+
+		// Czyścimy Redis cache dla wszystkich miast powiązanych z tymi lokalami
+		try {
+			if (redisClient.isOpen && userRestaurants.length > 0) {
+				const cities = [...new Set(userRestaurants.map((r: any) => r.city))]
+				for (const city of cities) {
+					await redisClient.del(`restaurants:${city}`)
+				}
+				await redisClient.del('restaurants:all')
+			}
+		} catch (err) {
+			console.error('Error invalidating Redis cache during restoration:', err)
+		}
+
+		res.json({
+			success: true,
+			message: `Konto użytkownika ${user.email} i jego lokale zostały pomyślnie przywrócone.`,
+		})
+	} catch (error) {
+		console.error('Error restoring account for admin:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas przywracania konta.' })
 	}
 })
 

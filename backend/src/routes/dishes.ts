@@ -3,7 +3,7 @@ import prisma from '../lib/prisma.js'
 import { fetchTodayDishes } from '../services/daily-dish.service.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
-import redisClient from '../lib/redis.js'
+import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 
 const router = Router()
 
@@ -15,6 +15,13 @@ router.post('/fetch', authenticate, async (req: AuthRequest, res: Response) => {
 
 		const city = req.query.city as string | undefined;
 		const results = await fetchTodayDishes(city)
+
+		if (city) {
+			await invalidateRestaurantCache(city)
+		} else {
+			await redisClient.del('dishes:today:all')
+			await redisClient.del('restaurants:all')
+		}
 
 		res.json({
 			success: true,

@@ -35,25 +35,17 @@ const getSubscriptionDetails = (
 	switch (planId) {
 		case 'BASE':
 			type = 'BASE'
-			planName = 'Abonament za restaurację'
-			planDescription = 'Standardowy FB bot scraper pobierający Twoje codzienne dania dnia.'
-			amount = 99
+			planName = 'Abonament BistroMapa BASE'
+			planDescription = 'Pełna obecność w systemie: profil lokalu, FB bot scraper, karta menu i oferta stała.'
+			amount = 100
 			endsAt.setDate(startsAt.getDate() + 30)
 			break
 		case 'PROMOTION':
 			type = 'PROMOTION'
-			planName = 'Promowanie na górze strony'
-			planDescription = 'Wyróżnienie i podbijanie Twojego lokalu na samą górę listy wyszukiwania w mieście.'
+			planName = 'Abonament BistroMapa PROMOTION'
+			planDescription = 'Wyróżnienie wizualne oraz pierwszeństwo w wynikach wyszukiwania w promieniu 30 km.'
 			amount = 50
-			endsAt.setDate(startsAt.getDate() + 30) // Assuming 30 days for now
-			break
-		case 'STATIC_MENU':
-			type = 'STATIC_MENU'
-			planName = 'Stałe wyświetlane menu bez FB'
-			planDescription =
-				'Możliwość dodawania całorocznych ofert stałych wyświetlanych zawsze bez konieczności postowania na Facebooku.'
-			amount = 50
-			endsAt.setDate(startsAt.getDate() + 30) // Assuming 30 days for now
+			endsAt.setDate(startsAt.getDate() + 30)
 			break
 		default:
 			throw new Error(`Invalid planId: ${planId}`)

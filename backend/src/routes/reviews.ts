@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express'
 import prisma from '../lib/prisma.js'
 import { authenticate, type AuthRequest } from '../middleware/auth.js'
+import { invalidateRestaurantCache } from '../lib/redis.js'
 
 const router = Router()
 
@@ -15,12 +16,14 @@ async function recalculateRestaurantRating(restaurantId: string) {
 		const count = reviews.length
 		const avg = count > 0 ? reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / count : 5.0 // Domyślnie 5.0 przy braku opinii
 
-		await prisma.restaurant.update({
+		const restaurant = await prisma.restaurant.update({
 			where: { id: restaurantId },
 			data: {
 				rating: avg,
 			},
 		})
+
+		await invalidateRestaurantCache(restaurant.city)
 	} catch (err) {
 		console.error('❌ Błąd przeliczania oceny restauracji:', err)
 	}

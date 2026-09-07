@@ -1,6 +1,7 @@
 import { Router, type Response, type Request } from 'express';
 import prisma from '../lib/prisma.js';
 import { authenticate, type AuthRequest } from '../middleware/auth.js';
+import { invalidateRestaurantCache } from '../lib/redis.js';
 
 const router = Router();
 
@@ -25,10 +26,24 @@ const isOwnerOrAdmin = async (req: AuthRequest, res: Response, next: Function) =
     return res.status(403).json({ success: false, message: 'Brak uprawnień do tej operacji' });
   }
 
+  // Attach restaurant to request for easy access
+  (req as any).restaurant = restaurant;
+
   next();
 };
 
 // --- StandardOffer Routes ---
+
+const invalidateCache = async (req: AuthRequest, restaurantId: string) => {
+  try {
+    const restaurant = (req as any).restaurant || await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (restaurant) {
+      await invalidateRestaurantCache(restaurant.city);
+    }
+  } catch (err) {
+    console.error('Error during cache invalidation in offers:', err);
+  }
+};
 
 // Create StandardOffer
 router.post('/:restaurantId/standard-offer', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
@@ -46,6 +61,7 @@ router.post('/:restaurantId/standard-offer', authenticate, isOwnerOrAdmin, async
         isActive,
       },
     });
+    await invalidateCache(req, restaurantId);
     res.status(201).json(offer);
   } catch (error) {
     console.error(error);
@@ -56,6 +72,7 @@ router.post('/:restaurantId/standard-offer', authenticate, isOwnerOrAdmin, async
 // Update StandardOffer
 router.put('/:restaurantId/standard-offer/:offerId', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    const { restaurantId } = req.params as { restaurantId: string };
     const { offerId } = req.params as { offerId: string };
     const { title, description, price, imageUrl, isActive } = req.body;
 
@@ -69,6 +86,7 @@ router.put('/:restaurantId/standard-offer/:offerId', authenticate, isOwnerOrAdmi
         isActive,
       },
     });
+    await invalidateCache(req, restaurantId);
     res.json(offer);
   } catch (error) {
     console.error(error);
@@ -79,8 +97,10 @@ router.put('/:restaurantId/standard-offer/:offerId', authenticate, isOwnerOrAdmi
 // Delete StandardOffer
 router.delete('/:restaurantId/standard-offer/:offerId', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    const { restaurantId } = req.params as { restaurantId: string };
     const { offerId } = req.params as { offerId: string };
     await prisma.standardOffer.delete({ where: { id: offerId } });
+    await invalidateCache(req, restaurantId);
     res.status(204).send();
   } catch (error) {
     console.error(error);
@@ -125,6 +145,7 @@ router.post('/:restaurantId/menu-item', authenticate, isOwnerOrAdmin, async (req
       dataToInsert.map((data: any) => prisma.menuItem.create({ data }))
     );
 
+    await invalidateCache(req, restaurantId);
     res.status(201).json(isArray ? createdItems : createdItems[0]);
   } catch (error) {
     console.error(error);
@@ -135,6 +156,7 @@ router.post('/:restaurantId/menu-item', authenticate, isOwnerOrAdmin, async (req
 // Update MenuItem
 router.put('/:restaurantId/menu-item/:itemId', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    const { restaurantId } = req.params as { restaurantId: string };
     const { itemId } = req.params as { itemId: string };
     const { name, description, price, category, order } = req.body;
 
@@ -154,6 +176,7 @@ router.put('/:restaurantId/menu-item/:itemId', authenticate, isOwnerOrAdmin, asy
         ...(order !== undefined && { order: Number(order) }),
       },
     });
+    await invalidateCache(req, restaurantId);
     res.json(item);
   } catch (error) {
     console.error(error);
@@ -164,8 +187,10 @@ router.put('/:restaurantId/menu-item/:itemId', authenticate, isOwnerOrAdmin, asy
 // Delete MenuItem
 router.delete('/:restaurantId/menu-item/:itemId', authenticate, isOwnerOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    const { restaurantId } = req.params as { restaurantId: string };
     const { itemId } = req.params as { itemId: string };
     await prisma.menuItem.delete({ where: { id: itemId } });
+    await invalidateCache(req, restaurantId);
     res.status(204).send();
   } catch (error) {
     console.error(error);

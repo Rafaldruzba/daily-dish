@@ -55,6 +55,7 @@ export default function ForRestaurantsPage() {
 			if (tab === 'payments') return 'admin-payments'
 			if (tab === 'reports') return 'admin-reports'
 			if (tab === 'logs') return 'admin-logs'
+			if (tab === 'removal') return 'admin-removal'
 			return 'admin-pending'
 		} else if (isUserOwner) {
 			if (tab === 'new') return 'new'
@@ -77,6 +78,7 @@ export default function ForRestaurantsPage() {
 			else if (tab === 'payments') setActiveTab('admin-payments')
 			else if (tab === 'reports') setActiveTab('admin-reports')
 			else if (tab === 'logs') setActiveTab('admin-logs')
+			else if (tab === 'removal') setActiveTab('admin-removal')
 			else setActiveTab('admin-pending')
 		} else if (isOwner) {
 			if (tab === 'new') setActiveTab('new')
@@ -238,6 +240,9 @@ export default function ForRestaurantsPage() {
 	const [profileCity, setProfileCity] = useState(user?.city || '')
 	const [updatingProfile, setUpdatingProfile] = useState(false)
 
+	const [adminRemovalUsers, setAdminRemovalUsers] = useState<any[]>([])
+	const [loadingRemovalUsers, setLoadingRemovalUsers] = useState(false)
+
 	const [activeStep, setActiveStep] = useState(0)
 	const steps = [
 		{
@@ -254,7 +259,7 @@ export default function ForRestaurantsPage() {
 		},
 		{
 			title: '4. Elastyczna subskrypcja',
-			desc: 'Otrzymujesz 30 dni bezpłatnego okresu próbnego. Po jego zakończeniu koszt bota wynosi 99 zł miesięcznie.',
+			desc: 'Otrzymujesz 30 dni bezpłatnego okresu próbnego. Po jego zakończeniu koszt pakietu BASE wynosi 100 zł miesięcznie.',
 		},
 	]
 
@@ -471,6 +476,50 @@ export default function ForRestaurantsPage() {
 			console.error(err)
 		} finally {
 			setLoadingLogs(false)
+		}
+	}
+
+	const loadAdminRemovalUsers = async () => {
+		if (!token) return
+		try {
+			setLoadingRemovalUsers(true)
+			const res = await fetch(`${API_URL}/auth/admin/removal-users`, {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			if (res.ok) {
+				const data = await res.json()
+				setAdminRemovalUsers(data.users || [])
+			}
+		} catch (err) {
+			console.error(err)
+		} finally {
+			setLoadingRemovalUsers(false)
+		}
+	}
+
+	const handleRestoreRemovalUser = async (userId: string) => {
+		if (!token) return
+		if (!window.confirm('Czy na pewno chcesz cofnąć karencję i przywrócić to konto wraz ze wszystkimi lokalami?')) return
+		try {
+			setLoading(true)
+			setError('')
+			setSuccess('')
+			const res = await fetch(`${API_URL}/auth/admin/restore-user/${userId}`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			const data = await res.json()
+			if (res.ok && data.success) {
+				setSuccess(data.message || 'Konto i lokale przywrócone pomyślnie.')
+				loadAdminRemovalUsers()
+			} else {
+				setError(data.message || 'Nie udało się przywrócić konta.')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Błąd połączenia z serwerem.')
+		} finally {
+			setLoading(false)
 		}
 	}
 
@@ -786,6 +835,11 @@ export default function ForRestaurantsPage() {
 										onClick={() => setSearchParams({ tab: 'logs' })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-logs' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Logi systemowe
+									</button>
+									<button
+										onClick={() => setSearchParams({ tab: 'removal' })}
+										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-removal' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
+										Konta w karencji
 									</button>
 								</>
 							) : isOwner ? (
@@ -1108,6 +1162,73 @@ export default function ForRestaurantsPage() {
 						</section>
 					)}
 
+					{isAdmin && activeTab === 'admin-removal' && (
+						<section className='space-y-6 text-left animate-fade-in'>
+							<div className='flex justify-between items-center'>
+								<h2 className='text-xl font-bold font-serif text-stone-900'>
+									Konta w okresie karencji ({adminRemovalUsers.length})
+								</h2>
+								<button
+									onClick={loadAdminRemovalUsers}
+									className='px-3 py-1.5 border border-stone-200 text-xs font-mono flex items-center gap-1 cursor-pointer bg-white shadow-xs'>
+									<RefreshCw className='w-3 h-3' /> Odśwież
+								</button>
+							</div>
+							<p className='text-stone-500 text-xs mt-1 leading-relaxed max-w-4xl'>
+								Właściciele, którzy zgłosili żądanie usunięcia konta. Ich lokale zostały zawieszone (status REMOVAL) i ukryte. 
+								W ciągu 3-miesięcznego okresu karencji możesz przywrócić ich konta oraz lokale do pełnej aktywności za jednym kliknięciem.
+							</p>
+
+							{loadingRemovalUsers ? (
+								<div className='py-12 text-center border border-dashed border-stone-200 bg-stone-50'>
+									<RefreshCw className='w-6 h-6 text-stone-300 animate-spin mx-auto mb-2' />
+									<p className='font-mono text-[10px] uppercase text-stone-400'>Ładowanie kont w karencji...</p>
+								</div>
+							) : adminRemovalUsers.length === 0 ? (
+								<p className='text-stone-400 text-xs font-mono italic p-12 border border-dashed text-center bg-stone-50'>
+									Brak kont oczekujących na usunięcie w okresie karencji.
+								</p>
+							) : (
+								<div className='space-y-4'>
+									{adminRemovalUsers.map(u => (
+										<div
+											key={u.id}
+											className='border border-stone-200 p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm text-xs'>
+											<div className='space-y-2.5 flex-grow text-left'>
+												<h3 className='text-base font-bold font-serif text-stone-900'>
+													{u.name || 'Właściciel bez nazwy'} ({u.email})
+												</h3>
+												<p className='text-stone-500 font-mono text-[10px] uppercase tracking-wider font-bold'>
+													Powiązane zawieszone lokale:
+												</p>
+												<ul className='list-disc pl-4 font-sans text-stone-600 space-y-1'>
+													{u.restaurants?.map((r: any) => {
+														const daysLeft = r.removalRequestedAt 
+															? getDaysLeft(new Date(new Date(r.removalRequestedAt).setMonth(new Date(r.removalRequestedAt).getMonth() + 3)).toISOString()) 
+															: 90
+														return (
+															<li key={r.id}>
+																<strong>{r.name}</strong> ({r.city}) — pozostało{' '}
+																<strong className='text-red-600 font-mono'>{daysLeft} dni</strong> karencji
+															</li>
+														)
+													})}
+												</ul>
+											</div>
+											<div className='flex flex-wrap gap-2 shrink-0'>
+												<button
+													onClick={() => handleRestoreRemovalUser(u.id)}
+													className='px-3.5 py-2.5 bg-black hover:bg-stone-900 text-white font-mono text-[10px] uppercase font-bold tracking-widest cursor-pointer transition-colors shadow-sm'>
+													Cofnij karencję i przywróć konto
+												</button>
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</section>
+					)}
+
 					{isOwner && activeTab === 'stats' && (
 						<section className='space-y-6'>
 							<div className='flex justify-between items-center'>
@@ -1294,9 +1415,6 @@ export default function ForRestaurantsPage() {
 											rest.subscription?.plan === 'FREE_TRIAL' ? getDaysLeft(rest.subscription.currentPeriodEnd) : 0
 										const hasActiveBase = rest.subscriptions?.some(s => s.type === 'BASE' && s.status === 'ACTIVE')
 										const hasPromotion = rest.subscriptions?.some(s => s.type === 'PROMOTION' && s.status === 'ACTIVE')
-										const hasStaticMenu = rest.subscriptions?.some(
-											s => s.type === 'STATIC_MENU' && s.status === 'ACTIVE',
-										)
 
 										return (
 											<div key={rest.id} className='border p-6 bg-white space-y-4 shadow-sm'>
@@ -1336,65 +1454,58 @@ export default function ForRestaurantsPage() {
 													)}
 												</div>
 												{rest.status !== 'PENDING' && (
-													<div className='grid grid-cols-1 md:grid-cols-3 gap-4 pt-2'>
+													<div className='grid grid-cols-1 md:grid-cols-2 gap-6 pt-2'>
 														{/* Base Plan */}
-														<div className='border p-4 bg-stone-50 flex flex-col justify-between space-y-4'>
-															<div>
-																<h4 className='font-serif font-bold text-sm text-stone-900'>Abonament Scrapera</h4>
-																<p className='text-[10px] text-stone-500 mt-0.5'>
-																	Zapewnia codzienne pobieranie dań dnia z Facebooka o 12:00.
+														<div className='border p-6 bg-stone-50 flex flex-col justify-between space-y-6 text-left shadow-xs'>
+															<div className='space-y-3.5'>
+																<h4 className='font-serif font-black text-stone-900 text-base flex items-center gap-1.5'>
+																	<span>🍽️</span> BistroMapa BASE — 100 zł/mies.
+																</h4>
+																<p className='text-xs text-stone-500 leading-relaxed font-sans'>
+																	Wszystko, czego Twoja restauracja potrzebuje do pełnej obecności w BistroMapie:
 																</p>
+																<ul className='text-xs text-stone-600 font-sans space-y-2 list-disc pl-4'>
+																	<li>Pełny profil lokalu (zdjęcia, opis, kontakt, lokalizacja)</li>
+																	<li>Pobieranie dań dnia z Facebooka (FB bot scraper o 12:00)</li>
+																	<li>Karta menu głównego (General Menu)</li>
+																	<li>Zarządzanie Ofertą Stałą (wyświetlaną przy braku nowego posta z FB)</li>
+																</ul>
 															</div>
 															{hasActiveBase ? (
-																<div className='px-3 py-1.5 border border-dashed border-stone-200 text-[10px] font-mono uppercase text-stone-400 text-center font-bold'>
-																	Włączony (Aktywny)
+																<div className='px-3 py-2 border border-dashed border-stone-200 text-xs font-mono uppercase text-stone-400 text-center font-bold bg-white'>
+																	✓ Włączony (Aktywny)
 																</div>
 															) : (
 																<button
 																	onClick={() => handleCheckout(rest.id, 'BASE')}
-																	className='w-full py-1.5 bg-black text-white text-[9px] font-mono uppercase font-bold cursor-pointer text-center'>
-																	Aktywuj (99 PLN/m)
+																	className='w-full py-2.5 bg-black hover:bg-stone-900 text-white text-xs font-mono uppercase tracking-widest font-bold cursor-pointer text-center transition-all shadow-sm'>
+																	Aktywuj (100 PLN/m)
 																</button>
 															)}
 														</div>
+
 														{/* Promotion Plan */}
-														<div className='border p-4 bg-stone-50 flex flex-col justify-between space-y-4'>
-															<div>
-																<h4 className='font-serif font-bold text-sm text-stone-900'>Promowanie w okolicy</h4>
-																<p className='text-[10px] text-stone-500 mt-0.5'>
-																	Pozycjonuje Twój lokal na samej górze listy wyszukiwania w promieniu klienta.
+														<div className='border p-6 bg-stone-50 flex flex-col justify-between space-y-6 text-left shadow-xs'>
+															<div className='space-y-3.5'>
+																<h4 className='font-serif font-black text-stone-900 text-base flex items-center gap-1.5'>
+																	<span>🚀</span> PROMOTION — 50 zł/mies.
+																</h4>
+																<p className='text-xs text-stone-500 leading-relaxed font-sans'>
+																	Wypromuj swoją restaurację wyżej w wynikach i przyciągnij więcej głodnych klientów:
 																</p>
+																<ul className='text-xs text-stone-600 font-sans space-y-2 list-disc pl-4'>
+																	<li>Pierwszeństwo przed zwykłymi wynikami w promieniu 30 km (na samej górze listy)</li>
+																	<li>Wyróżnienie wizualne na mapie oraz na liście restauracji</li>
+																</ul>
 															</div>
 															{hasPromotion ? (
-																<div className='px-3 py-1.5 border border-dashed border-stone-200 text-[10px] font-mono uppercase text-stone-400 text-center font-bold'>
-																	Włączony (Aktywny)
+																<div className='px-3 py-2 border border-dashed border-stone-200 text-xs font-mono uppercase text-stone-400 text-center font-bold bg-white'>
+																	✓ Włączony (Aktywny)
 																</div>
 															) : (
 																<button
 																	onClick={() => handleCheckout(rest.id, 'PROMOTION')}
-																	className='w-full py-1.5 bg-black text-white text-[9px] font-mono uppercase font-bold cursor-pointer text-center'>
-																	Aktywuj (+50 PLN/m)
-																</button>
-															)}
-														</div>
-														{/* Static Menu Plan */}
-														<div className='border p-4 bg-stone-50 flex flex-col justify-between space-y-4'>
-															<div>
-																<h4 className='font-serif font-bold text-sm text-stone-900'>
-																	Karta menu i Oferta stała
-																</h4>
-																<p className='text-[10px] text-stone-500 mt-0.5'>
-																	Zezwala na dodawanie stałego menu oraz fallbacku na stałą ofertę dnia.
-																</p>
-															</div>
-															{hasStaticMenu ? (
-																<div className='px-3 py-1.5 border border-dashed border-stone-200 text-[10px] font-mono uppercase text-stone-400 text-center font-bold'>
-																	Włączony (Aktywny)
-																</div>
-															) : (
-																<button
-																	onClick={() => handleCheckout(rest.id, 'STATIC_MENU')}
-																	className='w-full py-1.5 bg-black text-white text-[9px] font-mono uppercase font-bold cursor-pointer text-center'>
+																	className='w-full py-2.5 bg-black hover:bg-stone-900 text-white text-xs font-mono uppercase tracking-widest font-bold cursor-pointer text-center transition-all shadow-sm'>
 																	Aktywuj (+50 PLN/m)
 																</button>
 															)}

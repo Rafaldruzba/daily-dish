@@ -4,7 +4,7 @@ import type { Restaurant, Subscription } from '@prisma/client'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import { geocodeCity } from '../services/geolocation.service.js'
-import redisClient from '../lib/redis.js'
+import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 
 const router = Router()
 
@@ -450,10 +450,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 			})
 		}
 
-		if (redisClient.isOpen) {
-			await redisClient.del(`restaurants:${restaurant.city}`)
-			await redisClient.del('restaurants:all')
-		}
+		await invalidateRestaurantCache(restaurant.city)
 
 		res.json(restaurant)
 	} catch (error) {
@@ -581,10 +578,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 		}
 
 		// Czyścimy cache w Redisie
-		if (redisClient.isOpen) {
-			await redisClient.del(`restaurants:${restaurant.city}`)
-			await redisClient.del('restaurants:all')
-		}
+		await invalidateRestaurantCache(restaurant.city)
 
 		res.json({ success: true, message: `Akcja ${action} została pomyślnie zaimplementowana.` })
 	} catch (error) {
@@ -680,12 +674,9 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			},
 		})
 
-		if (redisClient.isOpen) {
-			await redisClient.del(`restaurants:${restaurant.city}`)
-			if (restaurantToUpdate.city !== restaurant.city) {
-				await redisClient.del(`restaurants:${restaurantToUpdate.city}`)
-			}
-			await redisClient.del('restaurants:all')
+		await invalidateRestaurantCache(restaurant.city)
+		if (restaurantToUpdate.city !== restaurant.city) {
+			await invalidateRestaurantCache(restaurantToUpdate.city)
 		}
 
 		res.json(restaurant)
@@ -735,10 +726,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			})
 		}
 
-		if (redisClient.isOpen) {
-			await redisClient.del(`restaurants:${restaurant.city}`)
-			await redisClient.del('restaurants:all')
-		}
+		await invalidateRestaurantCache(restaurant.city)
 
 		await prisma.restaurant.delete({
 			where: {

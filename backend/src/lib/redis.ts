@@ -30,4 +30,20 @@ redisClient.on('error', (err) => console.error('[Redis] Client Error', err));
 // Connect
 redisClient.connect().catch(console.error);
 
+export async function invalidateRestaurantCache(city: string) {
+	if (!redisClient.isOpen) return
+	try {
+		const cleanCity = city.toLowerCase().trim()
+		await redisClient.del('restaurants:all')
+		await redisClient.del(`restaurants:${cleanCity}`)
+		await redisClient.del(`restaurants:${city}`)
+		await redisClient.del('dishes:today:all')
+		await redisClient.del(`dishes:today:${cleanCity}`)
+		await redisClient.del(`dishes:today:${city}`)
+		console.log(`[Redis] Cache invalidated for city: ${city}`)
+	} catch (err) {
+		console.error('[Redis] Error during cache invalidation:', err)
+	}
+}
+
 export default redisClient;
