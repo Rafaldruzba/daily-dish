@@ -4,6 +4,7 @@ import { fetchTodayDishes } from '../services/daily-dish.service.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
+import { getPresignedDownloadUrl } from '../services/storage.service.js'
 
 const router = Router()
 
@@ -11,7 +12,7 @@ const router = Router()
 // Uruchamia pobieranie dań dla całej whitelisty
 router.post('/fetch', authenticate, async (req: AuthRequest, res: Response) => {
 	try {
-		console.log('🔄 Rozpoczynam pobieranie dań...')
+		console.log('Rozpoczynam pobieranie dań...')
 
 		const city = req.query.city as string | undefined;
 		const results = await fetchTodayDishes(city)
@@ -84,15 +85,64 @@ router.get('/today', async (req: Request, res: Response) => {
 			},
 		})
 
-    if (redisClient.isOpen) {
-      try {
-        await redisClient.set(cacheKey, JSON.stringify(dishes), { EX: 3600 }); // Cache for 1 hour
-      } catch (err) {
-        console.error('[Redis] Cache write error:', err);
-      }
-    }
+		// Pobierz wszystkie aktywne restauracje, aby wstrzyknąć ofertę stałą jako fallback
+		const activeRestaurants = await prisma.restaurant.findMany({
+			where: {
+				id: { in: restaurantIds },
+				isActive: true,
+				status: { in: ['APPROVED', 'ACTIVE'] },
+			},
+			include: {
+				standardOffers: true,
+			},
+		})
 
-		res.json(dishes)
+		const scrapedRestaurantIds = new Set(dishes.map(d => d.restaurantId))
+		const fallbackDishes: any[] = []
+
+		for (const restaurant of activeRestaurants) {
+			const activeOffer = restaurant.standardOffers?.find(o => o.isActive)
+			if (!scrapedRestaurantIds.has(restaurant.id) && activeOffer) {
+				fallbackDishes.push({
+					id: `static_${restaurant.id}`,
+					restaurantId: restaurant.id,
+					name: activeOffer.title,
+					description: activeOffer.description || null,
+					price: activeOffer.price || null,
+					imageUrl: activeOffer.imageUrl || null,
+					sourceUrl: null,
+					sourcePostId: null,
+					date: new Date(),
+					publishedAt: restaurant.updatedAt || new Date(),
+					restaurant: restaurant,
+					isStaticOffer: true,
+				})
+			}
+		}
+
+		const allDishes = [...dishes, ...fallbackDishes]
+		allDishes.sort((a, b) => a.restaurant.name.localeCompare(b.restaurant.name, 'pl'))
+
+		// Podpisujemy adresy URL obrazków dla prywatnego bucketu S3 przed cache'owaniem/odesłaniem
+		const signedDishes = await Promise.all(
+			allDishes.map(async (dish: any) => {
+				const signedImageUrl = dish.imageUrl ? await getPresignedDownloadUrl(dish.imageUrl) : null
+				return {
+					...dish,
+					imageUrl: signedImageUrl,
+				}
+			})
+		)
+
+		if (redisClient.isOpen) {
+			try {
+				await redisClient.set(cacheKey, JSON.stringify(signedDishes), { EX: 3600 }); // Cache for 1 hour
+			} catch (err) {
+				console.error('[Redis] Cache write error:', err);
+			}
+		}
+
+		res.json(signedDishes)
 	} catch (error) {
 		console.error(error)
 

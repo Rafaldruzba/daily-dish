@@ -5,6 +5,7 @@ import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import redisClient from '../lib/redis.js'
 import { sendVerificationCode, sendPasswordResetEmail } from '../services/email.service.js'
+import { isValidNip } from '../lib/helper/isValidNip.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-daily-dish-key'
@@ -166,8 +167,7 @@ router.post('/register/verify', async (req, res) => {
 		// Sprawdzamy czy to pierwszy użytkownik lub ma email admina
 		const userCount = await prisma.user.count()
 		const isFirstUser = userCount === 0
-		const isAdminEmail =
-			pendingUser.email === 'admin@dailydish.com' || pendingUser.email.startsWith('admin@')
+		const isAdminEmail = pendingUser.email === 'admin@dailydish.com' || pendingUser.email.startsWith('admin@')
 
 		let role = 'USER'
 		if (isFirstUser || isAdminEmail) {
@@ -177,7 +177,7 @@ router.post('/register/verify', async (req, res) => {
 		}
 
 		// Tworzymy użytkownika oraz oświadczenie własności w transakcji
-		const user = await prisma.$transaction(async (tx) => {
+		const user = await prisma.$transaction(async tx => {
 			const u = await tx.user.create({
 				data: {
 					email: pendingUser.email,
@@ -261,13 +261,14 @@ router.post('/login', async (req, res) => {
 
 		if (user.role === 'OWNER') {
 			const ownedRestaurants = await prisma.restaurant.findMany({
-				where: { userId: user.id }
+				where: { userId: user.id },
 			})
 			const allInRemoval = ownedRestaurants.length > 0 && ownedRestaurants.every(r => r.status === 'REMOVAL')
 			if (allInRemoval) {
 				return res.status(403).json({
 					success: false,
-					message: 'Twoje konto jest w trakcie usuwania (okres karencji 3 miesięcy). Skontaktuj się z administratorem, jeśli chcesz cofnąć tę decyzję.'
+					message:
+						'Twoje konto jest w trakcie usuwania (okres karencji 3 miesięcy). Skontaktuj się z administratorem, jeśli chcesz cofnąć tę decyzję.',
 				})
 			}
 		}
@@ -314,6 +315,14 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 			},
 		})
 
+		const ownershipDeclaration = await prisma.ownershipDeclaration.findFirst({
+			where: { userId: req.user.id },
+			select: {
+				nip: true,
+				ownerPhone: true,
+			},
+		})
+
 		if (!user) {
 			return res.status(404).json({
 				success: false,
@@ -324,6 +333,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 		res.json({
 			success: true,
 			user,
+			ownershipDeclaration,
 		})
 	} catch (error) {
 		console.error('Błąd pobierania danych użytkownika:', error)
@@ -336,14 +346,36 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 
 // PUT /api/auth/me
 // Aktualizuje profil zalogowanego użytkownika (imię, miejscowość)
+// PUT /api/auth/me
 router.put('/me', authenticate, async (req: AuthRequest, res: Response) => {
 	try {
 		if (!req.user) {
 			return res.status(401).json({ success: false, message: 'Nieuwierzytelniony.' })
 		}
 
-		const { name, city } = req.body
+		const { name, city, nip } = req.body
 
+		// 1. Pobieramy aktualną deklarację z bazy
+		const existingDeclaration = await prisma.ownershipDeclaration.findFirst({
+			where: { userId: req.user.id },
+		})
+
+		let cleanNip: string | null = null
+
+		// 2. Obsługujemy NIP tylko wtedy, gdy przesłano nową wartość i NIP NIE BYŁ jeszcze zapisany w bazie
+		if (nip && nip.trim() !== '' && !existingDeclaration?.nip) {
+			const formattedNip = nip.replace(/[\s-]/g, '')
+
+			if (!isValidNip(formattedNip)) {
+				return res.status(400).json({
+					success: false,
+					message: 'Podany numer NIP jest nieprawidłowy.',
+				})
+			}
+			cleanNip = formattedNip
+		}
+
+		// 3. Aktualizujemy dane profilu użytkownika
 		const updatedUser = await prisma.user.update({
 			where: { id: req.user.id },
 			data: {
@@ -359,10 +391,25 @@ router.put('/me', authenticate, async (req: AuthRequest, res: Response) => {
 			},
 		})
 
+		// 4. Aktualizujemy NIP tylko wtedy, gdy wcześniej go nie było
+		if (cleanNip) {
+			await prisma.ownershipDeclaration.updateMany({
+				where: { userId: req.user.id },
+				data: { nip: cleanNip },
+			})
+		}
+
+		// 5. Pobieramy aktualny stan deklaracji do zwrócenia w odpowiedzi
+		const ownershipDeclaration = await prisma.ownershipDeclaration.findFirst({
+			where: { userId: req.user.id },
+			select: { nip: true, ownerPhone: true },
+		})
+
 		res.json({
 			success: true,
 			message: 'Profil został pomyślnie zaktualizowany.',
 			user: updatedUser,
+			ownershipDeclaration,
 		})
 	} catch (error) {
 		console.error('Error updating user profile:', error)
@@ -426,7 +473,8 @@ router.delete('/me', authenticate, async (req: AuthRequest, res: Response) => {
 
 			res.json({
 				success: true,
-				message: 'Twoje lokale zostały zawieszone i ukryte, a konto zostało oznaczone do usunięcia. Okres karencji wynosi 3 miesiące, w ciągu których możesz odwołać tę operację kontaktując się z nami.',
+				message:
+					'Twoje lokale zostały zawieszone i ukryte, a konto zostało oznaczone do usunięcia. Okres karencji wynosi 3 miesiące, w ciągu których możesz odwołać tę operację kontaktując się z nami.',
 			})
 		} else {
 			// Zwykły użytkownik: Natychmiastowe usunięcie kaskadowe
@@ -463,11 +511,7 @@ router.post('/forgot-password', async (req, res) => {
 		})
 
 		if (user) {
-			const token = jwt.sign(
-				{ userId: user.id, purpose: 'password-reset' },
-				JWT_SECRET,
-				{ expiresIn: '1h' }
-			)
+			const token = jwt.sign({ userId: user.id, purpose: 'password-reset' }, JWT_SECRET, { expiresIn: '1h' })
 
 			const origin = req.headers.origin || 'http://localhost:5173'
 			const resetLink = `${origin}/reset-password?token=${token}`

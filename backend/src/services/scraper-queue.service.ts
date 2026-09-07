@@ -2,7 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import prisma from '../lib/prisma.js'
 import { fetchRestaurantDish } from './facebook.service.js'
 import logger from './logger.service.js'
-import nodemailer from 'nodemailer'
+import { sendAdminScrapingAlert } from './email.service.js'
 
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost'
 const REDIS_PORT = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379
@@ -65,62 +65,6 @@ export async function queueAllScrapingJobs() {
 	}
 }
 
-/**
- * Funkcja wysyłająca powiadomienie e-mail do administratora w przypadku błędu pobierania dań
- */
-export async function sendAdminScrapingAlert(failedJobs: any[]) {
-	try {
-		const transporter = nodemailer.createTransport({
-			service: 'gmail',
-			auth: {
-				user: (process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim(),
-				pass: (process.env.GMAIL_PASS || '').trim(),
-			},
-		})
-
-		const mailOptions = {
-			from: `"Bistromapa Alerty" <${(process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim()}>`,
-			to: 'app.bistromapa@gmail.com', // MAIN_MAIL / ADMIN
-			subject: '🚨 ALERT: Nie udało się pobrać dań dnia — Bistromapa.pl',
-			html: `
-				<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
-					<h2 style="color: #c53030; text-align: center;">🚨 Alarm Scrapera Facebooka</h2>
-					<p>Witaj Administratorze,</p>
-					<p>Informujemy, że podczas dzisiejszego automatycznego cyklu pobierania ofert wystąpiły błędy. <strong>Liczba nieudanych pobrań: ${failedJobs.length}</strong>.</p>
-					
-					<p>Oto lista lokali, dla których pobieranie zakończyło się błędem:</p>
-					<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
-						<thead>
-							<tr style="background-color: #f7fafc; border-bottom: 1px solid #edf2f7;">
-								<th style="padding: 10px; text-align: left;">Nazwa Restauracji</th>
-								<th style="padding: 10px; text-align: left;">Błąd / Powód</th>
-							</tr>
-						</thead>
-						<tbody>
-							${failedJobs.map(job => `
-								<tr style="border-bottom: 1px solid #edf2f7;">
-									<td style="padding: 10px; font-weight: bold; color: #2d3748;">${job.name}</td>
-									<td style="padding: 10px; color: #e53e3e; font-family: monospace;">${job.reason || 'Brak danych / Błąd sieciowy'}</td>
-								</tr>
-							`).join('')}
-						</tbody>
-					</table>
-					
-					<p style="margin-top: 25px; font-size: 12px; color: #718096; text-align: center;">
-						Możesz spróbować uruchomić pobieranie ponownie w dowolnym momencie, klikając przycisk awaryjny w Panelu Administratora.<br />
-						System Bistromapa.pl
-					</p>
-				</div>
-			`,
-		}
-
-		await transporter.sendMail(mailOptions)
-		console.log('📬 [Scraper Queue] Wysłano mailowy alert o błędach do Admina.')
-	} catch (err) {
-		console.error('❌ [Scraper Queue] Błąd podczas wysyłania alertu mailowego:', err)
-	}
-}
-
 // 2. Definicja Workera
 // Concurrency: 5 — automatyczny load-balancer obciążenia (odpala 5 scraperów jednocześnie w tle!)
 export const scraperWorker = new Worker(
@@ -132,6 +76,7 @@ export const scraperWorker = new Worker(
 		// Sprawdzamy restaurację w bazie
 		const restaurant = await prisma.restaurant.findUnique({
 			where: { id: restaurantId },
+			include: { standardOffers: true },
 		})
 
 		if (!restaurant || !restaurant.isActive || restaurant.status !== 'ACTIVE') {
@@ -147,6 +92,20 @@ export const scraperWorker = new Worker(
 			const dishResult = await fetchRestaurantDish({ id: restaurantId, name, facebookUrl })
 
 			if (dishResult) {
+				// Upload image to S3 if available
+				let s3ImageUrl = dishResult.imageUrl || null
+				if (s3ImageUrl) {
+					try {
+						const { uploadImageFromUrl } = await import('./storage.service.js')
+						const uploadedUrl = await uploadImageFromUrl(s3ImageUrl, 'scraped')
+						if (uploadedUrl) {
+							s3ImageUrl = uploadedUrl
+						}
+					} catch (s3Err: any) {
+						console.error('⚠️ [Scraper Worker] Failed to upload scraped image to S3:', s3Err.message || s3Err)
+					}
+				}
+
 				// Sukces — zapisujemy pobrane danie w bazie
 				await prisma.dailyDish.upsert({
 					where: {
@@ -159,7 +118,7 @@ export const scraperWorker = new Worker(
 						name: dishResult.name,
 						description: dishResult.description || null,
 						price: dishResult.price || null,
-						imageUrl: dishResult.imageUrl || null,
+						imageUrl: s3ImageUrl,
 						sourceUrl: dishResult.sourceUrl || null,
 						sourcePostId: dishResult.sourcePostId || null,
 						publishedAt: new Date(),
@@ -169,7 +128,7 @@ export const scraperWorker = new Worker(
 						name: dishResult.name,
 						description: dishResult.description || null,
 						price: dishResult.price || null,
-						imageUrl: dishResult.imageUrl || null,
+						imageUrl: s3ImageUrl,
 						sourceUrl: dishResult.sourceUrl || null,
 						sourcePostId: dishResult.sourcePostId || null,
 						date: today,
@@ -180,7 +139,8 @@ export const scraperWorker = new Worker(
 				return { status: 'success', name: dishResult.name }
 			} else {
 				// Brak posta na FB — sprawdzamy czy istnieje Oferta Stała
-				if (restaurant.staticOfferTitle) {
+				const activeOffer = restaurant.standardOffers?.find((o: any) => o.isActive)
+				if (activeOffer) {
 					await prisma.dailyDish.upsert({
 						where: {
 							restaurantId_date: {
@@ -189,27 +149,27 @@ export const scraperWorker = new Worker(
 							},
 						},
 						update: {
-							name: restaurant.staticOfferTitle,
-							description: restaurant.staticOfferDesc || null,
-							price: restaurant.staticOfferPrice || null,
-							imageUrl: restaurant.staticOfferImg || null,
+							name: activeOffer.title,
+							description: activeOffer.description || null,
+							price: activeOffer.price || null,
+							imageUrl: activeOffer.imageUrl || null,
 							publishedAt: new Date(),
 						},
 						create: {
 							restaurantId,
-							name: restaurant.staticOfferTitle,
-							description: restaurant.staticOfferDesc || null,
-							price: restaurant.staticOfferPrice || null,
-							imageUrl: restaurant.staticOfferImg || null,
+							name: activeOffer.title,
+							description: activeOffer.description || null,
+							price: activeOffer.price || null,
+							imageUrl: activeOffer.imageUrl || null,
 							date: today,
 							publishedAt: new Date(),
 						},
 					})
 
-					return { status: 'success_fallback', name: restaurant.staticOfferTitle }
+					return { status: 'success_fallback', name: activeOffer.title }
 				}
 
-				throw new Error('Brak dzisiejszego posta oraz brak oferty stałej (staticOffer) w bazie.')
+				throw new Error('Brak dzisiejszego posta oraz brak oferty stałej (StandardOffer) w bazie.')
 			}
 		} catch (error: any) {
 			console.error(`❌ [Scraper Worker] Błąd dla lokalu ${name}:`, error.message || error)

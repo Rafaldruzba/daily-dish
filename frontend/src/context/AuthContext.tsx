@@ -6,6 +6,12 @@ export interface User {
 	name: string | null
 	role: string
 	city: string | null
+	nip?: string | null
+	ownershipDeclaration?: OwnershipDeclaration | null
+}
+export interface OwnershipDeclaration {
+	nip: string | null
+	ownerPhone: string | null
 }
 
 interface AuthContextType {
@@ -23,7 +29,7 @@ interface AuthContextType {
 		nip?: string,
 		ownerPhone?: string,
 		representsSelf?: boolean,
-		acceptedTerms?: boolean
+		acceptedTerms?: boolean,
 	) => Promise<{ success: boolean; message?: string }>
 	verifyRegister: (email: string, code: string) => Promise<{ success: boolean; message?: string }>
 	logout: () => void
@@ -59,7 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 				if (userRes.ok) {
 					const userData = await userRes.json()
-					setUser(userData.user)
+					setUser({
+						...userData.user,
+						ownershipDeclaration: userData.ownershipDeclaration || null,
+					})
 
 					// Get favorite restaurants
 					const favsRes = await fetch(`${API_URL}/restaurants/favorites`, {
@@ -128,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		nip?: string,
 		ownerPhone?: string,
 		representsSelf?: boolean,
-		acceptedTerms?: boolean
+		acceptedTerms?: boolean,
 	) => {
 		try {
 			const res = await fetch(`${API_URL}/auth/register`, {

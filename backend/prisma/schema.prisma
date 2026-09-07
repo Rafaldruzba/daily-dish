@@ -38,10 +38,6 @@ model Restaurant {
   payments           Payment[]
   
   removalRequestedAt DateTime?
-  staticOfferTitle   String?
-  staticOfferDesc    String?
-  staticOfferPrice   Float?
-  staticOfferImg     String?
   
   reviews            Review[]
   declarations       OwnershipDeclaration[]

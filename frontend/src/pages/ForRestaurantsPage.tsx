@@ -15,6 +15,7 @@ import {
 	Lock,
 	Heart,
 	Trash2,
+	Building2,
 	X,
 } from 'lucide-react'
 import type { Payment, Restaurant, RestaurantForm } from '../types'
@@ -238,6 +239,12 @@ export default function ForRestaurantsPage() {
 
 	const [profileName, setProfileName] = useState(user?.name || '')
 	const [profileCity, setProfileCity] = useState(user?.city || '')
+	const [profileNip, setProfileNip] = useState(user?.nip || '')
+
+	const existingNip = user?.ownershipDeclaration?.nip || user?.nip || null
+	
+	const isNipLocked = Boolean(existingNip)
+
 	const [updatingProfile, setUpdatingProfile] = useState(false)
 
 	const [adminRemovalUsers, setAdminRemovalUsers] = useState<any[]>([])
@@ -317,8 +324,6 @@ export default function ForRestaurantsPage() {
 		)
 	}
 
-	
-
 	const queryParams = new URLSearchParams(window.location.search)
 	const successParam = queryParams.get('success')
 	const cancelParam = queryParams.get('cancel')
@@ -327,8 +332,9 @@ export default function ForRestaurantsPage() {
 		if (user) {
 			setProfileName(user.name || '')
 			setProfileCity(user.city || '')
+			setProfileNip(user.nip || '')
 		}
-	}, [user])
+	}, [user, existingNip])
 
 	useEffect(() => {
 		if (successParam) {
@@ -499,7 +505,8 @@ export default function ForRestaurantsPage() {
 
 	const handleRestoreRemovalUser = async (userId: string) => {
 		if (!token) return
-		if (!window.confirm('Czy na pewno chcesz cofnąć karencję i przywrócić to konto wraz ze wszystkimi lokalami?')) return
+		if (!window.confirm('Czy na pewno chcesz cofnąć karencję i przywrócić to konto wraz ze wszystkimi lokalami?'))
+			return
 		try {
 			setLoading(true)
 			setError('')
@@ -648,7 +655,7 @@ export default function ForRestaurantsPage() {
 			const res = await fetch(`${API_URL}/auth/me`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-				body: JSON.stringify({ name: profileName, city: profileCity }),
+				body: JSON.stringify({ name: profileName, city: profileCity, nip: isNipLocked ? undefined : profileNip }),
 			})
 			const data = await res.json()
 			if (res.ok) {
@@ -1175,8 +1182,9 @@ export default function ForRestaurantsPage() {
 								</button>
 							</div>
 							<p className='text-stone-500 text-xs mt-1 leading-relaxed max-w-4xl'>
-								Właściciele, którzy zgłosili żądanie usunięcia konta. Ich lokale zostały zawieszone (status REMOVAL) i ukryte. 
-								W ciągu 3-miesięcznego okresu karencji możesz przywrócić ich konta oraz lokale do pełnej aktywności za jednym kliknięciem.
+								Właściciele, którzy zgłosili żądanie usunięcia konta. Ich lokale zostały zawieszone (status REMOVAL) i
+								ukryte. W ciągu 3-miesięcznego okresu karencji możesz przywrócić ich konta oraz lokale do pełnej
+								aktywności za jednym kliknięciem.
 							</p>
 
 							{loadingRemovalUsers ? (
@@ -1203,8 +1211,14 @@ export default function ForRestaurantsPage() {
 												</p>
 												<ul className='list-disc pl-4 font-sans text-stone-600 space-y-1'>
 													{u.restaurants?.map((r: any) => {
-														const daysLeft = r.removalRequestedAt 
-															? getDaysLeft(new Date(new Date(r.removalRequestedAt).setMonth(new Date(r.removalRequestedAt).getMonth() + 3)).toISOString()) 
+														const daysLeft = r.removalRequestedAt
+															? getDaysLeft(
+																	new Date(
+																		new Date(r.removalRequestedAt).setMonth(
+																			new Date(r.removalRequestedAt).getMonth() + 3,
+																		),
+																	).toISOString(),
+																)
 															: 90
 														return (
 															<li key={r.id}>
@@ -1494,7 +1508,9 @@ export default function ForRestaurantsPage() {
 																	Wypromuj swoją restaurację wyżej w wynikach i przyciągnij więcej głodnych klientów:
 																</p>
 																<ul className='text-xs text-stone-600 font-sans space-y-2 list-disc pl-4'>
-																	<li>Pierwszeństwo przed zwykłymi wynikami w promieniu 30 km (na samej górze listy)</li>
+																	<li>
+																		Pierwszeństwo przed zwykłymi wynikami w promieniu 30 km (na samej górze listy)
+																	</li>
 																	<li>Wyróżnienie wizualne na mapie oraz na liście restauracji</li>
 																</ul>
 															</div>
@@ -1725,6 +1741,33 @@ export default function ForRestaurantsPage() {
 										/>
 									</div>
 								</div>
+								<div className='space-y-1.5'>
+									<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+										NIP {isNipLocked ? '(Zablokowany)' : '(opcjonalnie, dla faktury)'}
+									</label>
+									<div className='relative'>
+										<Building2 className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400' />
+										<input
+											type='text'
+											value={profileNip}
+											pattern='\d*'
+											maxLength={10}
+											disabled={isNipLocked}
+											onChange={e => setProfileNip(e.target.value)}
+											placeholder={existingNip || 'np. 1234567890'}
+											className={`w-full pl-10 pr-4 py-2.5 border font-mono text-sm transition-colors focus:outline-none ${
+												isNipLocked
+													? 'bg-stone-100 border-stone-200 text-stone-500 cursor-not-allowed'
+													: 'bg-white border-stone-200 text-stone-900 focus:border-black'
+											}`}
+										/>
+									</div>
+									{isNipLocked && (
+										<p className='text-xs text-stone-500 mt-1'>
+											NIP został już powiązany z kontem i nie można go edytować.
+										</p>
+									)}
+								</div>
 								<button
 									type='submit'
 									disabled={updatingProfile}
@@ -1825,15 +1868,11 @@ export default function ForRestaurantsPage() {
 
 						<div className='space-y-4 font-sans text-xs'>
 							<p className='text-stone-600 leading-relaxed'>
-								{deleteModal.type === 'account' ? (
-									user?.role === 'OWNER' ? (
-										'Ostrzeżenie: Usunięcie konta OWNER ukryje wszystkie lokale na 3 miesiące. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
-									) : (
-										'Ta operacja jest nieodwracalna. Wszystkie Twoje dane zostaną skasowane. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
-									)
-								) : (
-									`Czy na pewno chcesz usunąć „${deleteModal.targetName}”? Ta operacja jest nieodwracalna. Przepisz dokładnie poniższą frazę, aby kontynuować:`
-								)}
+								{deleteModal.type === 'account'
+									? user?.role === 'OWNER'
+										? 'Ostrzeżenie: Usunięcie konta OWNER ukryje wszystkie lokale na 3 miesiące. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
+										: 'Ta operacja jest nieodwracalna. Wszystkie Twoje dane zostaną skasowane. Aby potwierdzić usunięcie konta, wpisz dokładnie poniższą frazę:'
+									: `Czy na pewno chcesz usunąć „${deleteModal.targetName}”? Ta operacja jest nieodwracalna. Przepisz dokładnie poniższą frazę, aby kontynuować:`}
 							</p>
 
 							<div className='bg-stone-50 border border-stone-200 p-3 select-all font-mono text-center text-xs font-bold text-stone-800 tracking-wider break-all'>

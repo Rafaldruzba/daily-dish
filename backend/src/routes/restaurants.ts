@@ -5,8 +5,17 @@ import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import { geocodeCity } from '../services/geolocation.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
+import multer from 'multer'
+import { uploadImageBuffer, getPresignedDownloadUrl } from '../services/storage.service.js'
 
 const router = Router()
+
+const upload = multer({
+	storage: multer.memoryStorage(),
+	limits: {
+		fileSize: 5 * 1024 * 1024, // max 5MB
+	},
+})
 
 // Pomocnicza funkcja do mapowania listy subskrypcji (1-to-many) z bazy
 // na pojedynczy obiekt subskrypcji (legacy format) oczekiwany przez frontend.
@@ -261,7 +270,33 @@ router.get('/:id', async (req, res) => {
 		}
 
 		if (!restaurant) return res.status(404).json({ success: false, message: 'Restauracja nie istnieje' })
-		res.json(restaurant)
+
+		// Podpisujemy adresy URL obrazków dla prywatnego bucketu S3
+		const signedStandardOffers = restaurant.standardOffers
+			? await Promise.all(
+					restaurant.standardOffers.map(async (o: any) => ({
+						...o,
+						imageUrl: o.imageUrl ? await getPresignedDownloadUrl(o.imageUrl) : null,
+					}))
+			  )
+			: []
+
+		const signedDishes = restaurant.dishes
+			? await Promise.all(
+					restaurant.dishes.map(async (d: any) => ({
+						...d,
+						imageUrl: d.imageUrl ? await getPresignedDownloadUrl(d.imageUrl) : null,
+					}))
+			  )
+			: []
+
+		const mappedRestaurant = {
+			...restaurant,
+			standardOffers: signedStandardOffers,
+			dishes: signedDishes,
+		}
+
+		res.json(mappedRestaurant)
 	} catch (error) {
 		console.error(error)
 		res.status(500).json({ success: false, message: 'Nie udało się pobrać restauracji' })
@@ -621,10 +656,6 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			isActive,
 			description,
 			generalMenu,
-			staticOfferTitle,
-			staticOfferDesc,
-			staticOfferPrice,
-			staticOfferImg,
 		} = req.body
 
 		const restaurant = await prisma.restaurant.update({
@@ -658,18 +689,6 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 				}),
 				...(generalMenu !== undefined && {
 					generalMenu: generalMenu?.trim() || null,
-				}),
-				...(staticOfferTitle !== undefined && {
-					staticOfferTitle: staticOfferTitle?.trim() || null,
-				}),
-				...(staticOfferDesc !== undefined && {
-					staticOfferDesc: staticOfferDesc?.trim() || null,
-				}),
-				...(staticOfferPrice !== undefined && {
-					staticOfferPrice: staticOfferPrice !== null && staticOfferPrice !== '' ? parseFloat(staticOfferPrice) : null,
-				}),
-				...(staticOfferImg !== undefined && {
-					staticOfferImg: staticOfferImg?.trim() || null,
 				}),
 			},
 		})
@@ -847,6 +866,50 @@ router.delete('/:id/favorite', authenticate, async (req: AuthRequest, res: Respo
 			success: false,
 			message: 'Nie udało się usunąć restauracji z ulubionych',
 		})
+	}
+})
+
+// POST /api/restaurants/:id/upload
+// Przesyła pojedyncze zdjęcie (multipart/form-data) do S3 i zwraca jego nowy, stały publiczny URL
+router.post('/:id/upload', authenticate, upload.single('image'), async (req: AuthRequest, res: Response) => {
+	try {
+		const { id } = req.params
+		const user = req.user
+
+		if (!id) {
+			return res.status(400).json({ success: false, message: 'ID lokalu jest wymagane.' })
+		}
+
+		const restaurant = await prisma.restaurant.findUnique({
+			where: { id: id as string },
+		})
+
+		if (!restaurant) {
+			return res.status(404).json({ success: false, message: 'Restauracja nie istnieje.' })
+		}
+
+		// Tylko admin lub właściciel lokalu może przesyłać zdjęcia
+		if (!user || (user.role !== 'ADMIN' && restaurant.userId !== user.id)) {
+			return res.status(403).json({ success: false, message: 'Brak uprawnień do dodawania zdjęć do tego lokalu.' })
+		}
+
+		if (!req.file) {
+			return res.status(400).json({ success: false, message: 'Brak pliku do przesłania.' })
+		}
+
+		const s3Url = await uploadImageBuffer(req.file.buffer, req.file.mimetype, `restaurant-${id}`)
+
+		if (!s3Url) {
+			return res.status(500).json({ success: false, message: 'Nie udało się przesłać pliku do magazynu danych S3.' })
+		}
+
+		res.json({
+			success: true,
+			imageUrl: s3Url,
+		})
+	} catch (error) {
+		console.error('Error uploading file:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas przesyłania pliku.' })
 	}
 })
 

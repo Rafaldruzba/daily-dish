@@ -1,24 +1,7 @@
 import axios from 'axios'
 import redisClient from '../lib/redis.js'
 import logger from './logger.service.js'
-
-interface NominatimResult {
-	lat: string
-	lon: string
-	display_name: string
-}
-
-interface GoogleGeocodeResult {
-	results: Array<{
-		geometry: {
-			location: {
-				lat: number
-				lng: number
-			}
-		}
-	}>
-	status: string
-}
+import type { GoogleGeocodeResult, NominatimResult } from '../lib/dto/types.js';
 
 /**
  * Geocodes an address or city, using Redis caching, Google Geocoding API (if key available),

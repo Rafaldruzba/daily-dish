@@ -64,10 +64,14 @@ interface RestaurantDetail {
 		sourcePostId: string | null
 		publishedAt: string
 	}>
-	staticOfferTitle?: string | null
-	staticOfferDesc?: string | null
-	staticOfferPrice?: number | null
-	staticOfferImg?: string | null
+	standardOffers?: Array<{
+		id: string
+		title: string
+		description: string | null
+		price: number | null
+		imageUrl: string | null
+		isActive: boolean
+	}>
 	menuItems?: MenuItem[]
 }
 
@@ -82,6 +86,7 @@ interface EditFormState {
 	staticOfferTitle: string
 	staticOfferDesc: string
 	staticOfferPrice: string
+	staticOfferImg: string
 }
 
 export default function RestaurantDetailPage() {
@@ -159,7 +164,43 @@ export default function RestaurantDetailPage() {
 		staticOfferTitle: '',
 		staticOfferDesc: '',
 		staticOfferPrice: '',
+		staticOfferImg: '',
 	})
+
+	const [uploadingImage, setUploadingImage] = useState(false)
+
+	const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (!file || !restaurant) return
+
+		try {
+			setUploadingImage(true)
+			setError('')
+			setSuccess('')
+
+			const formData = new FormData()
+			formData.append('image', file)
+
+			const res = await fetch(`${API_URL}/restaurants/${restaurant.id}/upload`, {
+				method: 'POST',
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+				body: formData,
+			})
+
+			const data = await res.json()
+			if (res.ok && data.success) {
+				setEditForm(prev => ({ ...prev, staticOfferImg: data.imageUrl }))
+				setSuccess('Zdjęcie zostało pomyślnie przesłane na S3!')
+			} else {
+				setError(data.message || 'Błąd podczas przesyłania zdjęcia.')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Nie udało się przesłać zdjęcia.')
+		} finally {
+			setUploadingImage(false)
+		}
+	}
 
 	// New Menu Item Form States
 	const [newMenuItems, setNewMenuItems] = useState<
@@ -240,6 +281,8 @@ export default function RestaurantDetailPage() {
 			setRestaurant(data)
 			setMenuItems(data.menuItems || [])
 
+			const activeOffer = data.standardOffers && data.standardOffers.length > 0 ? data.standardOffers[0] : null
+
 			// Pre-fill edit form (z uwzględnieniem oferty stałej)
 			setEditForm({
 				name: data.name || '',
@@ -249,10 +292,10 @@ export default function RestaurantDetailPage() {
 				facebookUrl: data.facebookUrl || '',
 				description: data.description || '',
 				generalMenu: data.generalMenu || '',
-				staticOfferTitle: data.staticOfferTitle || '',
-				staticOfferDesc: data.staticOfferDesc || '',
-				staticOfferPrice:
-					data.staticOfferPrice !== null && data.staticOfferPrice !== undefined ? String(data.staticOfferPrice) : '',
+				staticOfferTitle: activeOffer ? activeOffer.title : '',
+				staticOfferDesc: activeOffer ? (activeOffer.description || '') : '',
+				staticOfferPrice: activeOffer && activeOffer.price !== null ? String(activeOffer.price) : '',
+				staticOfferImg: activeOffer ? (activeOffer.imageUrl || '') : '',
 			})
 
 			// Wczytanie opinii
@@ -297,6 +340,7 @@ export default function RestaurantDetailPage() {
 			setError('')
 			setSuccess('')
 
+			// 1. Zapisujemy podstawowe dane restauracji
 			const response = await fetch(`${API_URL}/restaurants/${restaurant.id}`, {
 				method: 'PUT',
 				headers: {
@@ -304,8 +348,13 @@ export default function RestaurantDetailPage() {
 					Authorization: `Bearer ${token}`,
 				},
 				body: JSON.stringify({
-					...editForm,
-					staticOfferPrice: editForm.staticOfferPrice ? parseFloat(editForm.staticOfferPrice) : null,
+					name: editForm.name,
+					phone: editForm.phone,
+					address: editForm.address,
+					city: editForm.city,
+					facebookUrl: editForm.facebookUrl,
+					description: editForm.description,
+					generalMenu: editForm.generalMenu,
 				}),
 			})
 
@@ -314,9 +363,37 @@ export default function RestaurantDetailPage() {
 				throw new Error(data.message || 'Nie udało się zaktualizować profilu.')
 			}
 
-			const updated: RestaurantDetail = await response.json()
-			setRestaurant(prev => (prev ? { ...prev, ...updated } : null))
-			setSuccess('Profil restauracji został zaktualizowany!')
+			// 2. Zapisujemy lub aktualizujemy StandardOffer w odrębnej powiązanej tabeli
+			if (editForm.staticOfferTitle.trim() !== '') {
+				const hasOffer = restaurant.standardOffers && restaurant.standardOffers.length > 0
+				const offerId = hasOffer && restaurant.standardOffers ? restaurant.standardOffers[0].id : ''
+				const offerUrl = hasOffer
+					? `${API_URL}/offers/${restaurant.id}/standard-offer/${offerId}`
+					: `${API_URL}/offers/${restaurant.id}/standard-offer`
+				const offerMethod = hasOffer ? 'PUT' : 'POST'
+
+				const offerRes = await fetch(offerUrl, {
+					method: offerMethod,
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						title: editForm.staticOfferTitle,
+						description: editForm.staticOfferDesc || null,
+						price: editForm.staticOfferPrice ? parseFloat(editForm.staticOfferPrice) : null,
+						imageUrl: editForm.staticOfferImg || null,
+						isActive: true,
+					}),
+				})
+
+				if (!offerRes.ok) {
+					const data = await offerRes.json()
+					throw new Error(data.message || 'Nie udało się zapisać Oferty Stałej.')
+				}
+			}
+
+			setSuccess('Profil restauracji oraz Oferta Stała zostały pomyślnie zaktualizowane!')
 			setIsEditing(false)
 
 			// Refresh page details
@@ -324,6 +401,45 @@ export default function RestaurantDetailPage() {
 		} catch (err) {
 			console.error(err)
 			setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisywania.')
+		} finally {
+			setSaving(false)
+		}
+	}
+
+	const handleDeleteStaticOffer = async () => {
+		if (!restaurant || !token) return
+		const activeOffer = restaurant.standardOffers && restaurant.standardOffers.length > 0 ? restaurant.standardOffers[0] : null
+		if (!activeOffer) return
+
+		if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć Ofertę Stałą?')) return
+
+		try {
+			setSaving(true)
+			setError('')
+			setSuccess('')
+
+			const res = await fetch(`${API_URL}/offers/${restaurant.id}/standard-offer/${activeOffer.id}`, {
+				method: 'DELETE',
+				headers: { Authorization: `Bearer ${token}` },
+			})
+
+			if (res.ok) {
+				setSuccess('Oferta Stała została pomyślnie usunięta!')
+				setEditForm(prev => ({
+					...prev,
+					staticOfferTitle: '',
+					staticOfferDesc: '',
+					staticOfferPrice: '',
+					staticOfferImg: '',
+				}))
+				fetchDetails()
+			} else {
+				const data = await res.json()
+				setError(data.message || 'Nie udało się usunąć Oferty Stałej.')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Błąd połączenia z serwerem.')
 		} finally {
 			setSaving(false)
 		}
@@ -716,30 +832,45 @@ export default function RestaurantDetailPage() {
 							</h2>
 
 							{restaurant.dishes.length === 0 ? (
-								restaurant.staticOfferTitle ? (
-									/* Wyświetlanie oferty stałej w przypadku braku dania dnia z FB */
-									<article className='border border-stone-200 p-6 bg-white flex flex-col justify-between hover:border-stone-400 transition-colors shadow-sm'>
-										<div className='space-y-3'>
-											<div className='flex justify-between items-start gap-4'>
-												<div>
-													<span className='px-2 py-0.5 bg-stone-100 text-stone-700 font-mono text-[9px] uppercase font-bold tracking-wider block w-max mb-1.5 shadow-sm'>
-														Nasza Oferta Stała
-													</span>
-													<h3 className='font-serif text-lg font-bold text-stone-900'>{restaurant.staticOfferTitle}</h3>
+								restaurant.standardOffers && restaurant.standardOffers.length > 0 && restaurant.standardOffers[0].isActive ? (
+									(() => {
+										const activeOffer = restaurant.standardOffers[0]
+										return (
+											/* Wyświetlanie oferty stałej w przypadku braku dania dnia z FB */
+											<article className='border border-stone-200 p-6 bg-white flex flex-col justify-between hover:border-stone-400 transition-colors shadow-sm'>
+												<div className='space-y-3'>
+													<div className='flex justify-between items-start gap-4'>
+														<div>
+															<span className='px-2 py-0.5 bg-stone-100 text-stone-700 font-mono text-[9px] uppercase font-bold tracking-wider block w-max mb-1.5 shadow-sm'>
+																Nasza Oferta Stała
+															</span>
+															<h3 className='font-serif text-lg font-bold text-stone-900'>{activeOffer.title}</h3>
+														</div>
+														{activeOffer.price && (
+															<span className='font-mono text-sm font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 shrink-0 shadow-sm'>
+																{Number(activeOffer.price).toFixed(2)} zł
+															</span>
+														)}
+													</div>
+													{activeOffer.description && (
+														<p className='text-stone-600 text-xs md:text-sm font-sans leading-relaxed'>
+															{activeOffer.description}
+														</p>
+													)}
+
+													{activeOffer.imageUrl && (
+														<div className='mt-4 w-full max-h-[360px] overflow-hidden border border-stone-200 bg-stone-50 shadow-xs'>
+															<img
+																src={activeOffer.imageUrl}
+																alt={activeOffer.title || 'Zdjęcie oferty stałej'}
+																className='w-full h-auto object-cover max-h-[360px]'
+															/>
+														</div>
+													)}
 												</div>
-												{restaurant.staticOfferPrice && (
-													<span className='font-mono text-sm font-bold bg-stone-50 px-2 py-0.5 border border-stone-100 shrink-0 shadow-sm'>
-														{Number(restaurant.staticOfferPrice).toFixed(2)} zł
-													</span>
-												)}
-											</div>
-											{restaurant.staticOfferDesc && (
-												<p className='text-stone-600 text-xs md:text-sm font-sans leading-relaxed'>
-													{restaurant.staticOfferDesc}
-												</p>
-											)}
-										</div>
-									</article>
+											</article>
+										)
+									})()
 								) : (
 									<div className='border border-dashed border-stone-200 py-12 text-center bg-stone-50 rounded-none'>
 										<p className='font-mono text-xs text-stone-400 uppercase'>Brak aktualnych dań dnia w systemie.</p>
@@ -852,12 +983,72 @@ export default function RestaurantDetailPage() {
 											</div>
 										</div>
 
-										<button
-											type='submit'
-											disabled={saving}
-											className='px-5 py-2.5 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-[10px] uppercase tracking-widest font-bold disabled:opacity-50 cursor-pointer shadow-sm'>
-											{saving ? 'Zapisywanie...' : 'Zapisz Ofertę Stałą'}
-										</button>
+										{/* S3 Image upload space for Static Offer */}
+										<div className='space-y-1.5 pt-1.5'>
+											<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+												Zdjęcie Oferty Stałej
+											</label>
+											<div className='flex items-center gap-4 flex-wrap bg-white p-3 border border-stone-200'>
+												{editForm.staticOfferImg ? (
+													<div className='relative w-16 h-16 bg-stone-50 border border-stone-100 shadow-xs shrink-0 group'>
+														<img
+															src={editForm.staticOfferImg}
+															alt='Podgląd oferty'
+															className='w-full h-full object-cover'
+														/>
+														<button
+															type='button'
+															onClick={() => setEditForm(prev => ({ ...prev, staticOfferImg: '' }))}
+															className='absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-sm hover:bg-red-700 cursor-pointer transition-colors'
+															title='Usuń zdjęcie'>
+															<X className='w-3 h-3' />
+														</button>
+													</div>
+												) : (
+													<div className='w-16 h-16 border border-dashed border-stone-200 bg-stone-50 flex flex-col items-center justify-center text-stone-400 shrink-0'>
+														<Globe className='w-4 h-4 opacity-40 animate-pulse' style={{ animationDuration: '4s' }} />
+														<span className='text-[8px] font-mono mt-1'>Brak foto</span>
+													</div>
+												)}
+
+												<div className='flex-grow min-w-[180px] text-left'>
+													<input
+														type='file'
+														accept='image/*'
+														onChange={handleImageUpload}
+														disabled={uploadingImage}
+														className='block w-full text-[10px] text-stone-500
+															file:mr-3 file:py-1.5 file:px-3
+															file:border file:border-stone-200 file:bg-stone-50
+															file:text-stone-700 file:font-mono file:text-[9px]
+															file:uppercase file:font-bold file:tracking-wider
+															file:cursor-pointer hover:file:border-black hover:file:text-black
+															file:transition-all disabled:opacity-45'
+													/>
+													<p className='text-[9px] text-stone-400 mt-1 font-mono'>
+														{uploadingImage ? 'Trwa przesyłanie do chmury S3...' : 'Zalecane: proporcje 4:3, JPG/PNG, maks. 5MB.'}
+													</p>
+												</div>
+											</div>
+										</div>
+
+										<div className='flex flex-wrap gap-3 pt-2'>
+											<button
+												type='submit'
+												disabled={saving}
+												className='px-5 py-2.5 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-[10px] uppercase tracking-widest font-bold disabled:opacity-50 cursor-pointer shadow-sm'>
+												{saving ? 'Zapisywanie...' : 'Zapisz Ofertę Stałą'}
+											</button>
+											{restaurant.standardOffers && restaurant.standardOffers.length > 0 && (
+												<button
+													type='button'
+													onClick={handleDeleteStaticOffer}
+													disabled={saving}
+													className='px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-600 transition-all font-mono text-[10px] uppercase font-bold tracking-widest cursor-pointer shadow-sm'>
+													Usuń Ofertę Stałą
+												</button>
+											)}
+										</div>
 									</form>
 								</div>
 							)}
