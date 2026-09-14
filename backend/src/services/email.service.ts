@@ -1,10 +1,10 @@
 import { Resend } from 'resend'
 import logger from './logger.service.js'
 
-const resendApiKey = (process.env.RESEND_API || process.env.RESEND_API_KEY || '').trim()
+const resendApiKey = (process.env.RESEND_API || '').trim()
 const resend = new Resend(resendApiKey)
 
-const fromEmail = process.env.EMAIL_FROM || 'Bistromapa <onboarding@resend.dev>'
+const fromEmail = process.env.EMAIL_FROM || 'Bistromapa <kontakt@bistromapa.app>'
 const adminEmail = process.env.ADMIN_EMAIL || 'app.bistromapa@gmail.com'
 
 /**

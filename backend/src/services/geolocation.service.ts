@@ -1,7 +1,7 @@
 import axios from 'axios'
 import redisClient from '../lib/redis.js'
 import logger from './logger.service.js'
-import type { GoogleGeocodeResult, NominatimResult } from '../lib/dto/types.js';
+import type { GoogleGeocodeResult, NominatimResult } from '../lib/dto/types.js'
 
 /**
  * Geocodes an address or city, using Redis caching, Google Geocoding API (if key available),
@@ -55,10 +55,10 @@ export async function geocodeCity(city: string): Promise<{ lat: number; lon: num
 					q: city,
 					format: 'json',
 					limit: 1,
-					email: 'app.bistromapa@gmail.com', // policy contact email
+					email: 'kontakt@bistromapa.app', // policy contact email
 				},
 				headers: {
-					'User-Agent': 'DailyDishLocatorAppSystemLodzGastronomy/2.0 (contact: app.bistromapa@gmail.com)',
+					'User-Agent': 'DailyDishLocatorAppSystemLodzGastronomy/2.0 (contact: kontakt@bistromapa.app)',
 				},
 			})
 
