@@ -305,7 +305,19 @@ export default function HomePage() {
 								return (
 									<article
 										key={dish.id}
-										className='group bg-white border border-stone-200 overflow-hidden flex flex-col h-full hover:border-black transition-all hover:shadow-sm'>
+										tabIndex={0}
+										onClick={e => {
+											if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
+												return
+											}
+											navigate(`/restaurants/${dish.restaurant.slug}`)
+										}}
+										onKeyDown={e => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												navigate(`/restaurants/${dish.restaurant.slug}`)
+											}
+										}}
+										className='cursor-pointer group bg-white border border-stone-200 overflow-hidden flex flex-col h-full hover:border-black transition-all hover:shadow-sm'>
 										{dish.imageUrl && (
 											<div className='relative aspect-[16/10] w-full bg-stone-100 overflow-hidden border-b border-stone-200'>
 												<img
@@ -332,18 +344,6 @@ export default function HomePage() {
 
 										<div
 											role='button'
-											tabIndex={0}
-											onClick={e => {
-												if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
-													return
-												}
-												navigate(`/restaurants/${dish.restaurant.slug}`)
-											}}
-											onKeyDown={e => {
-												if (e.key === 'Enter' || e.key === ' ') {
-													navigate(`/restaurants/${dish.restaurant.slug}`)
-												}
-											}}
 											className='cursor-pointer p-6 flex flex-col flex-grow justify-between relative outline-none focus-visible:ring-1 focus-visible:ring-black'>
 											<div className='space-y-3'>
 												<div className='flex items-center justify-between gap-2 border-b border-stone-100 pb-2'>

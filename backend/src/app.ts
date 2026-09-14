@@ -20,7 +20,12 @@ const corsOptions = {
 			return callback(null, true)
 		}
 
-		const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173']
+		const allowedOrigins = [
+			process.env.FRONTEND_URL,
+			'https://bistromapa.app',
+			'http://localhost:3000',
+			'http://localhost:5173',
+		]
 
 		// Check if the origin is a localhost URL on any port
 		if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) {

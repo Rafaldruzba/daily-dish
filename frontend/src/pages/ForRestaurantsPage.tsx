@@ -242,7 +242,7 @@ export default function ForRestaurantsPage() {
 	const [profileNip, setProfileNip] = useState(user?.nip || '')
 
 	const existingNip = user?.ownershipDeclaration?.nip || user?.nip || null
-	
+
 	const isNipLocked = Boolean(existingNip)
 
 	const [updatingProfile, setUpdatingProfile] = useState(false)
@@ -1841,8 +1841,8 @@ export default function ForRestaurantsPage() {
 				</div>
 				<p className='text-stone-500 text-xs md:text-sm'>
 					Napisz bezpośrednio na adres:{' '}
-					<a href='mailto:app.bistromapa@gmail.com' className='font-mono font-bold text-black hover:underline'>
-						app.bistromapa@gmail.com
+					<a href={`mailto:${import.meta.env.VITE_MAIL}`} className='font-mono font-bold text-black hover:underline'>
+						{import.meta.env.VITE_MAIL}
 					</a>
 				</p>
 			</section>
