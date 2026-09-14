@@ -248,9 +248,7 @@ function AppContent() {
 			<header className='sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200'>
 				<div className='max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4'>
 					<Link to='/' className='flex items-center gap-2.5 group'>
-						<div className='w-8 h-8 bg-black text-white flex items-center justify-center font-serif text-lg font-bold group-hover:scale-105 transition-transform'>
-							B
-						</div>
+						<img src='/bistro-logov2.png' alt='Bistro Mapa Logo' className='w-8 h-8 mx-auto' />
 						<div>
 							<span className='font-mono text-sm font-black tracking-widest block text-stone-900 leading-none'>
 								BISTRO MAPA

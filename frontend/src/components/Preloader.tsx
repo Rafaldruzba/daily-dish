@@ -16,7 +16,7 @@ export const Preloader: React.FC = () => {
 		<div className='fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4'>
 			<div className='w-full max-w-md text-center'>
 				{/* Logo */}
-				<img src='/favicon.svg' alt='Bistro Mapa Logo' className='w-16 h-16 mx-auto mb-4' />
+				<img src='/bistro-logov2.png' alt='Bistro Mapa Logo' className='w-48 h-48 mx-auto' />
 
 				{/* Title */}
 				<h1 className='text-4xl font-black font-serif tracking-tight text-stone-900 mb-2'>Witaj w BistroMapa!</h1>
