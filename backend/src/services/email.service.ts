@@ -99,12 +99,16 @@ export async function sendAdminScrapingAlert(failedJobs: any[]): Promise<boolean
 							</tr>
 						</thead>
 						<tbody>
-							${failedJobs.map(job => `
+							${failedJobs
+								.map(
+									job => `
 								<tr style="border-bottom: 1px solid #edf2f7;">
 									<td style="padding: 10px; font-weight: bold; color: #2d3748;">${job.name}</td>
 									<td style="padding: 10px; color: #e53e3e; font-family: monospace;">${job.reason || 'Brak danych / Błąd sieciowy'}</td>
 								</tr>
-							`).join('')}
+							`,
+								)
+								.join('')}
 						</tbody>
 					</table>
 					
@@ -119,6 +123,36 @@ export async function sendAdminScrapingAlert(failedJobs: any[]): Promise<boolean
 		return true
 	} catch (error: any) {
 		await logger.error('Błąd wysyłania powiadomienia alertu skrapowania do admina przez Resend', error.message || error)
+		return false
+	}
+}
+
+/**
+ * Wysyła link resetujący hasło na podany adres e-mail.
+ */
+export async function sendSuspendedEmail(email: string, name: string): Promise<boolean> {
+	try {
+		await resend.emails.send({
+			from: fromEmail,
+			to: email,
+			subject: 'Twój lokal został zawieszony — Bistromapa.pl',
+			html: `
+							<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
+								<h2 style="color: #c53030; text-align: center;">Twój lokal został zawieszony</h2>
+								<p>Witaj, <strong>${name || 'Właścicielu'}</strong>.</p>
+								<p>Twój lokal <strong>${name}</strong> został zawieszony przez administratora i oznaczony do usunięcia (status REMOVAL).</p>
+								<p>Lokal został natychmiast ukryty i nie będzie wyświetlany na mapie oraz listach wyszukiwania.</p>
+								<p style="background-color: #fffaf0; padding: 15px; border-left: 4px solid #dd6b20; border-radius: 4px; font-size: 13px; color: #7b341e;">
+									Rozpoczął się 3-miesięczny okres karencji. Jeśli chcesz odwołać się od tej decyzji i przywrócić lokal, skontaktuj się z nami odpowiadając na tę wiadomość w ciągu najbliższych 90 dni. Po tym okresie profil lokalu zostanie trwale skasowany.
+								</p>
+							</div>
+						`,
+		})
+
+		await logger.info(`Wysłano e-mail z informacją o zawieszeniu konta do użytkownika ${email} przez Resend`)
+		return true
+	} catch (error: any) {
+		await logger.error(`Błąd podczas wysyłania maila do ${email} przez Resend`, error.message || error)
 		return false
 	}
 }

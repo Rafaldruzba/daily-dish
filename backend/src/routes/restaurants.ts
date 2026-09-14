@@ -7,6 +7,7 @@ import { geocodeCity } from '../services/geolocation.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 import multer from 'multer'
 import { uploadImageBuffer, getPresignedDownloadUrl } from '../services/storage.service.js'
+import { sendSuspendedEmail } from '../services/email.service.js'
 
 const router = Router()
 
@@ -277,8 +278,8 @@ router.get('/:id', async (req, res) => {
 					restaurant.standardOffers.map(async (o: any) => ({
 						...o,
 						imageUrl: o.imageUrl ? await getPresignedDownloadUrl(o.imageUrl) : null,
-					}))
-			  )
+					})),
+				)
 			: []
 
 		const signedDishes = restaurant.dishes
@@ -286,8 +287,8 @@ router.get('/:id', async (req, res) => {
 					restaurant.dishes.map(async (d: any) => ({
 						...d,
 						imageUrl: d.imageUrl ? await getPresignedDownloadUrl(d.imageUrl) : null,
-					}))
-			  )
+					})),
+				)
 			: []
 
 		const mappedRestaurant = {
@@ -582,30 +583,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 			// Wysłanie maila do właściciela o zablokowaniu
 			if (restaurant.user?.email) {
 				try {
-					const nodemailer = await import('nodemailer')
-					const transporter = nodemailer.default.createTransport({
-						service: 'gmail',
-						auth: {
-							user: (process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim(),
-							pass: (process.env.GMAIL_PASS || '').trim(),
-						},
-					})
-					await transporter.sendMail({
-						from: `"Bistromapa Moderator" <${(process.env.GMAIL_USER || 'app.bistromapa@gmail.com').trim()}>`,
-						to: restaurant.user.email,
-						subject: 'Twój lokal został zawieszony — Bistromapa.pl',
-						html: `
-							<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
-								<h2 style="color: #c53030; text-align: center;">Twój lokal został zawieszony</h2>
-								<p>Witaj, <strong>${restaurant.user.name || 'Właścicielu'}</strong>.</p>
-								<p>Twój lokal <strong>${restaurant.name}</strong> został zawieszony przez administratora i oznaczony do usunięcia (status REMOVAL).</p>
-								<p>Lokal został natychmiast ukryty i nie będzie wyświetlany na mapie oraz listach wyszukiwania.</p>
-								<p style="background-color: #fffaf0; padding: 15px; border-left: 4px solid #dd6b20; border-radius: 4px; font-size: 13px; color: #7b341e;">
-									Rozpoczął się 3-miesięczny okres karencji. Jeśli chcesz odwołać się od tej decyzji i przywrócić lokal, skontaktuj się z nami odpowiadając na tę wiadomość w ciągu najbliższych 90 dni. Po tym okresie profil lokalu zostanie trwale skasowany.
-								</p>
-							</div>
-						`,
-					})
+					sendSuspendedEmail(restaurant.user.email, restaurant.user.name || 'Właścicielu')
 				} catch (mailErr) {
 					console.error('❌ Błąd wysyłania maila o blokadzie:', mailErr)
 				}
@@ -646,17 +624,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(403).json({ success: false, message: 'Brak uprawnień do edycji tej restauracji' })
 		}
 
-		const {
-			name,
-			slug,
-			phone,
-			address,
-			city,
-			facebookUrl,
-			isActive,
-			description,
-			generalMenu,
-		} = req.body
+		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu } = req.body
 
 		const restaurant = await prisma.restaurant.update({
 			where: {

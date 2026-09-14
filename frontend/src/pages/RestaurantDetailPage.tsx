@@ -167,6 +167,10 @@ export default function RestaurantDetailPage() {
 		staticOfferImg: '',
 	})
 
+	// Popup
+	const [activePopup, setActivePopup] = useState<'reportRestaurant' | 'reportReview' | null>(null)
+	const [timeLeft, setTimeLeft] = useState(3)
+
 	const [uploadingImage, setUploadingImage] = useState(false)
 
 	const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,6 +231,26 @@ export default function RestaurantDetailPage() {
 		else if (tab === 'menu') setActiveTab('menu')
 		else setActiveTab('dishes')
 	}, [searchParams])
+
+	useEffect(() => {
+		if (!activePopup) return
+
+		// Resetujemy licznik do 3 sekund przy otwarciu
+		setTimeLeft(3)
+
+		const timer = setInterval(() => {
+			setTimeLeft(prev => prev - 1)
+		}, 1000)
+
+		const timeout = setTimeout(() => {
+			setActivePopup(null)
+		}, 3000)
+
+		return () => {
+			clearInterval(timer)
+			clearTimeout(timeout)
+		}
+	}, [activePopup])
 
 	// Nowe stany dla opinii, komentarzy i zgłoszeń
 	const [reviews, setReviews] = useState<any[]>([])
@@ -293,9 +317,9 @@ export default function RestaurantDetailPage() {
 				description: data.description || '',
 				generalMenu: data.generalMenu || '',
 				staticOfferTitle: activeOffer ? activeOffer.title : '',
-				staticOfferDesc: activeOffer ? (activeOffer.description || '') : '',
+				staticOfferDesc: activeOffer ? activeOffer.description || '' : '',
 				staticOfferPrice: activeOffer && activeOffer.price !== null ? String(activeOffer.price) : '',
-				staticOfferImg: activeOffer ? (activeOffer.imageUrl || '') : '',
+				staticOfferImg: activeOffer ? activeOffer.imageUrl || '' : '',
 			})
 
 			// Wczytanie opinii
@@ -408,7 +432,8 @@ export default function RestaurantDetailPage() {
 
 	const handleDeleteStaticOffer = async () => {
 		if (!restaurant || !token) return
-		const activeOffer = restaurant.standardOffers && restaurant.standardOffers.length > 0 ? restaurant.standardOffers[0] : null
+		const activeOffer =
+			restaurant.standardOffers && restaurant.standardOffers.length > 0 ? restaurant.standardOffers[0] : null
 		if (!activeOffer) return
 
 		if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć Ofertę Stałą?')) return
@@ -591,7 +616,7 @@ export default function RestaurantDetailPage() {
 				body: JSON.stringify({ reason: reviewReportReason }),
 			})
 			if (res.ok) {
-				alert('Opinia została pomyślnie zgłoszona i ukryta do czasu weryfikacji przez moderatora.')
+				setActivePopup('reportReview')
 				setReportingReviewId(null)
 				setReviewReportReason('VULGAR')
 				loadReviews(restaurant.id)
@@ -618,7 +643,7 @@ export default function RestaurantDetailPage() {
 				body: JSON.stringify({ reason: restaurantReportReason, details: restaurantReportDetails }),
 			})
 			if (res.ok) {
-				alert('Dziękujemy! Zgłoszenie błędu lokalu zostało przesłane do moderatora.')
+				setActivePopup('reportRestaurant')
 				setIsReportingRestaurant(false)
 				setRestaurantReportDetails('')
 				setRestaurantReportReason('INCORRECT_DATA')
@@ -671,7 +696,6 @@ export default function RestaurantDetailPage() {
 					<ArrowLeft className='w-4 h-4' /> Powrót do mapy
 				</Link>
 			</div>
-
 			{success && (
 				<div className='p-4 bg-green-50 border-l-4 border-green-600 text-xs font-mono text-green-800 flex items-start gap-2 max-w-4xl mx-auto text-left shadow-sm'>
 					<span>{success}</span>
@@ -682,7 +706,6 @@ export default function RestaurantDetailPage() {
 					{error}
 				</div>
 			)}
-
 			{/* Main Profile Info Card */}
 			<section className='border border-stone-200 bg-white p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm relative overflow-hidden text-left'>
 				<div className='space-y-4 flex-grow'>
@@ -778,7 +801,6 @@ export default function RestaurantDetailPage() {
 					)}
 				</div>
 			</section>
-
 			{/* Sub-tab Navigation */}
 			<section className='space-y-6'>
 				<div className='border-b border-stone-200 overflow-x-auto whitespace-nowrap scrollbar-none'>
@@ -832,7 +854,9 @@ export default function RestaurantDetailPage() {
 							</h2>
 
 							{restaurant.dishes.length === 0 ? (
-								restaurant.standardOffers && restaurant.standardOffers.length > 0 && restaurant.standardOffers[0].isActive ? (
+								restaurant.standardOffers &&
+								restaurant.standardOffers.length > 0 &&
+								restaurant.standardOffers[0].isActive ? (
 									(() => {
 										const activeOffer = restaurant.standardOffers[0]
 										return (
@@ -1026,7 +1050,9 @@ export default function RestaurantDetailPage() {
 															file:transition-all disabled:opacity-45'
 													/>
 													<p className='text-[9px] text-stone-400 mt-1 font-mono'>
-														{uploadingImage ? 'Trwa przesyłanie do chmury S3...' : 'Zalecane: proporcje 4:3, JPG/PNG, maks. 5MB.'}
+														{uploadingImage
+															? 'Trwa przesyłanie do chmury S3...'
+															: 'Zalecane: proporcje 4:3, JPG/PNG, maks. 5MB.'}
 													</p>
 												</div>
 											</div>
@@ -1402,7 +1428,6 @@ export default function RestaurantDetailPage() {
 					)}
 				</div>
 			</section>
-
 			{/* Support banner block */}
 			<section className='bg-stone-50 border border-stone-200 p-6 md:p-8 text-center max-w-4xl mx-auto shadow-sm'>
 				<p className='text-stone-500 text-xs md:text-sm font-sans'>
@@ -1410,9 +1435,7 @@ export default function RestaurantDetailPage() {
 					w danych restauracji, możesz zgłosić to za pomocą formularza w prawym górnym rogu.
 				</p>
 			</section>
-
 			{/* --- MODALE --- */}
-
 			{/* 1. MODAL ZGŁOSZENIA BŁĘDU LOKALU */}
 			{isReportingRestaurant && (
 				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in'>
@@ -1479,7 +1502,6 @@ export default function RestaurantDetailPage() {
 					</div>
 				</div>
 			)}
-
 			{/* 2. MODAL ZGŁOSZENIA OPINII */}
 			{reportingReviewId && (
 				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 animate-fade-in'>
@@ -1533,7 +1555,6 @@ export default function RestaurantDetailPage() {
 					</div>
 				</div>
 			)}
-
 			{/* 3. EDIT PROFILE INFO MODAL (EXISTING RES_DETAIL MODAL EXTENDED TO COVER STATIC_OFFER FIELDS) */}
 			{isEditing && (
 				<div className='fixed inset-0 bg-black/40 flex items-center justify-center px-4 py-12 z-50 overflow-y-auto animate-fade-in'>
@@ -1632,6 +1653,33 @@ export default function RestaurantDetailPage() {
 								</button>
 							</div>
 						</form>
+					</div>
+				</div>
+			)}
+			{/* POPUP NOTIFIKACJI */}
+			{activePopup && (
+				<div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 font-sans'>
+					<div className='bg-white text-black border-2 border-black rounded-xl p-6 max-w-sm w-full text-center relative shadow-2xl'>
+						{/* Przycisk zamknięcia */}
+						<button
+							onClick={() => setActivePopup(null)}
+							className='absolute top-3 right-4 text-gray-500 hover:text-black text-lg font-bold'>
+							✕
+						</button>
+
+						{/* Tytuł i Treść zależna od typu zgłoszenia */}
+						<h2 className='text-xl font-bold mb-2'>Dziękujemy!</h2>
+
+						<p className='text-gray-700 text-sm mb-4'>
+							{activePopup === 'reportRestaurant' && 'Zgłoszenie błędu lokalu zostało przesłane do moderatora.'}
+							{activePopup === 'reportReview' &&
+								'Opinia została pomyślnie zgłoszona i ukryta do czasu weryfikacji przez moderatora.'}
+						</p>
+
+						{/* Licznik z pomarańczowym akcentem */}
+						<div className='text-xs text-gray-500'>
+							Zamknięcie za <span className='font-bold text-orange-500 text-sm'>{timeLeft}</span> s...
+						</div>
 					</div>
 				</div>
 			)}
