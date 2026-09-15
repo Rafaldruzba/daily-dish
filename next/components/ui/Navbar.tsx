@@ -1,31 +1,28 @@
-import { Routes, Route, NavLink, Link, useLocation as useRouteLocation } from 'react-router-dom'
-import { useAuth } from './context/AuthContext'
-import HomePage from './pages/HomePage'
-import RestaurantsPage from './pages/RestaurantsPage'
-import ForRestaurantsPage from './pages/ForRestaurantsPage'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import NotFoundPage from './pages/NotFoundPage'
-import MapPage from './pages/MapPage'
-import RestaurantDetailPage from './pages/RestaurantDetailPage'
-import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
-import { useState } from 'react'
-import { useLocation } from './context/LocationContext'
-import { Preloader } from './components/Preloader'
-import Footer from './components/Footer'
+'use client'
 
-function Navigation() {
+import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { useLocation } from '@/context/LocationContext'
+
+export function Navbar() {
 	const { user, logout } = useAuth()
 	const { city, setCity } = useLocation()
+	const pathname = usePathname()
 	const [isOpen, setIsOpen] = useState(false)
 
 	const handleChangeCity = () => {
-		// Resetting the city will trigger the Preloader
 		setCity('')
 		localStorage.removeItem('user_city')
-		window.location.reload() // Force a reload to re-evaluate the context state
+		window.location.reload()
 	}
+
+	const navLinkClass = (active: boolean) =>
+		`px-4 py-2 border-b-2 transition-colors ${
+			active ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
+		}`
 
 	return (
 		<div className='relative'>
@@ -48,58 +45,33 @@ function Navigation() {
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
-				<NavLink
-					to='/'
-					end
-					className={({ isActive }) =>
-						`px-4 py-2 border-b-2 transition-colors ${
-							isActive ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
-						}`
-					}>
+				<Link href='/' className={navLinkClass(pathname === '/')}>
 					<span className='flex items-center gap-1.5'>
 						<Utensils className='w-3.5 h-3.5' />
 						Dania dnia
 					</span>
-				</NavLink>
+				</Link>
 
-				<NavLink
-					to='/restaurants'
-					className={({ isActive }) =>
-						`px-4 py-2 border-b-2 transition-colors ${
-							isActive ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
-						}`
-					}>
+				<Link href='/restauracje' className={navLinkClass(pathname === '/restauracje')}>
 					<span className='flex items-center gap-1.5'>
 						<Store className='w-3.5 h-3.5' />
 						Katalog
 					</span>
-				</NavLink>
+				</Link>
 
-				<NavLink
-					to='/map'
-					className={({ isActive }) =>
-						`px-4 py-2 border-b-2 transition-colors ${
-							isActive ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
-						}`
-					}>
+				<Link href='/mapa' className={navLinkClass(pathname === '/mapa')}>
 					<span className='flex items-center gap-1.5'>
 						<Map className='w-3.5 h-3.5' />
 						Mapa lokali
 					</span>
-				</NavLink>
+				</Link>
 
-				<NavLink
-					to='/for-restaurants'
-					className={({ isActive }) =>
-						`px-4 py-2 border-b-2 transition-colors ${
-							isActive ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
-						}`
-					}>
+				<Link href='/dla-restauracji' className={navLinkClass(pathname === '/dla-restauracji')}>
 					<span className='flex items-center gap-1.5'>
 						<Building className='w-3.5 h-3.5' />
 						{user ? 'PROFIL' : 'DLA RESTAURACJI'}
 					</span>
-				</NavLink>
+				</Link>
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
@@ -124,13 +96,13 @@ function Navigation() {
 				) : (
 					<div className='flex items-center gap-2'>
 						<Link
-							to='/login'
+							href='/logowanie'
 							className='px-3 py-1.5 text-stone-700 hover:text-black transition-colors flex items-center gap-1.5'>
 							<LogIn className='w-3.5 h-3.5' />
 							Zaloguj
 						</Link>
 						<Link
-							to='/register'
+							href='/rejestracja'
 							className='px-3 py-1.5 bg-black text-white hover:bg-stone-900 transition-colors flex items-center gap-1.5'>
 							Zarejestruj
 						</Link>
@@ -149,46 +121,37 @@ function Navigation() {
 					</button>
 
 					<div className='flex flex-col gap-3'>
-						<NavLink
-							to='/'
-							end
+						<Link
+							href='/'
 							onClick={() => setIsOpen(false)}
-							className={({ isActive }) =>
-								`py-2 flex items-center gap-2 ${isActive ? 'text-black font-bold' : 'text-stone-500'}`
-							}>
+							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Utensils className='w-4 h-4' />
 							Dania dnia
-						</NavLink>
+						</Link>
 
-						<NavLink
-							to='/restaurants'
+						<Link
+							href='/restauracje'
 							onClick={() => setIsOpen(false)}
-							className={({ isActive }) =>
-								`py-2 flex items-center gap-2 ${isActive ? 'text-black font-bold' : 'text-stone-500'}`
-							}>
+							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Store className='w-4 h-4' />
 							Katalog
-						</NavLink>
+						</Link>
 
-						<NavLink
-							to='/map'
+						<Link
+							href='/mapa'
 							onClick={() => setIsOpen(false)}
-							className={({ isActive }) =>
-								`py-2 flex items-center gap-2 ${isActive ? 'text-black font-bold' : 'text-stone-500'}`
-							}>
+							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Map className='w-4 h-4' />
 							Mapa lokali
-						</NavLink>
+						</Link>
 
-						<NavLink
-							to='/for-restaurants'
+						<Link
+							href='/dla-restauracji'
 							onClick={() => setIsOpen(false)}
-							className={({ isActive }) =>
-								`py-2 flex items-center gap-2 ${isActive ? 'text-black font-bold' : 'text-stone-500'}`
-							}>
+							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Building className='w-4 h-4' />
 							{user ? 'PROFIL' : 'DLA RESTAURACJI'}
-						</NavLink>
+						</Link>
 					</div>
 
 					<hr className='border-stone-100 my-1' />
@@ -220,14 +183,14 @@ function Navigation() {
 					) : (
 						<div className='flex flex-col gap-2'>
 							<Link
-								to='/login'
+								href='/logowanie'
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 border border-stone-200 text-stone-700 hover:border-black hover:text-black transition-colors flex items-center justify-center gap-1.5'>
 								<LogIn className='w-3.5 h-3.5' />
 								Zaloguj
 							</Link>
 							<Link
-								to='/register'
+								href='/rejestracja'
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 bg-black text-white hover:bg-stone-900 transition-colors flex items-center justify-center gap-1.5 text-center'>
 								Zarejestruj
@@ -239,59 +202,3 @@ function Navigation() {
 		</div>
 	)
 }
-
-function AppContent() {
-	const location = useRouteLocation()
-	const isMapPage = location.pathname === '/map'
-
-	return (
-		<div className='min-h-screen bg-[#fdfdfd] text-stone-900 flex flex-col font-sans selection:bg-black selection:text-white'>
-			{/* Topbar */}
-			<header className='sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200'>
-				<div className='max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4'>
-					<Link to='/' className='flex items-center gap-2.5 group'>
-						<img src='/bistro-logo.png' alt='Bistro Mapa Logo' className='w-8 h-8 mx-auto' />
-						<div>
-							<span className='font-mono text-sm font-black tracking-widest block text-stone-900 leading-none'>
-								BISTRO MAPA
-							</span>
-							<span className='text-[10px] text-stone-400 font-sans tracking-wide block mt-1'>Food Discoverer</span>
-						</div>
-					</Link>
-
-					<Navigation />
-				</div>
-			</header>
-
-			{/* Main Content Area */}
-			<div className='flex-grow'>
-				<Routes>
-					<Route path='/' element={<HomePage />} />
-					<Route path='/restaurants' element={<RestaurantsPage />} />
-					<Route path='/restaurants/:slug' element={<RestaurantDetailPage />} />
-					<Route path='/map' element={<MapPage />} />
-					<Route path='/for-restaurants' element={<ForRestaurantsPage />} />
-					<Route path='/login' element={<LoginPage />} />
-					<Route path='/register' element={<RegisterPage />} />
-					<Route path='/reset-password' element={<ResetPasswordPage />} />
-					<Route path='*' element={<NotFoundPage />} />
-				</Routes>
-			</div>
-
-			{/* Footer */}
-			{!isMapPage && <Footer />}
-		</div>
-	)
-}
-
-function App() {
-	const { city } = useLocation()
-
-	if (!city) {
-		return <Preloader />
-	}
-
-	return <AppContent />
-}
-
-export default App

@@ -3,30 +3,31 @@ import { useAuth } from '../context/AuthContext'
 import { useLocation } from '../context/LocationContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import type { DailyDish, Restaurant } from '../types'
 
-export interface Restaurant {
-	id: string
-	name: string
-	slug: string
-	phone: string | null
-	address: string | null
-	city: string
-	facebookUrl: string | null
-	isActive: boolean
-	rating: number | null
-	views: number
-}
+// export interface Restaurant {
+// 	id: string
+// 	name: string
+// 	slug: string
+// 	phone: string | null
+// 	address: string | null
+// 	city: string
+// 	facebookUrl: string | null
+// 	isActive: boolean
+// 	rating: number | null
+// 	views: number
+// }
 
-export interface DailyDish {
-	id: string
-	name: string
-	description: string | null
-	price: string | number | null
-	imageUrl: string | null
-	sourceUrl: string | null
-	date: string
-	restaurant: Restaurant
-}
+// export interface DailyDish {
+// 	id: string
+// 	name: string
+// 	description: string | null
+// 	price: string | number | null
+// 	imageUrl: string | null
+// 	sourceUrl: string | null
+// 	date: string
+// 	restaurant: Restaurant
+// }
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -147,7 +148,6 @@ export default function HomePage() {
 
 	return (
 		<main className='max-w-6xl mx-auto px-4 sm:px-6 pb-8 md:pb-12 flex-grow'>
-			{/* Banner wsparcia */}
 			<section className='mx-auto bg-gradient-to-r from-amber-400 to-orange-500 my-6 p-6 text-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 text-left rounded-lg'>
 				<div className='flex-1 min-w-[280px]'>
 					<h3 className='text-2xl font-bold font-serif text-black mb-1.5'>Wesprzyj nasz rozwój!</h3>

@@ -156,3 +156,41 @@ export async function sendSuspendedEmail(email: string, name: string): Promise<b
 		return false
 	}
 }
+
+/**
+ * Wysyła wiadomość z formularza kontaktowego do administratora.
+ */
+export async function sendContactEmail(senderEmail: string, description: string): Promise<boolean> {
+	try {
+		await resend.emails.send({
+			from: fromEmail,
+			to: adminEmail,
+			subject: `📬 Nowa wiadomość kontaktowa od ${senderEmail} — Bistromapa`,
+			html: `
+				<div style="font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 5px;">
+					<h2 style="color: #333; text-align: center;">📬 Nowa wiadomość kontaktowa</h2>
+					<p>Na stronie Bistromapa otrzymano nową wiadomość z formularza kontaktowego:</p>
+					<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
+						<tr style="background-color: #f7fafc; border-bottom: 1px solid #edf2f7;">
+							<td style="padding: 10px; font-weight: bold; width: 120px;">Email nadawcy:</td>
+							<td style="padding: 10px; color: #2d3748;">${senderEmail}</td>
+						</tr>
+						<tr style="border-bottom: 1px solid #edf2f7;">
+							<td style="padding: 10px; font-weight: bold; vertical-align: top;">Treść wiadomości:</td>
+							<td style="padding: 10px; color: #2d3748; white-space: pre-wrap;">${description}</td>
+						</tr>
+					</table>
+					<p style="color: #666; font-size: 12px; text-align: center; margin-top: 30px;">
+						Wygenerowano automatycznie z formularza kontaktowego Bistromapa.
+					</p>
+				</div>
+			`,
+		})
+
+		await logger.info(`Wysłano wiadomość kontaktową od użytkownika ${senderEmail} przez Resend`)
+		return true
+	} catch (error: any) {
+		await logger.error(`Błąd podczas wysyłania wiadomości kontaktowej od ${senderEmail}`, error.message || error)
+		return false
+	}
+}

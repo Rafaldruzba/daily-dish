@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
-import { useLocation } from '../context/LocationContext'
+'use client'
+
+import { useState } from 'react'
+import { useLocation } from '@/context/LocationContext'
 import { MapPin } from 'lucide-react'
 
-export const Preloader: React.FC = () => {
+export function Preloader() {
 	const { setCity, setLanguage } = useLocation()
 	const [currentCity, setCurrentCity] = useState('')
 

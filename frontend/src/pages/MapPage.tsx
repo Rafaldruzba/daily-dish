@@ -335,6 +335,7 @@ export default function MapPage() {
 						streetViewControl: false,
 						rotateControl: false,
 						fullscreenControl: true,
+						mapId: 'daily-dish-map',
 					}}>
 					{/* Restaurants markers */}
 					{restaurants

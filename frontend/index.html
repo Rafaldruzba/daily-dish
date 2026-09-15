@@ -1,13 +1,99 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="pl">
+
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- Basic -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="color-scheme" content="light" />
+
+  <!-- SEO -->
+  <title>BistroMapa — Znajdź najlepsze restauracje w swojej okolicy</title>
+
+  <meta name="description"
+    content="BistroMapa — znajdź restauracje w swojej okolicy. Odkrywaj lokale, sprawdzaj menu, zdjęcia, opinie i wybierz miejsce, w którym chcesz zjeść." />
+
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+  <meta name="author" content="BistroMapa" />
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://bistromapa.app/" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+  <!-- Open Graph -->
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="BistroMapa" />
+
+  <meta property="og:title" content="BistroMapa — Znajdź restaurację w swojej okolicy" />
+
+  <meta property="og:description"
+    content="Odkrywaj restauracje, sprawdzaj menu, zdjęcia i opinie. Znajdź idealne miejsce na obiad, kolację lub spotkanie." />
+
+  <meta property="og:url" content="https://bistromapa.app/" />
+
+  <meta property="og:image" content="https://bistromapa.app/og-image.jpg" />
+
+  <meta property="og:image:alt" content="BistroMapa — mapa restauracji" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <meta name="twitter:title" content="BistroMapa — Znajdź restaurację w swojej okolicy" />
+
+  <meta name="twitter:description" content="Odkrywaj restauracje, sprawdzaj menu, zdjęcia i opinie." />
+
+  <meta name="twitter:image" content="https://bistromapa.app/og-image.jpg" />
+
+  <!-- Web App -->
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <!-- Structured Data: Website -->
+  <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "BistroMapa",
+        "url": "https://bistromapa.app/",
+        "description": "BistroMapa — mapa restauracji pomagająca znaleźć lokale w swojej okolicy.",
+        "inLanguage": "pl-PL"
+      }
+    </script>
+
+  <!-- Structured Data: Organization -->
+  <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "BistroMapa",
+        "url": "https://bistromapa.app/",
+        "logo": "https://bistromapa.app/favicon.svg"
+      }
+    </script>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <noscript>
+    <h1>BistroMapa — znajdź restaurację w swojej okolicy</h1>
+    <p>
+      BistroMapa pomaga znaleźć restauracje, sprawdzić ich ofertę,
+      menu, zdjęcia i opinie.
+    </p>
+  </noscript>
+
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

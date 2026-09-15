@@ -1,8 +1,67 @@
-import { Router, type Response } from 'express'
+import { Router, type Request, type Response } from 'express'
 import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
+import { sendContactEmail } from '../services/email.service.js'
+import { logger } from '../services/logger.service.js'
+import axios from 'axios'
 
 const router = Router()
+
+// POST /api/reports/contact
+// Formularz kontaktowy (publiczny) - wysyła wiadomość do administratora
+router.post('/contact', async (req: Request, res: Response) => {
+	try {
+		const { email, description, recaptchaToken } = req.body
+
+		const secretKey = process.env.RECAPTCHA_SECRET
+
+		const googleResponse = await axios.post(
+			`https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`,
+		)
+
+		const { success, score } = googleResponse.data
+
+		if (!success || score < 0.5) {
+			return res.status(400).json({
+				message:
+					'Weryfikacja antyspamowa nie powiodła się. Prawdopodobnie jesteś botem. [nie bierz tego do siebie :) i spróbuj ponownie!]',
+			})
+		}
+
+		if (!email || !description) {
+			return res.status(400).json({ success: false, message: 'Adres e-mail oraz treść wiadomości są wymagane.' })
+		}
+
+		if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email.trim())) {
+			return res.status(400).json({ success: false, message: 'Podano nieprawidłowy adres e-mail.' })
+		}
+
+		if (String(description).trim().length < 10) {
+			return res.status(400).json({ success: false, message: 'Treść wiadomości jest zbyt krótka (min. 10 znaków).' })
+		}
+
+		await logger.info('📨 Próba wysyłki formularza kontaktowego', {
+			email: email.trim(),
+			description: String(description).trim().slice(0, 200),
+			hasRecaptchaToken: Boolean(recaptchaToken),
+		})
+
+		const sent = await sendContactEmail(email.trim(), String(description).trim())
+
+		if (!sent) {
+			return res
+				.status(500)
+				.json({ success: false, message: 'Nie udało się wysłać wiadomości. Spróbuj ponownie później.' })
+		}
+
+		await logger.info('✅ Formularz kontaktowy wysłany pomyślnie', { email: email.trim() })
+
+		res.json({ success: true, message: 'Wiadomość została wysłana. Dziękujemy za kontakt!' })
+	} catch (error: any) {
+		await logger.error('❌ Błąd obsługi formularza kontaktowego', error.message || String(error))
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas wysyłania wiadomości.' })
+	}
+})
 
 // POST /api/restaurants/:id/report
 // Zgłaszanie błędów/oszustw dla restauracji (widoczne dla zalogowanych)
@@ -39,7 +98,8 @@ router.post('/restaurants/:id/report', authenticate, async (req: AuthRequest, re
 
 		res.json({
 			success: true,
-			message: 'Dziękujemy! Zgłoszenie dotyczące lokalu zostało pomyślnie zarejestrowane i zostanie zweryfikowane przez moderatora.',
+			message:
+				'Dziękujemy! Zgłoszenie dotyczące lokalu zostało pomyślnie zarejestrowane i zostanie zweryfikowane przez moderatora.',
 		})
 	} catch (error) {
 		console.error('❌ Error reporting restaurant:', error)
@@ -137,7 +197,10 @@ router.put('/admin/comments/:id', authenticate, requireAdmin, async (req: AuthRe
 				}),
 			])
 
-			res.json({ success: true, message: 'Zgłoszona opinia została usunięta z bazy, a jej autor otrzymał 3-dniową blokadę pisania komentarzy.' })
+			res.json({
+				success: true,
+				message: 'Zgłoszona opinia została usunięta z bazy, a jej autor otrzymał 3-dniową blokadę pisania komentarzy.',
+			})
 		}
 	} catch (error) {
 		console.error('❌ Error handling comment report:', error)
