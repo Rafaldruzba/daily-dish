@@ -297,7 +297,7 @@ export default function RestaurantsPage() {
 												</span>
 											)}
 
-											{user && restaurant.status === 'APPROVED' && (
+											{user && (restaurant.status === 'APPROVED' || restaurant.status === 'ACTIVE') && (
 												<button
 													onClick={() => toggleFavorite(restaurant.id)}
 													className={`p-2 border rounded-full transition-all flex items-center justify-center gap-1 text-xs cursor-pointer ${

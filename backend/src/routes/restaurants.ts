@@ -1,6 +1,5 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
-import type { Restaurant, Subscription } from '@prisma/client'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import { geocodeCity } from '../services/geolocation.service.js'
@@ -366,11 +365,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 		}
 
 		const userId = req.user?.id
-		const isOwner = req.user?.role === 'OWNER'
-
-		// Check if owner already has restaurants
-		const existingCount = await prisma.restaurant.count({ where: { userId: userId } })
-		const hasFreeTrial = existingCount === 0
 
 		const restaurant = await prisma.restaurant.create({
 			data: {
@@ -393,25 +387,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 					},
 				}),
 				status: 'PENDING', // Always PENDING on start
-				isActive: hasFreeTrial, // Activate immediately only if it's the first restaurant
+				isActive: false, // Lokal nie jest widoczny publicznie, dopóki admin nie zatwierdzi (status -> ACTIVE)
 			},
 		})
-
-		// If it's the first restaurant for an owner, create a free trial subscription
-		if (isOwner && hasFreeTrial) {
-			const trialEndsAt = new Date()
-			trialEndsAt.setDate(trialEndsAt.getDate() + 30)
-
-			await prisma.subscription.create({
-				data: {
-					restaurantId: restaurant.id,
-					type: 'FREE_TRIAL',
-					status: 'ACTIVE',
-					startsAt: new Date(),
-					endsAt: trialEndsAt,
-				},
-			})
-		}
 
 		res.status(201).json(restaurant)
 	} catch (error) {
@@ -454,6 +432,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 					where: { id },
 					data: {
 						status: 'ACTIVE',
+						isActive: true, // Zatwierdzenie admina uaktywnia lokal (widoczny na mapie)
 						...(googleData && {
 							googlePlaceId: googleData.googlePlaceId,
 							rating: googleData.rating,
@@ -482,7 +461,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 		} else {
 			restaurant = await prisma.restaurant.update({
 				where: { id },
-				data: { status: 'REJECTED' },
+				data: { status: 'REJECTED', isActive: false },
 			})
 		}
 

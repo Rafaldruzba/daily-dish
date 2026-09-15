@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import Stripe from 'stripe'
 import redisClient from '../lib/redis.js'
+import { logger } from '../services/logger.service.js'
 
 const router = Router()
 
@@ -319,6 +320,8 @@ router.post('/subscribe', authenticate, async (req: AuthRequest, res: Response) 
 			allow_promotion_codes: false,
 		})
 
+		logger.info('💳 Próba płatności (nowy checkout)', { restaurantId, planId: plan.type, sessionId: session.id })
+
 		return res.json({
 			success: true,
 			url: session.url,
@@ -517,7 +520,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
 					},
 				})
 
-				console.log(`✅ [Stripe] Subscription ${stripeSubscriptionId} registered for restaurant ${restaurantId}`)
+				logger.info('✅ Subskrypcja zarejestrowana po udanym checkout', { restaurantId, planId, subscriptionId: stripeSubscriptionId, status })
 			}
 		}
 
@@ -621,7 +624,21 @@ router.post('/webhook', async (req: Request, res: Response) => {
 
 					await syncRestaurantActiveState(dbSubscription.restaurantId)
 
-					console.log(`💰 [Stripe] Invoice ${invoice.id} paid for ${dbSubscription.type}`)
+					const priorPayments = await prisma.payment.count({
+						where: { restaurantId: dbSubscription.restaurantId, provider: 'STRIPE' },
+					})
+
+					logger.info(
+						priorPayments === 0 ? '✅ Płatność zaakceptowana (pierwsza)' : '🔄 Ponowna płatność zaakceptowana (odnowienie)',
+						{
+							restaurantId: dbSubscription.restaurantId,
+							subscriptionId,
+							invoiceId: invoice.id,
+							amount,
+							currency: (invoice.currency || 'pln').toUpperCase(),
+							type: dbSubscription.type,
+						},
+					)
 				}
 			}
 		}
@@ -661,7 +678,11 @@ router.post('/webhook', async (req: Request, res: Response) => {
 					 */
 					await syncRestaurantActiveState(dbSubscription.restaurantId)
 
-					console.warn(`⚠️ [Stripe] Payment failed for subscription ${subscriptionId}`)
+					logger.warn('❌ Płatność odrzucona (nieudana)', {
+						subscriptionId,
+						restaurantId: dbSubscription.restaurantId,
+						invoiceId: invoice.id,
+					})
 				}
 			}
 		}
@@ -771,7 +792,11 @@ router.post('/webhook', async (req: Request, res: Response) => {
 						},
 					})
 
-					console.warn(`⚠️ [Stripe] Payment action required for ${subscriptionId}`)
+					logger.warn('⚠️ Próba płatności wymagająca akcji (np. 3DS)', {
+						subscriptionId,
+						restaurantId: dbSubscription.restaurantId,
+						invoiceId: invoice.id,
+					})
 				}
 			}
 		}
