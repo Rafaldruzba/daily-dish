@@ -17,36 +17,25 @@ services:
       timeout: 5s
       retries: 5
 
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: daily_dish_backend
-  #   restart: always
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_started
-  #   environment:
-  #     DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dailydish}?schema=public
-  #     APIFY_API_TOKEN: ${APIFY_API_TOKEN}
-  #     PORT: 3000
-  #     REDIS_URL: redis://redis:6379
-  #   ports:
-  #     - '3000:3000'
-
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: daily_dish_frontend
-  #   restart: always
-  #   depends_on:
-  #     - backend
-  #   ports:
-  #     - '80:80'
-
+  # Osobna instancja bazy dla panelu CRM (console.bistromapa.app)
+  # Wymaga w console.bistromapa.app/backend/.env portu 5433, nie 5432.
+  postgres-crm:
+    image: postgres:16-alpine
+    container_name: crm_console
+    restart: always
+    environment:
+      POSTGRES_USER: ${CRM_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${CRM_POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${CRM_POSTGRES_DB:-crm_console}
+    ports:
+      - '5433:5432'
+    volumes:
+      - crm_console_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${CRM_POSTGRES_USER:-postgres}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
   redis:
     image: redis:7-alpine
     container_name: daily_dish_redis
@@ -58,4 +47,5 @@ services:
 
 volumes:
   postgres_data:
+  crm_console_data:
   redis_data:

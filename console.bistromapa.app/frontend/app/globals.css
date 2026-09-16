@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+@theme {
+	--font-sans: ui-sans-serif, system-ui, sans-serif;
+	--font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+body {
+	margin: 0;
+	background-color: #fdfdfd;
+	color: #0c0c0c;
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Wspólne klasy przycisków CRM — spójne z widokiem szczegółów leada */
+.btn-primary {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	background-color: #1c1917;
+	padding: 0.5rem 1rem;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: #fff;
+	transition: background-color 0.15s ease;
+}
+
+.btn-primary:hover {
+	background-color: #44403c;
+}
+
+.btn-primary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-secondary {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	border: 1px solid #d6d3d1;
+	background-color: #fff;
+	padding: 0.5rem 1rem;
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: #1c1917;
+	transition: border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+	border-color: #1c1917;
+}
+
+.btn-secondary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.card {
+	border: 1px solid #e7e5e4;
+	background-color: #fff;
+	padding: 1.5rem;
+	box-shadow: 0 1px 2px rgba(12, 12, 12, 0.04);
+}
+
+.label-mono {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: #a8a29e;
+}
+
+.field {
+	width: 100%;
+	border: 1px solid #d6d3d1;
+	background-color: #fff;
+	padding: 0.5rem 0.75rem;
+	font-size: 0.875rem;
+	color: #1c1917;
+}
+
+.field:focus {
+	outline: 2px solid #1c1917;
+	outline-offset: -1px;
+}

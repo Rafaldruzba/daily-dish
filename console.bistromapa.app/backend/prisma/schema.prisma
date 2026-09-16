@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 + driver adapter (@prisma/adapter-pg): połączenie ustawia prisma.config.ts
+datasource db {
+  provider = "postgresql"
+}
+
+model AdminUser {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  role      String    @default("ADMIN") // ADMIN, MANAGER
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model Lead {
+  id             String     @id @default(uuid())
+  name           String
+  city           String
+  address        String?
+  phone          String?
+  email          String?
+  website        String?
+  nip            String?
+  category       String?
+  contactPerson  String?
+  source         String     @default("MANUAL") // GOOGLE_MAPS, WEBSITE, FACEBOOK, CSV, MANUAL, REFERRAL, OTHER
+  sourceUrl      String?
+
+  status         String     @default("NEW") // NEW, CONTACTED, NO_RESPONSE, CALL_BACK, INTERESTED, ACCEPTED, DECLINED
+  onboardingStatus String  @default("NOT_STARTED") // NOT_STARTED, CREATE_QUEUED, ACCOUNT_CREATED, INVITATION_SENT, ACTIVATED, ERROR
+  // Stan ponowień automatyzacji (readme §26) — każde przejście jest idempotentne.
+  onboardingRetryCount     Int      @default(0)
+  onboardingLastError      String?
+  onboardingLastAttemptAt  DateTime?
+
+  consentStatus  String?    // GIVEN, DENIED, PENDING
+  consentSource  String?
+  consentAt      DateTime?
+  consentNotes   String?
+
+  contactAttempts Int       @default(0)
+  lastContactAt  DateTime?
+  nextFollowUpAt DateTime?
+  notes          String?
+
+  bistroRestaurantId String? @unique
+  bistroUserId       String?
+
+  // Z której kampanii/joba pochodzi lead (readme §21-22).
+  campaignJobId  String?
+  campaignJob    CampaignJob? @relation(fields: [campaignJobId], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  interactions Interaction[]
+  followUps     FollowUp[]
+  auditLogs     AuditLog[]
+  emailLogs     EmailLog[]
+  automationLogs AutomationLog[]
+
+  @@index([status])
+  @@index([city])
+  @@index([nextFollowUpAt])
+  @@index([source])
+  @@index([campaignJobId])
+  // Deduplikacja (readme §16) i wyszukiwanie — patrz leads/dedup.service.ts
+  @@index([email])
+  @@index([phone])
+  @@index([nip])
+  @@index([name, city])
+  @@index([createdAt])
+}
+
+model Interaction {
+  id         String   @id @default(uuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type       String   // PHONE, EMAIL, SMS, NOTE, OTHER
+  content    String?
+  contactPerson String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model FollowUp {
+  id         String   @id @default(uuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime
+  completed  Boolean  @default(false)
+  notes      String?
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@index([completed])
+}
+
+model Campaign {
+  id          String     @id @default(uuid())
+  name        String
+  region      String?    // Cała Polska, Mazowieckie, Warszawa
+  category    String?
+  status      String     @default("RUNNING") // RUNNING, PAUSED, COMPLETED
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  jobs CampaignJob[]
+}
+
+model CampaignJob {
+  id          String     @id @default(uuid())
+  campaignId  String
+  campaign    Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  city        String?
+  category    String?
+  search      String?
+  limit       Int        @default(100)
+
+  status      String     @default("PENDING") // PENDING, RUNNING, COMPLETED, ERROR
+  resultsFound Int       @default(0)
+  newLeads    Int        @default(0)
+  duplicates  Int        @default(0)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorMsg    String?
+  retryCount  Int        @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leads Lead[]
+
+  @@index([campaignId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // LEAD_CREATED, LEAD_UPDATED, STATUS_CHANGED, CONSENT_UPDATED, EMAIL_SENT, LEAD_DELETED, ACCOUNT_CREATED, IMPORT_STARTED, IMPORT_FINISHED
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  adminUserId String?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  details     String?  // JSON z danymi zmiany
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  key       String   @unique // first-contact, offer, follow-up, invitation
+  name      String
+  subject   String
+  body      String // treść z placeholderami {{name}}, {{city}}, {{contactPerson}}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs EmailLog[]
+}
+
+model EmailLog {
+  id          String         @id @default(uuid())
+  leadId      String?
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  templateId  String?
+  template    EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  adminUserId String?
+  to          String
+  subject     String
+  status      String         @default("SENT") // SENT, ERROR
+  error       String?
+  sentAt      DateTime       @default(now())
+
+  @@index([leadId])
+  @@index([sentAt])
+}
+
+model AutomationLog {
+  id         String   @id @default(uuid())
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  action     String // CREATE_ACCOUNT, SEND_INVITATION, CHECK_ONBOARDING
+  status     String // SUCCESS, ERROR
+  error      String?
+  durationMs Int?
+  attempt    Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@index([leadId])
+  @@index([action])
+  @@index([createdAt])
+}

@@ -1,0 +1,1 @@
+- [CRM Console arch](memory/crm-console-arch.md) — CRM osobny (Next+Nest+Prisma); etap 1 = Auth/Dashboard/Leads/Details/Interactions; pamięć zapisana
