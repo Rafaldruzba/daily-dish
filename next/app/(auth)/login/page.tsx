@@ -1,14 +1,17 @@
+'use client'
+
 import React, { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import Link from 'next/link'
+
 import { Lock, Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { useRouter } from 'next/router'
 
-import { Link, useNavigate } from 'react-router-dom'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function LoginPage() {
 	const { login } = useAuth()
-	const navigate = useNavigate()
+	const router = useRouter()
 
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
@@ -34,7 +37,7 @@ export default function LoginPage() {
 			setError('')
 			const result = await login(email, password)
 			if (result.success) {
-				navigate('/')
+				router('/')
 			} else {
 				setError(result.message || 'Niepoprawny e-mail lub hasło.')
 			}
@@ -223,7 +226,7 @@ export default function LoginPage() {
 						<div className='text-center mt-8 pt-6 border-t border-stone-100'>
 							<p className='text-stone-500 text-xs'>
 								Nie masz konta?{' '}
-								<Link to='/register' className='text-black font-mono font-bold hover:underline'>
+								<Link href='/register' className='text-black font-mono font-bold hover:underline'>
 									Utwórz konto
 								</Link>
 							</p>

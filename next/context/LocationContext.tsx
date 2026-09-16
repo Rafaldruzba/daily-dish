@@ -1,13 +1,7 @@
 'use client'
 
+import { LocationContextType } from '@/lib/types'
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-
-interface LocationContextType {
-	city: string
-	setCity: (city: string) => void
-	language: string
-	setLanguage: (lang: string) => void
-}
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined)
 
@@ -48,9 +42,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<LocationContext.Provider value={{ city, setCity, language, setLanguage }}>
-			{children}
-		</LocationContext.Provider>
+		<LocationContext.Provider value={{ city, setCity, language, setLanguage }}>{children}</LocationContext.Provider>
 	)
 }
 

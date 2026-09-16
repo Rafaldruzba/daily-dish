@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLocation } from '../context/LocationContext'

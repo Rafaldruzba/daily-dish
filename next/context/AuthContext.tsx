@@ -1,106 +1,214 @@
-'use client'
-
+import { AuthContextType, User } from '@/lib/types'
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { apiFetch } from '@/lib/api'
 
-interface User {
-	id: string
-	email: string
-	name: string | null
-	role: string
-	city?: string
-}
-
-interface AuthContextType {
-	user: User | null
-	token: string | null
-	loading: boolean
-	login: (email: string, password: string) => Promise<void>
-	register: (data: RegisterData) => Promise<void>
-	logout: () => void
-	isFavorite: (restaurantId: string) => boolean
-	toggleFavorite: (restaurantId: string) => Promise<void>
-}
-
-interface RegisterData {
-	email: string
-	password: string
-	name?: string
-	accountType: string
-	city?: string
-	nip?: string
-	ownerPhone?: string
-	representsSelf?: boolean
-	acceptedTerms?: boolean
-}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null)
-	const [token, setToken] = useState<string | null>(null)
+	const [token, setToken] = useState<string | null>(localStorage.getItem('dd_token'))
+	const [favorites, setFavorites] = useState<string[]>([])
 	const [loading, setLoading] = useState(true)
 
-	// Hydration-safe: load from localStorage only in useEffect
+	// Fetch current user and favorites on load if token exists
 	useEffect(() => {
-		const storedToken = localStorage.getItem('dd_token')
-		if (storedToken) {
-			setToken(storedToken)
-			apiFetch<User>('/auth/me', { auth: true })
-				.then((userData) => {
-					setUser(userData)
+		async function initAuth() {
+			if (!token) {
+				setLoading(false)
+				return
+			}
+
+			try {
+				// Get user profile
+				const userRes = await fetch(`${API_URL}/auth/me`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
 				})
-				.catch(() => {
-					localStorage.removeItem('dd_token')
-					setToken(null)
-				})
-				.finally(() => setLoading(false))
-		} else {
-			setLoading(false)
+
+				if (userRes.ok) {
+					const userData = await userRes.json()
+					setUser({
+						...userData.user,
+						ownershipDeclaration: userData.ownershipDeclaration || null,
+					})
+
+					// Get favorite restaurants
+					const favsRes = await fetch(`${API_URL}/restaurants/favorites`, {
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					})
+
+					if (favsRes.ok) {
+						const favsData = await favsRes.json()
+						setFavorites(favsData.map((r: { id: string }) => r.id))
+					}
+				} else {
+					// Token expired or invalid
+					handleLogout()
+				}
+			} catch (error) {
+				console.error('Błąd inicjalizacji sesji:', error)
+			} finally {
+				setLoading(false)
+			}
 		}
-	}, [])
+
+		initAuth()
+	}, [token])
+
+	const handleLogout = () => {
+		setUser(null)
+		setToken(null)
+		setFavorites([])
+		localStorage.removeItem('dd_token')
+	}
 
 	const login = async (email: string, password: string) => {
-		const data = await apiFetch<{ success: boolean; token: string; user: User }>('/auth/login', {
-			method: 'POST',
-			body: JSON.stringify({ email, password }),
-		})
-		if (!data.success) throw new Error('Login failed')
+		try {
+			const res = await fetch(`${API_URL}/auth/login`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email, password }),
+			})
 
-		localStorage.setItem('dd_token', data.token)
-		setToken(data.token)
-		setUser(data.user)
+			const data = await res.json()
+
+			if (!res.ok) {
+				return { success: false, message: data.message || 'Błąd logowania' }
+			}
+
+			localStorage.setItem('dd_token', data.token)
+			setToken(data.token)
+			setUser(data.user)
+			return { success: true }
+		} catch (error) {
+			console.error('Logowanie error:', error)
+			return { success: false, message: 'Nie udało się połączyć z serwerem.' }
+		}
 	}
 
-	const register = async (registerData: RegisterData) => {
-		const data = await apiFetch<{ success: boolean; message: string }>('/auth/register', {
-			method: 'POST',
-			body: JSON.stringify(registerData),
-		})
-		if (!data.success) throw new Error(data.message || 'Registration failed')
+	const register = async (
+		email: string,
+		password: string,
+		name?: string,
+		accountType?: string,
+		city?: string,
+		nip?: string,
+		ownerPhone?: string,
+		representsSelf?: boolean,
+		acceptedTerms?: boolean,
+	) => {
+		try {
+			const res = await fetch(`${API_URL}/auth/register`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					email,
+					password,
+					name,
+					accountType,
+					city,
+					nip,
+					ownerPhone,
+					representsSelf,
+					acceptedTerms,
+				}),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				return { success: false, message: data.message || 'Błąd rejestracji' }
+			}
+
+			return { success: true, message: data.message }
+		} catch (error) {
+			console.error('Rejestracja error:', error)
+			return { success: false, message: 'Nie udało się połączyć z serwerem.' }
+		}
 	}
 
-	const logout = () => {
-		localStorage.removeItem('dd_token')
-		setToken(null)
-		setUser(null)
+	const verifyRegister = async (email: string, code: string) => {
+		try {
+			const res = await fetch(`${API_URL}/auth/register/verify`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email, code }),
+			})
+
+			const data = await res.json()
+
+			if (!res.ok) {
+				return { success: false, message: data.message || 'Błąd weryfikacji' }
+			}
+
+			localStorage.setItem('dd_token', data.token)
+			setToken(data.token)
+			setUser(data.user)
+			return { success: true }
+		} catch (error) {
+			console.error('Weryfikacja error:', error)
+			return { success: false, message: 'Nie udało się połączyć z serwerem.' }
+		}
+	}
+
+	const toggleFavorite = async (restaurantId: string): Promise<boolean> => {
+		if (!token || !user) return false
+
+		const alreadyFav = favorites.includes(restaurantId)
+		const method = alreadyFav ? 'DELETE' : 'POST'
+
+		try {
+			const res = await fetch(`${API_URL}/restaurants/${restaurantId}/favorite`, {
+				method,
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			})
+
+			if (res.ok) {
+				if (alreadyFav) {
+					setFavorites(prev => prev.filter(id => id !== restaurantId))
+				} else {
+					setFavorites(prev => [...prev, restaurantId])
+				}
+				return true
+			}
+			return false
+		} catch (error) {
+			console.error('Błąd przełączania ulubionych:', error)
+			return false
+		}
 	}
 
 	const isFavorite = (restaurantId: string) => {
-		// This would need favorites loaded from API - simplified for now
-		return false
+		return favorites.includes(restaurantId)
 	}
 
-	const toggleFavorite = async (restaurantId: string) => {
-		if (!token) return
-		// Implementation from original AuthContext
+	const value = {
+		user,
+		token,
+		favorites,
+		loading,
+		login,
+		register,
+		verifyRegister,
+		logout: handleLogout,
+		toggleFavorite,
+		isFavorite,
 	}
 
-	return (
-		<AuthContext.Provider value={{ user, token, loading, login, register, logout, isFavorite, toggleFavorite }}>
-			{children}
-		</AuthContext.Provider>
-	)
+	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
