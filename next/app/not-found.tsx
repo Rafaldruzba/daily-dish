@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/router'
-import useNavigate from 'next/router'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+
 import { Home, Compass } from 'lucide-react'
 
 export default function NotFoundPage() {
-	const navigate = useNavigate()
+	const router = useRouter()
 	const [countdown, setCountdown] = useState(5)
 
 	useEffect(() => {
@@ -14,7 +15,7 @@ export default function NotFoundPage() {
 			setCountdown(prev => {
 				if (prev <= 1) {
 					clearInterval(timer)
-					navigate('/')
+					router.push('/')
 					return 0
 				}
 				return prev - 1
@@ -22,7 +23,7 @@ export default function NotFoundPage() {
 		}, 1000)
 
 		return () => clearInterval(timer)
-	}, [navigate])
+	}, [router])
 
 	return (
 		<main className='min-h-[75vh] flex items-center justify-center px-4 py-12 bg-[#fafafa] animate-fade-in'>
@@ -49,7 +50,7 @@ export default function NotFoundPage() {
 
 				<div className='pt-2'>
 					<Link
-						to='/'
+						href='/'
 						className='w-full bg-black text-white hover:bg-stone-900 transition-colors py-3 font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer'>
 						<Home className='w-4 h-4' />
 						Wróć do strony głównej

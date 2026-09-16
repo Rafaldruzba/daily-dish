@@ -4,9 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLocation } from '../context/LocationContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
-import { useRouter } from 'next/router'
-import { useSearchParams } from 'next/navigation'
-import { DailyDish, Restaurant } from '@/lib/types'
+import { useRouter, useSearchParams } from 'next/navigation'
+import type { DailyDish, Restaurant } from '@/lib/types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -22,8 +21,8 @@ const formatDate = (date: Date = new Date()) => {
 export default function HomePage() {
 	const { user, toggleFavorite, isFavorite } = useAuth()
 	const { city } = useLocation()
-	const navigate = useNavigate()
-	const [searchParams, setSearchParams] = useSearchParams()
+	const router = useRouter()
+	const searchParams = useSearchParams()
 
 	const [dishes, setDishes] = useState<DailyDish[]>([])
 	const [loading, setLoading] = useState(true)
@@ -36,13 +35,13 @@ export default function HomePage() {
 	const viewMode = searchParams.get('tab') === 'ranking' ? 'ranking' : 'dishes'
 
 	const handleTabChange = (newTab: 'dishes' | 'ranking') => {
-		const newParams = new URLSearchParams(searchParams)
+		const newParams = new URLSearchParams(searchParams.toString())
 		if (newTab === 'dishes') {
 			newParams.delete('tab') // czysty URL dla domyślnego widoku
 		} else {
 			newParams.set('tab', newTab)
 		}
-		setSearchParams(newParams, { replace: true })
+		router.push(`?${newParams.toString()}`, { scroll: false })
 	}
 
 	// Inicjalizacja statystyk i rejestracja wizyty TYLKO RAZ przy zamontowaniu komponentu
@@ -107,14 +106,16 @@ export default function HomePage() {
 
 	// Memoizacja listy dań zależnie od filtra ulubionych
 	const displayedDishes = useMemo(() => {
-		return filterFavorites ? dishes.filter(dish => isFavorite(dish.restaurant.id)) : dishes
+		return filterFavorites ? dishes.filter(dish => dish.restaurant && isFavorite(dish.restaurant.id)) : dishes
 	}, [dishes, filterFavorites, isFavorite])
 
 	// Memoizacja przeliczania rankingu z pobranych dań
 	const rankingRestaurants = useMemo(() => {
 		const uniqueRestaurantsMap = new Map<string, Restaurant>()
 		dishes.forEach(d => {
-			uniqueRestaurantsMap.set(d.restaurant.id, d.restaurant)
+			if (d.restaurant) {
+				uniqueRestaurantsMap.set(d.restaurant.id, d.restaurant)
+			}
 		})
 
 		return Array.from(uniqueRestaurantsMap.values()).sort((a, b) => {
@@ -243,7 +244,7 @@ export default function HomePage() {
 											filterFavorites ? 'bg-white text-black font-bold shadow-sm' : 'text-stone-500 hover:text-black'
 										}`}>
 										<Heart className='w-3 h-3 text-red-500 fill-red-500' />
-										Ulubione ({dishes.filter(d => isFavorite(d.restaurant.id)).length})
+										Ulubione ({dishes.filter(d => d.restaurant && isFavorite(d.restaurant.id)).length})
 									</button>
 								</div>
 							)}
@@ -280,6 +281,7 @@ export default function HomePage() {
 					) : (
 						<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
 							{displayedDishes.map(dish => {
+								if (!dish.restaurant) return null
 								const isFav = isFavorite(dish.restaurant.id)
 
 								return (
@@ -290,11 +292,15 @@ export default function HomePage() {
 											if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
 												return
 											}
-											navigate(`/restaurants/${dish.restaurant.slug}`)
+											if (dish.restaurant) {
+												router.push(`/restaurants/${dish.restaurant.slug}`)
+											}
 										}}
 										onKeyDown={e => {
 											if (e.key === 'Enter' || e.key === ' ') {
-												navigate(`/restaurants/${dish.restaurant.slug}`)
+												if (dish.restaurant) {
+													router.push(`/restaurants/${dish.restaurant.slug}`)
+												}
 											}
 										}}
 										className='cursor-pointer group bg-white border border-stone-200 overflow-hidden flex flex-col h-full hover:border-black transition-all hover:shadow-sm'>
@@ -309,7 +315,7 @@ export default function HomePage() {
 
 												{user && (
 													<button
-														onClick={() => toggleFavorite(dish.restaurant.id)}
+														onClick={() => dish.restaurant && toggleFavorite(dish.restaurant.id)}
 														className='absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm border border-stone-200 flex items-center justify-center hover:bg-white hover:scale-110 active:scale-95 transition-all text-stone-700 shadow-sm cursor-pointer'
 														title={isFav ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
 														<Heart
@@ -345,7 +351,7 @@ export default function HomePage() {
 															<button
 																onClick={e => {
 																	e.stopPropagation()
-																	toggleFavorite(dish.restaurant.id)
+																	dish.restaurant && toggleFavorite(dish.restaurant.id)
 																}}
 																className='w-6 h-6 rounded-full border border-stone-200 flex items-center justify-center hover:bg-stone-50 transition-all cursor-pointer shrink-0'
 																title={isFav ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}>
@@ -396,7 +402,7 @@ export default function HomePage() {
 														rel='noopener noreferrer'
 														onClick={e => {
 															e.stopPropagation()
-															handleRecordView(dish.restaurant.id)
+															dish.restaurant && handleRecordView(dish.restaurant.id)
 														}}
 														className='w-full text-center py-2 border border-black hover:bg-black hover:text-white transition-colors text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-1.5 cursor-pointer'>
 														Źródło oferty

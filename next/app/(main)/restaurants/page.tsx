@@ -4,18 +4,18 @@ import { useEffect, useState, useMemo } from 'react'
 import { Store, Heart, Phone, MapPin, RefreshCw, Search, Star, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useLocation } from '@/context/LocationContext'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Restaurant } from '@/lib/types'
-import { useRouter } from 'next/router'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function RestaurantsPage() {
 	const { user, token, toggleFavorite, isFavorite } = useAuth()
 	const router = useRouter()
+	const pathname = usePathname()
+	const searchParams = useSearchParams()
 	const { city } = useLocation()
-	const [searchParams, setSearchParams] = useSearchParams()
 
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [loading, setLoading] = useState(true)
@@ -73,7 +73,7 @@ export default function RestaurantsPage() {
 
 	// Pagination variables
 	const currentPage = useMemo(() => {
-		const page = parseInt(searchParams.get('page') || '1', 10)
+		const page = parseInt(searchParams?.get('page') || '1', 10)
 		return isNaN(page) || page < 1 ? 1 : page
 	}, [searchParams])
 
@@ -90,19 +90,17 @@ export default function RestaurantsPage() {
 
 	// Reset page when searchQuery changes
 	useEffect(() => {
-		if (searchParams.get('page')) {
-			setSearchParams(prev => {
-				prev.delete('page')
-				return prev
-			})
+		if (searchParams?.get('page')) {
+			const newParams = new URLSearchParams(searchParams.toString())
+			newParams.delete('page')
+			router.push(`?${newParams.toString()}`, { scroll: false })
 		}
-	}, [searchQuery])
+	}, [searchQuery, router, searchParams])
 
 	const handlePageChange = (page: number) => {
-		setSearchParams(prev => {
-			prev.set('page', String(page))
-			return prev
-		})
+		const newParams = new URLSearchParams(searchParams?.toString())
+		newParams.set('page', String(page))
+		router.push(`?${newParams.toString()}`, { scroll: false })
 		// Scroll to top of catalog section smoothly
 		window.scrollTo({ top: 200, behavior: 'smooth' })
 	}
@@ -206,7 +204,7 @@ export default function RestaurantsPage() {
 											if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
 												return
 											}
-											router(`/restaurants/${restaurant.slug}`)
+											router.push(`/restaurants/${restaurant.slug}`)
 										}}
 										className={`cursor-pointer relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
 											!restaurant.isActive
