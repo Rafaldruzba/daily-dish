@@ -55,6 +55,8 @@ export interface Restaurant {
 	phone: string | null
 	address: string | null
 	city: string
+	citySlug: string
+	cuisines: string[]
 	facebookUrl: string | null
 	isActive: boolean
 	rating: number | null
@@ -68,6 +70,11 @@ export interface Restaurant {
 	user?: { name: string | null; email: string } | null
 }
 
+export interface RestaurantCatalogProps {
+	citySlug?: string
+	cuisine?: string
+}
+
 export interface RestaurantForm {
 	name: string
 	slug: string
@@ -76,6 +83,7 @@ export interface RestaurantForm {
 	city: string
 	facebookUrl: string
 	rating: number
+	cuisines: string
 }
 
 export interface Payment {
@@ -147,10 +155,12 @@ export interface RestaurantDetail {
 	phone: string | null
 	address: string | null
 	city: string
+	citySlug: string
 	facebookUrl: string | null
 	rating: number | null
 	description: string | null
 	generalMenu: string | null
+	cuisines: string[]
 	views: number
 	userId: string | null
 	latitude: number | null
@@ -185,6 +195,7 @@ export interface EditFormState {
 	facebookUrl: string
 	description: string
 	generalMenu: string
+	cuisines: string
 	staticOfferTitle: string
 	staticOfferDesc: string
 	staticOfferPrice: string

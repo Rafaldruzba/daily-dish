@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 import { Lock, Mail, User, ArrowRight, Building, Phone, FileText, MapPin } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/router'
+import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
 	const { register, verifyRegister } = useAuth()
@@ -99,7 +99,7 @@ export default function RegisterPage() {
 			setSubmitting(true)
 			const result = await verifyRegister(email, verificationCode.trim())
 			if (result.success) {
-				router('/')
+				router.push('/')
 			} else {
 				setError(result.message || 'Nieprawidłowy kod weryfikacyjny.')
 			}

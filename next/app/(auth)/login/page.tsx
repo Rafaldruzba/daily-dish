@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 import { Lock, Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/router'
+import { useRouter } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -37,7 +37,7 @@ export default function LoginPage() {
 			setError('')
 			const result = await login(email, password)
 			if (result.success) {
-				router('/')
+				router.push('/')
 			} else {
 				setError(result.message || 'Niepoprawny e-mail lub hasło.')
 			}

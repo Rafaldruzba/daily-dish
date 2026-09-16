@@ -2,6 +2,7 @@ import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
+import { slugify } from '../lib/slug.js'
 import { geocodeCity } from '../services/geolocation.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 import multer from 'multer'
@@ -86,14 +87,26 @@ function mapRestaurantSubscription(restaurant: any) {
 	}
 }
 
+// Normalizuje listę kuchni do slugów (np. ["Kuchnia włoska", "Pizza"] -> ["kuchnia-wloska", "pizza"])
+function normalizeCuisines(value: unknown): string[] {
+	if (!Array.isArray(value)) return []
+
+	return Array.from(
+		new Set(value.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map(slugify)),
+	)
+}
+
 // GET /api/restaurants
 // Pobiera wszystkie aktywne i zatwierdzone restauracje (dla gości/użytkowników)
 router.get('/', async (req: Request, res: Response) => {
 	try {
-		const city = req.query.city as string | undefined
+		const { city, citySlug, cuisine, search } = req.query as Record<string, string | undefined>
+
+		// Cache stosujemy tylko dla najprostszego zapytania (katalog bez filtrów / po nazwie miasta)
+		const isCacheable = !citySlug && !cuisine && !search
 		const cacheKey = `restaurants:${city || 'all'}`
 
-		if (redisClient.isOpen) {
+		if (isCacheable && redisClient.isOpen) {
 			try {
 				const cachedRestaurants = await redisClient.get(cacheKey)
 				if (cachedRestaurants) {
@@ -104,15 +117,28 @@ router.get('/', async (req: Request, res: Response) => {
 			}
 		}
 
-		// Pobierz identyfikatory restauracji posiadających aktywne subskrypcje w zadanym obszarze
-		const restaurantIds = city ? await getRestaurantIdsForCity(city) : await getAllActiveRestaurantIds()
+		// Filtr po slugu miasta / kuchni jest liczony bezpośrednio w bazie (fundament SEO)
+		const where: Record<string, unknown> = {
+			isActive: true,
+			status: { in: ['APPROVED', 'ACTIVE'] },
+		}
+
+		if (citySlug) {
+			where.citySlug = { equals: citySlug, mode: 'insensitive' }
+		} else if (city) {
+			where.city = { equals: city, mode: 'insensitive' }
+		}
+
+		if (cuisine) {
+			where.cuisines = { has: cuisine }
+		}
+
+		if (search) {
+			where.name = { contains: search, mode: 'insensitive' }
+		}
 
 		let restaurants = await prisma.restaurant.findMany({
-			where: {
-				id: { in: restaurantIds },
-				isActive: true,
-				status: { in: ['APPROVED', 'ACTIVE'] },
-			},
+			where,
 			include: { subscriptions: true },
 			orderBy: {
 				name: 'asc',
@@ -155,7 +181,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 		const mappedRestaurants = restaurants.map(mapRestaurantSubscription)
 
-		if (redisClient.isOpen) {
+		if (isCacheable && redisClient.isOpen) {
 			try {
 				await redisClient.set(cacheKey, JSON.stringify(mappedRestaurants), { EX: 3600 }) // Cache for 1 hour
 			} catch (err) {
@@ -326,7 +352,7 @@ router.post('/:id/view', async (req, res) => {
 // Dodaje restaurację (każdy zalogowany użytkownik, status domyślnie PENDING)
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 	try {
-		const { name, slug, phone, address, city, facebookUrl, rating } = req.body
+		const { name, slug, phone, address, city, facebookUrl, rating, cuisines } = req.body
 
 		if (!name || !slug || !city) {
 			return res.status(400).json({ success: false, message: 'Nazwa, slug i miasto są wymagane' })
@@ -373,6 +399,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 				phone: phone?.trim() || null,
 				address: address?.trim() || null,
 				city: city.trim(),
+				citySlug: slugify(city),
+				cuisines: normalizeCuisines(cuisines),
 				latitude: lat,
 				longitude: lon,
 				facebookUrl: facebookUrl?.trim() || null,
@@ -603,7 +631,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(403).json({ success: false, message: 'Brak uprawnień do edycji tej restauracji' })
 		}
 
-		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu } = req.body
+		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu, cuisines } = req.body
 
 		const restaurant = await prisma.restaurant.update({
 			where: {
@@ -624,6 +652,10 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 				}),
 				...(city !== undefined && {
 					city: city.trim(),
+					citySlug: slugify(city),
+				}),
+				...(cuisines !== undefined && {
+					cuisines: normalizeCuisines(cuisines),
 				}),
 				...(facebookUrl !== undefined && {
 					facebookUrl: facebookUrl?.trim() || null,

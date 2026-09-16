@@ -29,6 +29,6 @@ COPY --from=builder /app/dist ./dist
 # Pobieramy Chromium dedykowane dla naszej wersji Playwright wraz z niezbędnymi zależnościami OS
 RUN npx playwright install --with-deps chromium
 
-EXPOSE 3001
+EXPOSE 3002
 
 CMD ["node", "dist/server.js"]

@@ -10,6 +10,7 @@ import paymentsRouter from './routes/payments.js'
 import logsRouter from './routes/logs.js'
 import reviewsRouter from './routes/reviews.js'
 import reportsRouter from './routes/reports.js'
+import seoRouter from './routes/seo.js'
 
 const app = express()
 
@@ -71,5 +72,6 @@ app.use('/api/payments', paymentsRouter)
 app.use('/api/logs', logsRouter)
 app.use('/api/reviews', reviewsRouter)
 app.use('/api/reports', reportsRouter)
+app.use('/api/seo', seoRouter)
 
 export default app

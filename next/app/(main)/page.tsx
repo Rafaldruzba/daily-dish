@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useAuth } from '../context/AuthContext'
-import { useLocation } from '../context/LocationContext'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { DailyDish, Restaurant } from '@/lib/types'
+import { useLocation } from '@/context/LocationContext'
+import { useAuth } from '@/context/AuthContext'
+import { Preloader } from '@/components/ui/Preloader'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -125,6 +126,11 @@ export default function HomePage() {
 			return (b.views || 0) - (a.views || 0)
 		})
 	}, [dishes])
+
+	// Jeśli brak miasta, wyświetl preloader
+	if (!city) {
+		return <Preloader />
+	}
 
 	return (
 		<main className='max-w-6xl mx-auto px-4 sm:px-6 pb-8 md:pb-12 flex-grow'>
@@ -293,13 +299,13 @@ export default function HomePage() {
 												return
 											}
 											if (dish.restaurant) {
-												router.push(`/restaurants/${dish.restaurant.slug}`)
+												router.push(`/restaurant/${dish.restaurant.slug}`)
 											}
 										}}
 										onKeyDown={e => {
 											if (e.key === 'Enter' || e.key === ' ') {
 												if (dish.restaurant) {
-													router.push(`/restaurants/${dish.restaurant.slug}`)
+													router.push(`/restaurant/${dish.restaurant.slug}`)
 												}
 											}
 										}}

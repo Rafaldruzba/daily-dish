@@ -4,13 +4,12 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 
 import { Lock, ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
-import { useRouter } from 'next/router'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function ResetPasswordPage() {
-	const [searchParams] = useSearchParams()
+	const searchParams = useSearchParams()
 	const router = useRouter()
 	const token = searchParams.get('token')
 
@@ -56,7 +55,7 @@ export default function ResetPasswordPage() {
 
 			if (res.ok && data.success) {
 				setSuccess(data.message || 'Hasło zostało pomyślnie zmienione.')
-				setTimeout(() => router('/login'), 3000)
+				setTimeout(() => router.push('/login'), 3000)
 			} else {
 				setError(data.message || 'Nie udało się zmienić hasła. Link mógł wygasnąć.')
 			}

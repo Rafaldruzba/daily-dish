@@ -5,13 +5,11 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined)
 
-const DEFAULT_CITY = 'Warszawa'
 const DEFAULT_LANGUAGE = 'pl'
 
 export function LocationProvider({ children }: { children: ReactNode }) {
-	const [city, setCityState] = useState<string>(DEFAULT_CITY)
+	const [city, setCityState] = useState<string>('')
 	const [language, setLanguageState] = useState<string>(DEFAULT_LANGUAGE)
-	const [mounted, setMounted] = useState(false)
 
 	// Hydration-safe: read from localStorage only in useEffect
 	useEffect(() => {
@@ -19,7 +17,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 		const storedLang = localStorage.getItem('user_language')
 		if (storedCity) setCityState(storedCity)
 		if (storedLang) setLanguageState(storedLang)
-		setMounted(true)
 	}, [])
 
 	const setCity = (newCity: string) => {
@@ -34,11 +31,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 	const setLanguage = (lang: string) => {
 		setLanguageState(lang)
 		localStorage.setItem('user_language', lang)
-	}
-
-	// Prevent hydration mismatch by rendering nothing until mounted
-	if (!mounted) {
-		return null
 	}
 
 	return (

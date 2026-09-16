@@ -52,21 +52,21 @@ export function Navbar() {
 					</span>
 				</Link>
 
-				<Link href='/restauracje' className={navLinkClass(pathname === '/restauracje')}>
+				<Link href='/restaurants' className={navLinkClass(pathname === '/restaurants')}>
 					<span className='flex items-center gap-1.5'>
 						<Store className='w-3.5 h-3.5' />
 						Katalog
 					</span>
 				</Link>
 
-				<Link href='/mapa' className={navLinkClass(pathname === '/mapa')}>
+				<Link href='/map' className={navLinkClass(pathname === '/map')}>
 					<span className='flex items-center gap-1.5'>
 						<Map className='w-3.5 h-3.5' />
 						Mapa lokali
 					</span>
 				</Link>
 
-				<Link href='/dla-restauracji' className={navLinkClass(pathname === '/dla-restauracji')}>
+				<Link href='/for-restaurants' className={navLinkClass(pathname === '/for-restaurants')}>
 					<span className='flex items-center gap-1.5'>
 						<Building className='w-3.5 h-3.5' />
 						{user ? 'PROFIL' : 'DLA RESTAURACJI'}
@@ -96,13 +96,13 @@ export function Navbar() {
 				) : (
 					<div className='flex items-center gap-2'>
 						<Link
-							href='/logowanie'
+							href='/login'
 							className='px-3 py-1.5 text-stone-700 hover:text-black transition-colors flex items-center gap-1.5'>
 							<LogIn className='w-3.5 h-3.5' />
 							Zaloguj
 						</Link>
 						<Link
-							href='/rejestracja'
+							href='/register'
 							className='px-3 py-1.5 bg-black text-white hover:bg-stone-900 transition-colors flex items-center gap-1.5'>
 							Zarejestruj
 						</Link>
@@ -130,7 +130,7 @@ export function Navbar() {
 						</Link>
 
 						<Link
-							href='/restauracje'
+							href='/restaurants'
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Store className='w-4 h-4' />
@@ -138,7 +138,7 @@ export function Navbar() {
 						</Link>
 
 						<Link
-							href='/mapa'
+							href='/map'
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Map className='w-4 h-4' />
@@ -146,7 +146,7 @@ export function Navbar() {
 						</Link>
 
 						<Link
-							href='/dla-restauracji'
+							href='/for-restaurants'
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Building className='w-4 h-4' />

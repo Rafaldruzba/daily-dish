@@ -13,17 +13,19 @@ model Restaurant {
   phone              String?
   address            String?
   city               String
+  citySlug           String      // Slug miasta (np. "warszawa", "piaseczno") - dla SEO URL
   facebookUrl        String?
   isActive           Boolean     @default(true)
   rating             Float?      @default(0.0)
   description        String?
   generalMenu        String?
+  cuisines           String[]    @default([]) // Kategorie kuchni (np. ["pizza", "wloska"])
 
   latitude           Float?
   longitude          Float?
   googlePlaceId      String?
   userRatingsTotal   Int?        @default(0)
-  
+
   status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
   views              Int         @default(0)         // Licznik odwiedzin profilu/dań
 
@@ -188,6 +190,10 @@ model Review {
 
   @@unique([userId, restaurantId]) // Blokada wielu opinii od jednej osoby
 }
+
+// Indeksy dla wydajnego wyszukiwania
+// @@index([citySlug]) - dodany automatycznie przez Prisma dla pola używanego w WHERE
+// @@index([cuisines]) - dla filtrowania po kategoriach
 
 model OwnershipDeclaration {
   id            String     @id @default(uuid())

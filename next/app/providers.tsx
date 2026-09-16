@@ -8,6 +8,17 @@ import type { ReactNode } from 'react'
 export function Providers({ children }: { children: ReactNode }) {
 	const recaptchaKey = process.env.NEXT_PUBLIC_RECAPTCHA_PUBLIC
 
+	// Jeśli nie ma klucza reCAPTCHA, nie wrapperuj w provider (unika błędu)
+	if (!recaptchaKey) {
+		return (
+			<LocationProvider>
+				<AuthProvider>
+					{children}
+				</AuthProvider>
+			</LocationProvider>
+		)
+	}
+
 	return (
 		<GoogleReCaptchaProvider reCaptchaKey={recaptchaKey!}>
 			<LocationProvider>

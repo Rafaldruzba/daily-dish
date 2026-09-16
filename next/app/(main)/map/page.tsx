@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api'
 import { RefreshCw, Search, Loader, MapPin, Phone, Star, ArrowRight, Navigation } from 'lucide-react'
 import Link from 'next/link'
@@ -193,7 +193,7 @@ export default function MapPage() {
 
 	if (loadError) {
 		return (
-			<div className='flex items-center justify-center h-[calc(100dvh-4rem)] bg-stone-50 font-mono text-xs text-red-500 p-4 text-center'>
+			<div className='flex-1 flex items-center justify-center bg-stone-50 font-mono text-xs text-red-500 p-4 text-center'>
 				Błąd ładowania Map Google. Spróbuj ponownie później.
 			</div>
 		)
@@ -201,7 +201,7 @@ export default function MapPage() {
 
 	if (!isLoaded) {
 		return (
-			<div className='flex flex-col items-center justify-center h-[calc(100dvh-4rem)] bg-stone-50'>
+			<div className='flex-1 flex flex-col items-center justify-center bg-stone-50'>
 				<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mb-2' />
 				<p className='font-mono text-xs text-stone-400 uppercase tracking-widest'>Ładowanie mapy...</p>
 			</div>
@@ -209,9 +209,9 @@ export default function MapPage() {
 	}
 
 	return (
-		<main className='flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden'>
+		<main className='w-full h-screen flex flex-col md:flex-row overflow-y-auto md:overflow-hidden'>
 			{/* Left side panel: Info & Search */}
-			<section className='w-full md:w-96 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-md flex-1 md:flex-none min-h-0'>
+			<section className='w-full md:w-96 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-md flex-none overflow-hidden md:h-full'>
 				{/* Search header */}
 				<div className='p-4 border-b border-stone-100'>
 					<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-2'>Wyszukaj lokalizację</h2>
@@ -301,7 +301,7 @@ export default function MapPage() {
 										<Navigation className='w-3 h-3' /> Google Maps
 									</a>
 									<Link
-										href={`/restaurants/${rest.slug}`}
+										href={`/restaurant/${rest.slug}`}
 										className='text-[11px] font-mono uppercase tracking-wider text-stone-600 hover:text-black flex items-center gap-1 font-bold group-hover:translate-x-0.5 transition-transform'
 										onClick={e => e.stopPropagation()}>
 										Zobacz dania <ArrowRight className='w-3 h-3' />
@@ -314,7 +314,7 @@ export default function MapPage() {
 			</section>
 
 			{/* Right side area: Google Map */}
-			<section className='w-full relative bg-stone-100 flex-1 md:flex-grow min-h-[40%] md:min-h-0'>
+			<section className='w-full flex-1 min-h-0 md:h-full relative bg-stone-100'>
 				<GoogleMap
 					mapContainerStyle={{ height: '100%', width: '100%' }}
 					center={mapCenter}
@@ -340,7 +340,7 @@ export default function MapPage() {
 					{selectedRestaurant && selectedRestaurant.coords && (
 						<InfoWindowF position={selectedRestaurant.coords} onCloseClick={() => setSelectedRestaurant(null)}>
 							<div className='p-1 min-w-[200px] font-sans text-stone-900'>
-								<Link href={`/restaurants/${selectedRestaurant.slug}`} className='group/title block'>
+								<Link href={`/restaurant/${selectedRestaurant.slug}`} className='group/title block'>
 									<h4 className='font-serif text-sm font-bold text-stone-950 mb-1 cursor-pointer group-hover/title:underline'>
 										{selectedRestaurant.name}
 									</h4>
@@ -366,7 +366,7 @@ export default function MapPage() {
 											</span>
 										)}
 										<Link
-											href={`/restaurants/${selectedRestaurant.slug}`}
+											href={`/restaurant/${selectedRestaurant.slug}`}
 											className='text-[11px] font-mono uppercase tracking-wider text-black font-bold flex items-center gap-0.5 hover:underline'>
 											Oferty <ArrowRight className='w-3 h-3' />
 										</Link>

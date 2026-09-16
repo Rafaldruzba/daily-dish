@@ -8,9 +8,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null)
-	const [token, setToken] = useState<string | null>(localStorage.getItem('dd_token'))
+	const [token, setToken] = useState<string | null>(null)
 	const [favorites, setFavorites] = useState<string[]>([])
 	const [loading, setLoading] = useState(true)
+	const [isMounted, setIsMounted] = useState(false)
+
+	// Inicjalizuj token z localStorage tylko na kliencie po montowaniu
+	useEffect(() => {
+		setIsMounted(true)
+		const savedToken = localStorage.getItem('dd_token')
+		setToken(savedToken)
+	}, [])
 
 	// Fetch current user and favorites on load if token exists
 	useEffect(() => {
@@ -57,8 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			}
 		}
 
-		initAuth()
-	}, [token])
+		if (isMounted) {
+			initAuth()
+		}
+	}, [token, isMounted])
 
 	const handleLogout = () => {
 		setUser(null)

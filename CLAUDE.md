@@ -34,7 +34,7 @@ BistroMapa is a web application for discovering and managing information about r
 
 ### Locked Decisions
 
-- Frontend: React + Tailwind CSS.
+- Frontend: Next + Tailwind CSS.
 - Backend: Node.js + Express.
 - Database: PostgreSQL.
 - ORM: Prisma.
@@ -159,7 +159,7 @@ The project consists of a frontend and backend.
 
 ### Frontend
 
-- React
+- NEXT
 - Tailwind CSS
 - **[ADD ROUTER / BUILD TOOL / OTHER TECHNOLOGIES]**
 
@@ -172,7 +172,7 @@ The project consists of a frontend and backend.
 - PostgreSQL
 - Redis
 
-### High-Level Structure
+### High-Level Structure nieaktualna pracujemy w next
 
 ```text
 project/

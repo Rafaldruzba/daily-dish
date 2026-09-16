@@ -2,9 +2,9 @@
 
 import { useState, useEffect, type FormEvent } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
-import {
-	RefreshCw,
+import { RefreshCw,
 	Mail,
 	MapPin,
 	Star,
@@ -19,8 +19,8 @@ import {
 	Building2,
 	X,
 } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
 import { Payment, Restaurant, RestaurantForm } from '@/lib/types'
+import { parseCuisinesInput } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
@@ -32,6 +32,7 @@ const INITIAL_FORM_STATE: RestaurantForm = {
 	city: '',
 	facebookUrl: '',
 	rating: 5,
+	cuisines: '',
 }
 
 const generateSlug = (value: string) => {
@@ -44,59 +45,46 @@ const generateSlug = (value: string) => {
 		.replace(/^-+|-+$/g, '')
 }
 
+/**
+ * Mapuje parametr ?tab= z URL na aktywny widok. URL jest jedynym \u017ar\u00f3d\u0142em prawdy \u2014
+ * brak ?tab oznacza domy\u015blny widok dla danej roli.
+ */
+function resolveActiveTab(role: string | undefined, tab: string | null): string {
+	if (role === 'ADMIN') {
+		if (tab === 'approved') return 'admin-approved'
+		if (tab === 'payments') return 'admin-payments'
+		if (tab === 'reports') return 'admin-reports'
+		if (tab === 'logs') return 'admin-logs'
+		if (tab === 'removal') return 'admin-removal'
+		return 'admin-pending'
+	}
+
+	if (role === 'OWNER') {
+		if (tab === 'new') return 'new'
+		if (tab === 'subscriptions') return 'subscriptions'
+		if (tab === 'payments') return 'payments'
+		if (tab === 'settings') return 'user-settings'
+		return 'stats'
+	}
+
+	if (tab === 'reviews') return 'user-reviews'
+	if (tab === 'settings') return 'user-settings'
+	return 'user-favorites'
+}
+
 export default function ForRestaurantsPage() {
 	const { user, token } = useAuth()
+	const router = useRouter()
+	const pathname = usePathname()
 	const isAdmin = user?.role === 'ADMIN'
 	const isOwner = user?.role === 'OWNER'
 
-	const [searchParams, setSearchParams] = useSearchParams()
-	const [activeTab, setActiveTab] = useState(() => {
-		const tab = new URLSearchParams(window.location.search).get('tab')
-		const isUserAdmin = user?.role === 'ADMIN'
-		const isUserOwner = user?.role === 'OWNER'
-		if (isUserAdmin) {
-			if (tab === 'approved') return 'admin-approved'
-			if (tab === 'payments') return 'admin-payments'
-			if (tab === 'reports') return 'admin-reports'
-			if (tab === 'logs') return 'admin-logs'
-			if (tab === 'removal') return 'admin-removal'
-			return 'admin-pending'
-		} else if (isUserOwner) {
-			if (tab === 'new') return 'new'
-			if (tab === 'sub') return 'subscriptions'
-			if (tab === 'payments') return 'payments'
-			if (tab === 'settings') return 'user-settings'
-			return 'stats'
-		} else {
-			if (tab === 'favorites') return 'user-favorites'
-			if (tab === 'reviews') return 'user-reviews'
-			if (tab === 'settings') return 'user-settings'
-			return 'user-favorites'
-		}
-	})
+	const searchParams = useSearchParams()
 
-	useEffect(() => {
-		const tab = searchParams.get('tab')
-		if (isAdmin) {
-			if (tab === 'approved') setActiveTab('admin-approved')
-			else if (tab === 'payments') setActiveTab('admin-payments')
-			else if (tab === 'reports') setActiveTab('admin-reports')
-			else if (tab === 'logs') setActiveTab('admin-logs')
-			else if (tab === 'removal') setActiveTab('admin-removal')
-			else setActiveTab('admin-pending')
-		} else if (isOwner) {
-			if (tab === 'new') setActiveTab('new')
-			else if (tab === 'sub') setActiveTab('subscriptions')
-			else if (tab === 'payments') setActiveTab('payments')
-			else if (tab === 'settings') setActiveTab('user-settings')
-			else setActiveTab('stats')
-		} else {
-			if (tab === 'favorites') setActiveTab('user-favorites')
-			else if (tab === 'reviews') setActiveTab('user-reviews')
-			else if (tab === 'settings') setActiveTab('user-settings')
-			else setActiveTab('user-favorites')
-		}
-	}, [searchParams, isAdmin, isOwner])
+	// Aktywny tab wynika wprost z URL — wcześniej równoległy stan useState i URL mogły się
+	// rozjechać, a nieznany parametr (np. ?tab=subscriptions przy mapowaniu na 'sub')
+	// po cichu spadał do widoku domyślnego, czyli statystyk.
+	const activeTab = resolveActiveTab(user?.role, searchParams.get('tab'))
 
 	const [ownedRestaurants, setOwnedRestaurants] = useState<Restaurant[]>([])
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
@@ -327,9 +315,9 @@ export default function ForRestaurantsPage() {
 		)
 	}
 
-	const queryParams = new URLSearchParams(window.location.search)
-	const successParam = queryParams.get('success')
-	const cancelParam = queryParams.get('cancel')
+	// searchParams zamiast window.location — bez tego komponent wywala się przy renderowaniu na serwerze
+	const successParam = searchParams.get('success')
+	const cancelParam = searchParams.get('cancel')
 
 	useEffect(() => {
 		if (user) {
@@ -342,11 +330,15 @@ export default function ForRestaurantsPage() {
 	useEffect(() => {
 		if (successParam) {
 			setSuccess('Płatność i aktywacja subskrypcji zakończona sukcesem!')
-			window.history.replaceState({}, document.title, window.location.pathname)
+			if (typeof window !== 'undefined') {
+				window.history.replaceState({}, document.title, window.location.pathname)
+			}
 		}
 		if (cancelParam) {
 			setError('Płatność została anulowana.')
-			window.history.replaceState({}, document.title, window.location.pathname)
+			if (typeof window !== 'undefined') {
+				window.history.replaceState({}, document.title, window.location.pathname)
+			}
 		}
 	}, [successParam, cancelParam])
 
@@ -693,7 +685,7 @@ export default function ForRestaurantsPage() {
 			const response = await fetch(`${API_URL}/restaurants`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-				body: JSON.stringify(form),
+				body: JSON.stringify({ ...form, cuisines: parseCuisinesInput(form.cuisines) }),
 			})
 			const data = await response.json()
 			if (!response.ok) throw new Error(data.message || 'Błąd.')
@@ -754,7 +746,7 @@ export default function ForRestaurantsPage() {
 						</>
 					)}
 					<Link
-						href={`/restaurants/${restaurant.slug}`}
+						href={`/restaurant/${restaurant.slug}`}
 						className='px-3 py-2 border border-black text-black hover:bg-black hover:text-white transition-colors font-mono text-[10px] uppercase tracking-wider font-bold cursor-pointer'>
 						Zobacz profil
 					</Link>
@@ -822,32 +814,32 @@ export default function ForRestaurantsPage() {
 							{isAdmin ? (
 								<>
 									<button
-										onClick={() => setSearchParams({})}
+										onClick={() => router.push(pathname, { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-pending' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Kandydatury ({restaurants.filter(r => r.status === 'PENDING').length})
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'approved' })}
+										onClick={() => router.push('?tab=approved', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-approved' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Zatwierdzone ({restaurants.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length})
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'payments' })}
+										onClick={() => router.push('?tab=payments', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Płatności
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'reports' })}
+										onClick={() => router.push('?tab=reports', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-reports' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Moderacja Zgłoszeń
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'logs' })}
+										onClick={() => router.push('?tab=logs', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-logs' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Logi systemowe
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'removal' })}
+										onClick={() => router.push('?tab=removal', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'admin-removal' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Konta w karencji
 									</button>
@@ -855,27 +847,27 @@ export default function ForRestaurantsPage() {
 							) : isOwner ? (
 								<>
 									<button
-										onClick={() => setSearchParams({})}
+										onClick={() => router.push(pathname, { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'stats' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Lokale i statystyki
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'new' })}
+										onClick={() => router.push('?tab=new', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'new' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Zgłoś nową restaurację
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'sub' })}
+										onClick={() => router.push('?tab=subscriptions', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'subscriptions' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Subskrypcje
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'payments' })}
+										onClick={() => router.push('?tab=payments', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'payments' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Historia płatności
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'settings' })}
+										onClick={() => router.push('?tab=settings', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-settings' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ustawienia konta
 									</button>
@@ -883,17 +875,17 @@ export default function ForRestaurantsPage() {
 							) : (
 								<>
 									<button
-										onClick={() => setSearchParams({ tab: 'favorites' })}
+										onClick={() => router.push('?tab=favorites', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-favorites' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ulubione lokale
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'reviews' })}
+										onClick={() => router.push('?tab=reviews', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-reviews' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Moje opinie
 									</button>
 									<button
-										onClick={() => setSearchParams({ tab: 'settings' })}
+										onClick={() => router.push('?tab=settings', { scroll: false })}
 										className={`whitespace-nowrap py-4 px-1 border-b-2 font-mono uppercase text-xs tracking-wider ${activeTab === 'user-settings' ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}>
 										Ustawienia konta
 									</button>
@@ -1273,7 +1265,7 @@ export default function ForRestaurantsPage() {
 													<span className='font-mono text-[9px] uppercase bg-stone-100 text-stone-600 px-2 py-0.5 border font-bold'>
 														{rest.status}
 													</span>
-													<Link href={`/restaurants/${rest.slug}`}>
+													<Link href={`/restaurant/${rest.slug}`}>
 														<h3 className='text-xl font-bold font-serif text-stone-900 hover:underline pt-1'>
 															{rest.name}
 														</h3>
@@ -1382,6 +1374,21 @@ export default function ForRestaurantsPage() {
 										className='w-full px-4 py-2.5 bg-white border border-stone-200 outline-none text-sm'
 										required
 									/>
+								</div>
+								<div className='space-y-1.5'>
+									<label className='text-[10px] font-mono text-stone-600 uppercase font-bold block'>
+										Rodzaje kuchni
+									</label>
+									<input
+										type='text'
+										value={form.cuisines}
+										onChange={e => updateField('cuisines', e.target.value)}
+										placeholder='np. pizza, kuchnia wloska'
+										className='w-full px-4 py-2.5 bg-white border border-stone-200 outline-none text-sm'
+									/>
+									<p className='text-[9px] text-stone-400 font-mono'>
+										Oddziel przecinkami. Wpływa na kategorie w katalogu i SEO.
+									</p>
 								</div>
 								<div className='space-y-1.5'>
 									<label className='text-[10px] font-mono text-stone-600 uppercase font-bold block'>
@@ -1611,7 +1618,7 @@ export default function ForRestaurantsPage() {
 											key={f.id}
 											className='border p-5 bg-white flex justify-between items-center gap-4 hover:border-black shadow-sm'>
 											<div className='space-y-1'>
-												<Link href={`/restaurants/${f.slug}`}>
+												<Link href={`/restaurant/${f.slug}`}>
 													<h4 className='font-serif font-bold text-stone-900 hover:underline'>{f.name}</h4>
 												</Link>
 												<p className='text-[10px] text-stone-500 font-mono'>
@@ -1619,7 +1626,7 @@ export default function ForRestaurantsPage() {
 												</p>
 											</div>
 											<Link
-												href={`/restaurants/${f.slug}`}
+												href={`/restaurant/${f.slug}`}
 												className='px-3 py-1.5 bg-black text-white hover:bg-stone-900 font-mono text-[9px] uppercase tracking-wider font-bold shrink-0'>
 												Menu dnia →
 											</Link>
@@ -1654,7 +1661,7 @@ export default function ForRestaurantsPage() {
 									{userReviews.map(review => (
 										<div key={review.id} className='border p-5 bg-white space-y-3 shadow-sm'>
 											<div className='flex items-center justify-between border-b pb-2'>
-												<Link href={`/restaurants/${review.restaurant?.slug}`}>
+												<Link href={`/restaurant/${review.restaurant?.slug}`}>
 													<h4 className='font-serif font-bold text-stone-900 hover:underline'>
 														{review.restaurant?.name}
 													</h4>
