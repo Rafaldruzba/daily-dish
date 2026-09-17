@@ -1,0 +1,15 @@
+# Sekrety nie mogą trafić do obrazu — środowisko dostarcza Railway (Variables)
+.env
+.env.*
+!.env.example
+
+# Zależności instalujemy w obrazie przez `npm ci`
+node_modules
+
+# Artefakty budowania i repo — kopiowane jawnie w Dockerfile
+dist
+.git
+.gitignore
+
+*.log
+.DS_Store
