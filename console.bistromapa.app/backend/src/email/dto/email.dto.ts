@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsEmail, IsObject, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class SendEmailDto {
 	@IsString()
@@ -20,6 +20,11 @@ export class SendEmailDto {
 	@IsString()
 	@MaxLength(10000)
 	body?: string
+
+	/** Dodatkowe zmienne szablonu spoza danych leada, np. {{activationUrl}} (readme §24). */
+	@IsOptional()
+	@IsObject()
+	variables?: Record<string, string>
 }
 
 export class UpdateTemplateDto {

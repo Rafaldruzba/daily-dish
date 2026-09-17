@@ -53,6 +53,8 @@ export interface Lead {
 	notes: string | null
 	bistroRestaurantId: string | null
 	bistroUserId: string | null
+	activationToken: string | null
+	activationTokenExpiry: string | null
 	campaignJobId: string | null
 	createdAt: string
 	updatedAt: string
@@ -97,6 +99,8 @@ export interface LeadDetail extends Lead {
 		category: string | null
 		campaign: { id: string; name: string }
 	} | null
+	activationToken: string | null
+	activationTokenExpiry: string | null
 }
 
 export interface DuplicateMatch {

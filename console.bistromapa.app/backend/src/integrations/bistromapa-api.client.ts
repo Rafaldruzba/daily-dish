@@ -26,22 +26,21 @@ export interface OnboardingResult {
 /**
  * Klient głównego backendu BistroMapy (readme §33-34).
  *
- * UWAGA: główny backend nie ma jeszcze endpointu onboardingu CRM — sprawdzone,
- * istnieją tylko endpointy moderacyjne /admin/*. Dlatego każde wywołanie kończy
- * się kontrolowanym błędem zamiast udawać sukces. Gdy po stronie BistroMapy
- * powstanie `POST /admin/crm/onboarding`, wystarczy potwierdzić ścieżkę i pola.
+ * Rozmawia wyłącznie z wewnętrznym routerem `/api/crm/*` po stronie BistroMapy,
+ * autoryzowanym wspólnym sekretem BISTRO_API_TOKEN. Ten router świadomie nie
+ * omija moderacji: tworzy lokal w statusie PENDING, a widoczność ustawia moderator.
  */
 @Injectable()
 export class BistroMapaApiClient {
-	/** TODO: potwierdzić docelową ścieżkę z zespołem BistroMapy. */
-	private static readonly ONBOARDING_PATH = '/admin/crm/onboarding'
+	private static readonly ONBOARDING_PATH = '/crm/onboarding'
+	private static readonly ACTIVATE_PATH = '/crm/activate'
 
 	private readonly logger = new Logger(BistroMapaApiClient.name)
 	private readonly baseUrl?: string
 	private readonly token?: string
 
 	constructor(config: ConfigService) {
-		this.baseUrl = config.get<string>('BISTRO_API_URL') || undefined
+		this.baseUrl = config.get<string>('BISTRO_API_URL')?.replace(/\/$/, '') || undefined
 		this.token = config.get<string>('BISTRO_API_TOKEN') || undefined
 	}
 
@@ -65,13 +64,14 @@ export class BistroMapaApiClient {
 			const body = await response.text().catch(() => '')
 			this.logger.error(`Onboarding ${response.status}: ${body.slice(0, 300)}`)
 
-			if (response.status === 404) {
+			if (response.status === 503) {
 				throw new IntegrationNotConfiguredError(
-					'Główny backend BistroMapy nie udostępnia jeszcze endpointu onboardingu CRM (TODO: POST /admin/crm/onboarding)',
+					'BistroMapa API nie ma ustawionego BISTRO_API_TOKEN — integracja CRM jest wyłączona po jej stronie',
 				)
 			}
 
-			throw new Error(`BistroMapa API zwróciło ${response.status}`)
+			// 4xx to błąd danych (np. e-mail już istnieje) — pokazujemy go w logach automatyzacji.
+			throw new Error(`BistroMapa API zwróciło ${response.status}: ${extractMessage(body)}`)
 		}
 
 		const data = (await response.json()) as Partial<OnboardingResult>
@@ -83,11 +83,41 @@ export class BistroMapaApiClient {
 		return { restaurantId: data.restaurantId, userId: data.userId }
 	}
 
+	/** Aktywacja konta właściciela restauracji — ustawia hasło przez bezpieczne wywołanie server-to-server (readme §24). */
+	async activateUserAccount(userId: string, password: string): Promise<void> {
+		this.assertConfigured()
+
+		const response = await fetch(`${this.baseUrl}${BistroMapaApiClient.ACTIVATE_PATH}`, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				authorization: `Bearer ${this.token}`,
+			},
+			body: JSON.stringify({ userId, password }),
+		})
+
+		if (!response.ok) {
+			const body = await response.text().catch(() => '')
+			this.logger.error(`Activate ${response.status}: ${body.slice(0, 300)}`)
+			throw new Error(`BistroMapa API zwróciło ${response.status}: ${extractMessage(body)}`)
+		}
+	}
+
 	private assertConfigured(): void {
 		if (!this.configured) {
 			throw new IntegrationNotConfiguredError(
 				'Brak BISTRO_API_URL / BISTRO_API_TOKEN w środowisku backendu — integracja z BistroMapą nie jest jeszcze podłączona',
 			)
 		}
+	}
+}
+
+/** Wyciąga `message` z odpowiedzi błędu BistroMapy, żeby log automatyzacji był czytelny. */
+function extractMessage(body: string): string {
+	try {
+		const parsed = JSON.parse(body) as { message?: string }
+		return parsed.message ?? body.slice(0, 200)
+	} catch {
+		return body.slice(0, 200) || 'brak treści odpowiedzi'
 	}
 }

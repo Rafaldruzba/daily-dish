@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import nodemailer, { type Transporter } from 'nodemailer'
+import { Resend } from 'resend'
 
 import { AuditService } from '../audit/audit.service'
 import { PrismaService } from '../prisma/prisma.service'
@@ -16,10 +16,26 @@ export function renderTemplate(template: string, variables: Record<string, strin
 	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => variables[key] ?? '')
 }
 
+/**
+ * Szablony w bazie są zwykłym tekstem (tak je edytuje panel), a Resend wysyła HTML.
+ * Dlatego escapujemy znaczniki i zamieniamy nowe linie na <br> — inaczej treść
+ * zlewa się w jeden akapit, a link aktywacyjny nie jest klikalny.
+ */
+export function bodyToHtml(body: string): string {
+	const escaped = body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+	const withLinks = escaped.replace(
+		/(https?:\/\/[^\s<]+)/g,
+		(url) => `<a href="${url}" style="color:#1c1917">${url}</a>`,
+	)
+
+	return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1c1917">${withLinks.replace(/\n/g, '<br>')}</div>`
+}
+
 @Injectable()
 export class EmailService {
 	private readonly logger = new Logger(EmailService.name)
-	private readonly transporter: Transporter | null
+	private readonly resend?: Resend
 	private readonly from: string
 
 	constructor(
@@ -27,29 +43,18 @@ export class EmailService {
 		private readonly audit: AuditService,
 		config: ConfigService,
 	) {
-		const host = config.get<string>('SMTP_HOST')
-		const user = config.get<string>('SMTP_USER')
-		const pass = config.get<string>('SMTP_PASS')
-		const port = Number(config.get<string>('SMTP_PORT') ?? 587)
+		const apiKey = config.get<string>('RESEND_API')
+		this.from = config.get<string>('EMAIL_FROM') ?? ''
 
-		this.from = config.get<string>('SMTP_FROM') ?? user ?? ''
-
-		this.transporter = host && user
-			? nodemailer.createTransport({
-					host,
-					port,
-					secure: port === 465,
-					auth: { user, pass },
-				})
-			: null
-
-		if (!this.transporter) {
-			this.logger.warn('SMTP nie jest skonfigurowane — wysyłka emaili zwróci błąd zamiast cichego sukcesu')
+		if (apiKey) {
+			this.resend = new Resend(apiKey)
+		} else {
+			this.logger.warn('RESEND_API nie jest ustawiona — wysyłka emaili zwróci błąd')
 		}
 	}
 
 	get configured(): boolean {
-		return this.transporter !== null && this.from !== ''
+		return this.resend !== undefined && this.from !== ''
 	}
 
 	async listTemplates() {
@@ -101,18 +106,26 @@ export class EmailService {
 			contactPerson: lead.contactPerson,
 			email: lead.email,
 			website: lead.website,
+			// Zmienne wywołania (np. activationUrl) nadpisują dane leada.
+			...(dto.variables ?? {}),
 		}
 
 		const subject = renderTemplate(dto.subject ?? template?.subject ?? '', variables)
 		const body = renderTemplate(dto.body ?? template?.body ?? '', variables)
 
-		if (!this.transporter) {
-			await this.logFailure(dto.leadId, template?.id ?? null, recipient, subject, adminUserId, 'SMTP nie jest skonfigurowane')
-			throw new BadRequestException('SMTP nie jest skonfigurowane — uzupełnij SMTP_HOST/SMTP_USER/SMTP_PASS w backendzie')
+		if (!this.resend) {
+			await this.logFailure(dto.leadId, template?.id ?? null, recipient, subject, adminUserId, 'RESEND_API nie jest skonfigurowana')
+			throw new BadRequestException('RESEND_API nie jest skonfigurowana — uzupełnij w backendzie')
 		}
 
 		try {
-			await this.transporter.sendMail({ from: this.from, to: recipient, subject, text: body })
+			await this.resend.emails.send({
+				from: this.from,
+				to: recipient,
+				subject,
+				text: body,
+				html: bodyToHtml(body),
+			})
 
 			await this.prisma.emailLog.create({
 				data: {

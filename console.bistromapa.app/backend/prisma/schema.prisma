@@ -53,6 +53,10 @@ model Lead {
   bistroRestaurantId String? @unique
   bistroUserId       String?
 
+  // Token aktywacyjny dla onboardingu (readme §24)
+  activationToken        String? @unique
+  activationTokenExpiry  DateTime?
+
   // Z której kampanii/joba pochodzi lead (readme §21-22).
   campaignJobId  String?
   campaignJob    CampaignJob? @relation(fields: [campaignJobId], references: [id], onDelete: SetNull)
@@ -67,6 +71,8 @@ model Lead {
   automationLogs AutomationLog[]
 
   @@index([status])
+  @@index([activationToken])
+  @@index([activationTokenExpiry])
   @@index([city])
   @@index([nextFollowUpAt])
   @@index([source])

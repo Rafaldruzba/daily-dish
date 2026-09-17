@@ -2,7 +2,7 @@
  * Walidacja zmiennych środowiskowych przy starcie — lepiej wywalić się od razu
  * niż działać z pustym JWT_SECRET czy bez bazy (readme §28).
  */
-const REQUIRED = ['DATABASE_URL', 'JWT_SECRET', 'FRONTEND_URL'] as const
+const REQUIRED = ['DATABASE_URL', 'JWT_SECRET', 'FRONTEND_URL', 'BISTRO_APP_URL'] as const
 
 export function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
 	const missing = REQUIRED.filter((key) => {
@@ -22,6 +22,6 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
 		...config,
 		PORT: Number(config.PORT ?? 3002),
 		JWT_EXPIRES_IN: String(config.JWT_EXPIRES_IN ?? '12h'),
-		NODE_ENV: String(config.NODE_ENV ?? 'development'),
+		NODE_ENV: String(config.NODE_ENV ?? 'production'),
 	}
 }

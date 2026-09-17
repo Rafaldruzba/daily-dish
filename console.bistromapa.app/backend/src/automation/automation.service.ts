@@ -1,5 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Cron, CronExpression } from '@nestjs/schedule'
+import { randomUUID } from 'crypto'
 
 import { AuditService } from '../audit/audit.service'
 import { EmailService } from '../email/email.service'
@@ -7,6 +9,7 @@ import { BistroMapaApiClient } from '../integrations/bistromapa-api.client'
 import { PrismaService } from '../prisma/prisma.service'
 
 const MAX_RETRIES = 5
+const TOKEN_EXPIRY_HOURS = 72 // 3 dni
 
 export interface AutomationLogEntry {
 	id: string
@@ -27,6 +30,7 @@ export class AutomationService {
 		private readonly client: BistroMapaApiClient,
 		private readonly email: EmailService,
 		private readonly audit: AuditService,
+		private readonly config: ConfigService,
 	) {}
 
 	/**
@@ -141,13 +145,31 @@ export class AutomationService {
 
 		const startedAt = Date.now()
 
+		// Generowanie unikalnego tokenu aktywacyjnego
+		const activationToken = randomUUID()
+		const activationTokenExpiry = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000)
+
+		// Link prowadzi do aplikacji głównej (bistromapa.app), ale token weryfikuje CRM —
+		// to CRM wysyła zaproszenie i tylko on zna token (readme §24).
+		const activationUrl = `${this.config.getOrThrow<string>('BISTRO_APP_URL').replace(/\/$/, '')}/auth/activate/${activationToken}`
+
 		try {
+			// Aktualizacja tokenu w bazie
+			await this.prisma.lead.update({
+				where: { id: leadId },
+				data: {
+					activationToken,
+					activationTokenExpiry,
+				},
+			})
+
 			// Hasła nie wysyłamy — użytkownik ustawia własne przez link aktywacyjny (readme §24).
 			await this.email.send(
 				{
 					leadId,
 					templateKey: 'invitation',
 					to: lead.email,
+					variables: { activationUrl },
 				},
 				null,
 			)
@@ -165,11 +187,20 @@ export class AutomationService {
 				attempt: 1,
 			})
 
-			await this.audit.log({ action: 'INVITATION_SENT', leadId, details: { to: lead.email } })
+			await this.audit.log({
+				action: 'INVITATION_SENT',
+				leadId,
+				details: { to: lead.email, activationTokenSent: true },
+			})
 
 			return { status: 'INVITATION_SENT' }
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Nieznany błąd'
+			// Czyszczenie tokenu w przypadku błędu
+			await this.prisma.lead.update({
+				where: { id: leadId },
+				data: { activationToken: null, activationTokenExpiry: null },
+			})
 			await this.markError(leadId, 'SEND_INVITATION', message, Date.now() - startedAt, 1)
 
 			return { status: 'ERROR', error: message }
@@ -177,7 +208,7 @@ export class AutomationService {
 	}
 
 	/** Ręczne oznaczenie aktywacji — automatyczne sprawdzenie wymaga API BistroMapy (TODO §33). */
-	async markActivated(leadId: string, adminUserId: string) {
+	async markActivated(leadId: string, _adminUserId: string) {
 		const lead = await this.prisma.lead.findUnique({ where: { id: leadId } })
 		if (!lead) throw new NotFoundException('Lead nie istnieje')
 

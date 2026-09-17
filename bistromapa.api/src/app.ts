@@ -11,6 +11,7 @@ import logsRouter from './routes/logs.js'
 import reviewsRouter from './routes/reviews.js'
 import reportsRouter from './routes/reports.js'
 import seoRouter from './routes/seo.js'
+import crmRouter from './routes/crm.js'
 
 const app = express()
 
@@ -73,5 +74,7 @@ app.use('/api/logs', logsRouter)
 app.use('/api/reviews', reviewsRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/seo', seoRouter)
+// Integracja z CRM (console.bistromapa.app) — autoryzacja przez BISTRO_API_TOKEN
+app.use('/api/crm', crmRouter)
 
 export default app

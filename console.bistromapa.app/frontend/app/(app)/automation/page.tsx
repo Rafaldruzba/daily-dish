@@ -38,14 +38,14 @@ export default async function AutomationPage() {
 						) : (
 							<span className="text-stone-600">
 								brak <code className="bg-stone-100 px-1">BISTRO_API_URL</code> /{' '}
-								<code className="bg-stone-100 px-1">BISTRO_API_TOKEN</code> — onboarding pozostaje w statusie ERROR do czasu
-								podłączenia (TODO po stronie głównego backendu)
+								<code className="bg-stone-100 px-1">BISTRO_API_TOKEN</code> — konta nie zostaną utworzone, a leady
+								zostaną w statusie ERROR
 							</span>
 						)}
 					</li>
 					<li className="flex items-center gap-2">
 						<span className={`h-2 w-2 rounded-full ${status.emailConfigured ? 'bg-emerald-600' : 'bg-amber-500'}`} />
-						SMTP: {status.emailConfigured ? <span className="text-stone-600">skonfigurowane</span> : <span className="text-stone-600">brak danych SMTP — zaproszenia nie wyjdą</span>}
+						Resend: {status.emailConfigured ? <span className="text-stone-600">skonfigurowane</span> : <span className="text-stone-600">brak RESEND_API — zaproszenia nie wyjdą</span>}
 					</li>
 				</ul>
 			</section>

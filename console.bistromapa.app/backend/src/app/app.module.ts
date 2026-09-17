@@ -8,6 +8,7 @@ import { validateEnv } from '../config/env.validation'
 import { PrismaModule } from '../prisma/prisma.module'
 
 import { AuditModule } from '../audit/audit.module'
+import { ActivationModule } from '../activation/activation.module'
 import { AuthModule } from '../auth/auth.module'
 import { AutomationModule } from '../automation/automation.module'
 import { CampaignsModule } from '../campaigns/campaigns.module'
@@ -27,6 +28,7 @@ import { LeadsModule } from '../leads/leads.module'
 		PrismaModule,
 		AuditModule,
 		AuthModule,
+		ActivationModule,
 		LeadsModule,
 		InteractionsModule,
 		FollowUpsModule,
