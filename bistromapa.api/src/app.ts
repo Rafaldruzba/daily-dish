@@ -15,37 +15,53 @@ import crmRouter from './routes/crm.js'
 
 const app = express()
 
+/** Domena, której subdomeny (www, console, staging…) mają dostęp do API. */
+const ROOT_DOMAIN = 'bistromapa.app'
+
+/**
+ * Lista dozwolonych originów. `FRONTEND_URL` może zawierać kilka adresów
+ * rozdzielonych przecinkiem — bez tego każdy nowy frontend wymaga zmiany kodu.
+ */
+function buildAllowedOrigins(): string[] {
+	const fromEnv = (process.env.FRONTEND_URL ?? '')
+		.split(',')
+		.map(value => value.trim().replace(/\/+$/, ''))
+		.filter(Boolean)
+
+	return [
+		...fromEnv,
+		`https://${ROOT_DOMAIN}`,
+		`https://www.${ROOT_DOMAIN}`,
+		'https://staging.bistromapa.app',
+		'https://console.bistromapa.app',
+		'http://localhost:3000',
+		'http://localhost:3001',
+		'http://localhost:5173',
+	]
+}
+
 const corsOptions = {
 	origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-		// Allow requests with no origin (like mobile apps or curl requests)
+		// Brak origin = żądanie server-to-server (CRM, curl) — CORS nie dotyczy
 		if (!origin) {
 			return callback(null, true)
 		}
 
-		const allowedOrigins = [
-			process.env.FRONTEND_URL,
-			'https://staging.bistromapa.app',
-			'https://console.bistromapa.app',
-			'https://bistromapa.app',
-			'http://localhost:3000',
-			'http://localhost:5173',
-		]
+		const normalized = origin.trim().replace(/\/+$/, '')
 
-		// Check if the origin is a localhost URL on any port
-		if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+		// Każda subdomena naszej domeny (www, console, staging, api…) + podglądy Railway
+		const isOwnDomain = normalized === `https://${ROOT_DOMAIN}` || normalized.endsWith(`.${ROOT_DOMAIN}`)
+		const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(normalized)
+		const isRailwayPreview = /\.up\.railway\.app$/.test(normalized)
+		const isListed = buildAllowedOrigins().includes(normalized)
+
+		if (isOwnDomain || isLocalhost || isRailwayPreview || isListed) {
 			return callback(null, true)
 		}
 
-		// Check if the origin is a Railway preview URL
-		if (/\.up\.railway\.app$/.test(origin)) {
-			return callback(null, true)
-		}
-
-		if (allowedOrigins.indexOf(origin) !== -1) {
-			callback(null, true)
-		} else {
-			callback(new Error('Not allowed by CORS'))
-		}
+		// Bez tego logu odrzucony origin widać tylko jako stack trace bez kontekstu
+		console.warn(`[CORS] Odrzucony origin: ${origin} — dopisz go do FRONTEND_URL (po przecinku)`)
+		callback(null, false)
 	},
 	credentials: true,
 }
