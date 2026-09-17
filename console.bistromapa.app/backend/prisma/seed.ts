@@ -59,7 +59,9 @@ async function main(): Promise<void> {
 	try {
 		const admin = await prisma.adminUser.upsert({
 			where: { email: email.toLowerCase() },
-			update: { password: passwordHash, role: 'ADMIN' },
+			// Istniejącego admina nie ruszamy — seed chodzi też przy starcie kontenera,
+			// a hasło mogło zostać zmienione w panelu. Tworzymy tylko, gdy brakuje konta.
+			update: {},
 			create: { email: email.toLowerCase(), password: passwordHash, role: 'ADMIN', name: 'Administrator' },
 		})
 		console.log(`Admin gotowy: ${admin.email} (${admin.role})`)

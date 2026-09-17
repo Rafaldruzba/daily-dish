@@ -35,5 +35,8 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3002
 
-# migrate deploy aplikuje pending migracje bez pytania — bezpieczne na produkcji
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
+# 1. migrate deploy — aplikuje pending migracje bez pytania (bezpieczne na produkcji)
+# 2. seed — idempotentny: tworzy admina i szablony maili tylko, jeśli ich brakuje
+#    (istniejącego admina nie nadpisuje — hasło mogło zostać zmienione w panelu)
+# 3. start
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main.js"]
