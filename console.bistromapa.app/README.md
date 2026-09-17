@@ -21,7 +21,7 @@ npx prisma db seed            # konto admina + domyślne szablony emaili
 Seed wymaga w `backend/.env`:
 
 ```env
-ADMIN_EMAIL=twoj@email.pl
+ADMIN_EMAIL=app.bistromapa@gmail.com
 ADMIN_PASSWORD=minimum-12-znakow
 ```
 
@@ -48,18 +48,18 @@ Domyślny adres API to `http://localhost:3002/api`; zmienisz go przez `API_URL` 
 
 ## Zmienne środowiskowe backendu
 
-| Zmienna | Wymagana | Opis |
-|---|---|---|
-| `DATABASE_URL` | tak | połączenie do bazy CRM (osobna baza — nie `daily_dish`) |
-| `JWT_SECRET` | tak | **min. 32 znaki** — start bez tego się nie powiedzie |
-| `FRONTEND_URL` | tak | origin frontendu (CORS + ciasteczko) |
-| `PORT` | nie | domyślnie `3002` |
-| `JWT_EXPIRES_IN` | nie | domyślnie `12h` |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | tylko seed | konto administratora |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | dla maili | bez tego wysyłka zwraca błąd (nigdy cichego sukcesu) |
-| `LEAD_SOURCE_PROVIDER` | nie | `mock` (domyślnie) lub `google` |
-| `GOOGLE_MAPS_API_KEY` | dla Google | oficjalne Places API, klucz wyłącznie w backendzie |
-| `BISTRO_API_URL`, `BISTRO_API_TOKEN` | dla onboardingu | **TODO** — główny backend nie ma jeszcze endpointu CRM |
+| Zmienna                                                         | Wymagana        | Opis                                                    |
+| --------------------------------------------------------------- | --------------- | ------------------------------------------------------- |
+| `DATABASE_URL`                                                  | tak             | połączenie do bazy CRM (osobna baza — nie `daily_dish`) |
+| `JWT_SECRET`                                                    | tak             | **min. 32 znaki** — start bez tego się nie powiedzie    |
+| `FRONTEND_URL`                                                  | tak             | origin frontendu (CORS + ciasteczko)                    |
+| `PORT`                                                          | nie             | domyślnie `3002`                                        |
+| `JWT_EXPIRES_IN`                                                | nie             | domyślnie `12h`                                         |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`                                 | tylko seed      | konto administratora                                    |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | dla maili       | bez tego wysyłka zwraca błąd (nigdy cichego sukcesu)    |
+| `LEAD_SOURCE_PROVIDER`                                          | nie             | `mock` (domyślnie) lub `google`                         |
+| `GOOGLE_MAPS_API_KEY`                                           | dla Google      | oficjalne Places API, klucz wyłącznie w backendzie      |
+| `BISTRO_API_URL`, `BISTRO_API_TOKEN`                            | dla onboardingu | **TODO** — główny backend nie ma jeszcze endpointu CRM  |
 
 Wzór: [`backend/.env.example`](backend/.env.example).
 
@@ -71,6 +71,7 @@ Wzór: [`backend/.env.example`](backend/.env.example).
 ## Co jest zrobione
 
 ### Etap 0 — Fundament
+
 - [x] `tsconfig.json`, `nest-cli.json`, skrypty `dev`/`build`/`seed` (`tsx`/`ts-node` → standardowy toolchain Nest, bo esbuild nie emituje `design:paramtypes` i DI NestJS nie działało)
 - [x] `ConfigModule` + walidacja env przy starcie (`src/config/env.validation.ts`)
 - [x] `PrismaModule`/`PrismaService` (Prisma 7 + `@prisma/adapter-pg`, wzorzec z `bistromapa.api`)
@@ -80,6 +81,7 @@ Wzór: [`backend/.env.example`](backend/.env.example).
 - [x] **Naprawa schematu**: `Lead.campaignJobs` nie miał przeciwnej strony relacji → schemat nigdy się nie walidował
 
 ### Etap 1 — Auth
+
 - [x] Logowanie e-mail + hasło (bcrypt), JWT w **httpOnly cookie**, `GET /auth/me`, `POST /auth/logout`, zmiana hasła
 - [x] Prawdziwy `JwtAuthGuard` (weryfikacja podpisu) jako **globalny** guard + `@Public()` dla logowania
 - [x] `RolesGuard` + `@Roles('ADMIN')`, `@CurrentUser()`
@@ -89,6 +91,7 @@ Wzór: [`backend/.env.example`](backend/.env.example).
 > Poprzedni `auth.guard.ts` przepuszczał **każdy** nagłówek `Authorization` — usunięty.
 
 ### Etap 2 — Leady, kontakty, follow-upy
+
 - [x] `GET /leads` — paginacja, szukanie, filtry (status/miasto/kategoria/źródło/zakres kontaktu/follow-up), sortowanie
 - [x] `GET /leads/:id`, `POST /leads`, `PUT /leads/:id`, `PUT /leads/:id/status`, `PUT /leads/:id/consent`, `DELETE /leads/:id`
 - [x] `POST /leads/:id/merge` — scalanie duplikatu (historia i follow-upy przechodzą na leada docelowego)
@@ -99,6 +102,7 @@ Wzór: [`backend/.env.example`](backend/.env.example).
 - [x] Zgody jako osobne pola (status/źródło/data/notatka)
 
 ### Etap 3 — Frontend (wcześniej: brak `package.json`, puste pliki)
+
 - [x] Scaffold: Next 15, React 19, Tailwind v4, `lucide-react`, `postcss`, `middleware.ts`
 - [x] Layout + sidebar (Dashboard/Leady/Kampanie/Import/Automatyzacja/Emaile/Ustawienia), responsywny
 - [x] `lib/api.ts` (jeden klient, na serwerze forwarduje ciasteczko), `lib/format.ts` (deterministyczne daty — bez rozjazdu hydracji), `types/`
@@ -110,16 +114,19 @@ Wzór: [`backend/.env.example`](backend/.env.example).
 - [x] `/settings` + zmiana hasła
 
 ### Etap 4 — Import CSV/XLSX
+
 - [x] `POST /import/preview` — parsowanie, detekcja kolumn, mapowanie, walidacja, duplikaty, podgląd (wiersze trzymane serwerowo pod `importId`, nie latają przez przeglądarkę)
 - [x] `POST /import/commit` — zapis **dopiero po potwierdzeniu**, domyślnie pomija duplikaty
 - [x] `/import` — kreator krok po kroku
 
 ### Etap 5 — Kampanie i źródło leadów
+
 - [x] `LeadSourceProvider` (interfejs wymienny, §19) + `MockLeadSourceProvider` + `GoogleMapsProvider` (oficjalne Places API, bez scrapowania HTML)
 - [x] `CampaignsService` — kampania → zadania (miasto), uruchamianie zadaniowe, wznawianie, liczniki, retry
 - [x] `/campaigns`, `/campaigns/new`, `/campaigns/[id]` z akcjami na zadaniach
 
 ### Etap 6 — Email, automatyzacja, onboarding
+
 - [x] Modele `EmailTemplate`, `EmailLog`, `AutomationLog` + pola ponowień na `Lead`
 - [x] `EmailService` (nodemailer + SMTP), szablony z bazy, renderowanie `{{zmiennych}}`, logi, wpis w historii kontaktów
 - [x] `BistroMapaApiClient` — realny klient HTTP; **endpoint onboardingu oznaczony `TODO`** (główny backend go nie ma), więc wywołanie kończy się kontrolowanym błędem, nie fałszywym sukcesem
