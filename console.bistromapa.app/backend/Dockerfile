@@ -36,4 +36,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3002
 
 # migrate deploy aplikuje pending migracje bez pytania — bezpieczne na produkcji
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
