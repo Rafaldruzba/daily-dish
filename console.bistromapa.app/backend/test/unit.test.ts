@@ -12,12 +12,16 @@ import {
 	ONBOARDING_STATUSES,
 } from '../src/common/domain.constants'
 import { paginate } from '../src/common/dto/pagination.dto'
-import { normalizeNip, normalizePhone, normalizeText, normalizeWebsite } from '../src/leads/dedup.service'
+import { normalizeNip, normalizePhone, normalizeText, normalizeWebsite, type DedupService } from '../src/leads/dedup.service'
 import { parseStatusList } from '../src/leads/dto/query-leads.dto'
 import { bodyToHtml, renderTemplate } from '../src/email/email.service'
 import { maskEmail } from '../src/activation/activation.service'
 import { detectMapping, FIELD_LABELS, IMPORT_TARGET_FIELDS } from '../src/import/import.types'
 import { MockLeadSourceProvider } from '../src/campaigns/providers/mock.provider'
+import { GoogleMapsProvider } from '../src/campaigns/providers/google-maps.provider'
+import { CampaignsService } from '../src/campaigns/campaigns.service'
+import type { AuditService } from '../src/audit/audit.service'
+import type { PrismaService } from '../src/prisma/prisma.service'
 import { IntegrationNotConfiguredError, BistroMapaApiClient } from '../src/integrations/bistromapa-api.client'
 import { SESSION_COOKIE } from '../src/auth/auth.types'
 
@@ -407,4 +411,62 @@ section('Sesja CRM (auth/auth.types)')
 
 test('SESSION_COOKIE — nazwa zgodna z middleware frontendu', () => {
 	assert.equal(SESSION_COOKIE, 'crm_session', 'frontend/middleware.ts czyta dokładnie tę nazwę')
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+section('Wybór źródła leadów (campaigns.service)')
+
+/** Kampania nie dotyka bazy w konstruktorze, więc wystarczą atrapy zależności. */
+function buildCampaignsService(config: Record<string, string>) {
+	const configService = { get: (key: string) => config[key] } as unknown as ConfigService
+	const google = new GoogleMapsProvider(configService)
+
+	return new CampaignsService(
+		{} as unknown as PrismaService,
+		{} as unknown as DedupService,
+		{} as unknown as AuditService,
+		new MockLeadSourceProvider(),
+		google,
+		configService,
+	)
+}
+
+test('LEAD_SOURCE_PROVIDER=google wybiera prawdziwe Places API', () => {
+	const service = buildCampaignsService({ LEAD_SOURCE_PROVIDER: 'google', GOOGLE_MAPS_API_KEY: 'klucz' })
+
+	assert.equal(service.activeProvider.source, 'GOOGLE_MAPS')
+	assert.equal(service.activeProvider.configured, true)
+})
+
+test('LEAD_SOURCE_PROVIDER=mock wybiera dane testowe', () => {
+	const service = buildCampaignsService({ LEAD_SOURCE_PROVIDER: 'mock' })
+
+	assert.equal(service.activeProvider.source, 'OTHER')
+})
+
+test('brak LEAD_SOURCE_PROVIDER daje mock (udokumentowany domyślny)', () => {
+	const service = buildCampaignsService({})
+
+	assert.equal(service.activeProvider.source, 'OTHER')
+})
+
+test('LEAD_SOURCE_PROVIDER toleruje wielkość liter i spacje', () => {
+	const service = buildCampaignsService({ LEAD_SOURCE_PROVIDER: '  GOOGLE  ', GOOGLE_MAPS_API_KEY: 'klucz' })
+
+	assert.equal(service.activeProvider.source, 'GOOGLE_MAPS')
+})
+
+test('nieznany LEAD_SOURCE_PROVIDER rzuca błąd zamiast cicho użyć mocka', () => {
+	// Regresja: wcześniej literówka (np. "googel") dawała ciche mocki na produkcji
+	assert.throws(
+		() => buildCampaignsService({ LEAD_SOURCE_PROVIDER: 'googel' }),
+		/LEAD_SOURCE_PROVIDER="googel" jest nieznane/,
+	)
+})
+
+test('google bez klucza API jest zgłaszane jako nieskonfigurowane', () => {
+	const service = buildCampaignsService({ LEAD_SOURCE_PROVIDER: 'google' })
+
+	assert.equal(service.activeProvider.source, 'GOOGLE_MAPS')
+	assert.equal(service.activeProvider.configured, false, 'brak klucza musi być widoczny w panelu')
 })

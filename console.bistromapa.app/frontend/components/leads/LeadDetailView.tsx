@@ -25,6 +25,7 @@ import {
 	formatDateTime,
 	toDateTimeLocal,
 } from '@/lib/format'
+import { SendEmailPanel } from './SendEmailPanel'
 import type { DuplicateMatch, Interaction, InteractionType, LeadDetail, LeadStatus, OnboardingStatus } from '@/types'
 
 const ONBOARDING_STEPS: OnboardingStatus[] = [
@@ -37,7 +38,7 @@ const ONBOARDING_STEPS: OnboardingStatus[] = [
 
 export function LeadDetailView({ lead }: { lead: LeadDetail }) {
 	const router = useRouter()
-	const [panel, setPanel] = useState<'status' | 'followUp' | 'consent' | 'merge' | null>(null)
+	const [panel, setPanel] = useState<'status' | 'followUp' | 'consent' | 'merge' | 'email' | null>(null)
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
@@ -116,10 +117,13 @@ export function LeadDetailView({ lead }: { lead: LeadDetail }) {
 						Zadzwoń
 					</a>
 				)}
+				<button type="button" onClick={() => toggle('email')} className="btn-secondary">
+					<Mail className="h-3.5 w-3.5" aria-hidden />
+					Wyślij email
+				</button>
 				{lead.email && (
-					<a href={`mailto:${lead.email}`} className="btn-secondary">
-						<Mail className="h-3.5 w-3.5" aria-hidden />
-						Wyślij email
+					<a href={`mailto:${lead.email}`} className="font-mono text-[10px] uppercase tracking-widest text-stone-400 hover:text-stone-900">
+						otwórz w kliencie poczty
 					</a>
 				)}
 				<button type="button" onClick={() => toggle('status')} className="btn-secondary">
@@ -159,6 +163,8 @@ export function LeadDetailView({ lead }: { lead: LeadDetail }) {
 					</section>
 
 					<InteractionPanel leadId={lead.id} onDone={() => router.refresh()} />
+
+					{panel === 'email' && <SendEmailPanel lead={lead} onClose={() => setPanel(null)} />}
 
 					<section className="card">
 						<h2 className="label-mono">Historia kontaktów</h2>

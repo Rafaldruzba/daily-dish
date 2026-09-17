@@ -38,7 +38,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 3002
+EXPOSE 4002
 
 # 1. migrate deploy — aplikuje pending migracje bez pytania (bezpieczne na produkcji)
 # 2. seed — idempotentny: tworzy admina i szablony maili tylko, jeśli ich brakuje

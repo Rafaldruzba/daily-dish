@@ -23,8 +23,22 @@ export class CampaignsService {
 		private readonly google: GoogleMapsProvider,
 		config: ConfigService,
 	) {
-		// Źródło danych jest wymienne (readme §19) — wybór przez zmienną środowiskową.
-		this.provider = config.get<string>('LEAD_SOURCE_PROVIDER') === 'google' ? google : mock
+		// Źródło danych jest wymienne (readme §19).
+		// Nieznana wartość to BŁĄD KONFIGURACJI, nie cichy powrót do mocka — wcześniej brak
+		// zmiennej oznaczał, że produkcja zbierała dane testowe mimo ustawionego klucza Google.
+		const name = (config.get<string>('LEAD_SOURCE_PROVIDER') ?? 'mock').trim().toLowerCase()
+
+		if (name !== 'mock' && name !== 'google') {
+			throw new Error(`LEAD_SOURCE_PROVIDER="${name}" jest nieznane — dozwolone wartości: mock, google`)
+		}
+
+		this.provider = name === 'google' ? google : mock
+
+		if (name === 'mock' && config.get<string>('NODE_ENV') === 'production') {
+			this.logger.warn(
+				'LEAD_SOURCE_PROVIDER=mock w środowisku produkcyjnym — kampanie zapiszą DANE TESTOWE, nie prawdziwe restauracje',
+			)
+		}
 	}
 
 	get activeProvider() {

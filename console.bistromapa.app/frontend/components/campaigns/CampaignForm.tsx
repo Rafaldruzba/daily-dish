@@ -1,8 +1,11 @@
 'use client'
 
 import { Loader2, Play } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+
+import { ApiSaveError, sendJson } from '@/lib/api-client'
 
 export function CampaignForm() {
 	const router = useRouter()
@@ -14,16 +17,18 @@ export function CampaignForm() {
 	const [limitPerJob, setLimitPerJob] = useState(50)
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	// true = żądanie dotarło, ale odpowiedź nie wróciła w całości — kampania mogła powstać
+	const [uncertain, setUncertain] = useState(false)
 
 	async function submit(event: React.FormEvent) {
 		event.preventDefault()
 		setBusy(true)
 		setError(null)
+		setUncertain(false)
 
 		try {
-			const response = await fetch('/api/campaigns', {
+			const campaign = await sendJson<{ id: string }>('/api/campaigns', {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					name,
 					...(region.trim() ? { region } : {}),
@@ -36,15 +41,22 @@ export function CampaignForm() {
 						.filter(Boolean),
 				}),
 			})
-			const body = await response.json().catch(() => null)
 
-			if (!response.ok || body?.success !== true) {
-				setError(body?.error?.message ?? 'Nie udało się utworzyć kampanii')
+			if (!campaign?.id) {
+				setError('Kampania powstała, ale serwer nie zwrócił jej identyfikatora — odśwież listę kampanii.')
+				setUncertain(true)
 				return
 			}
 
-			router.push(`/campaigns/${body.data.id}`)
+			router.push(`/campaigns/${campaign.id}`)
 			router.refresh()
+		} catch (err) {
+			if (err instanceof ApiSaveError) {
+				setError(err.message)
+				setUncertain(err.uncertain)
+			} else {
+				setError('Nieoczekiwany błąd — spróbuj ponownie.')
+			}
 		} finally {
 			setBusy(false)
 		}
@@ -124,15 +136,27 @@ export function CampaignForm() {
 					</p>
 
 					{error && (
-						<p className="mt-3 border border-red-200 bg-red-50 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-red-700">
+						<p
+							className={`mt-3 border px-3 py-2 font-mono text-[10px] uppercase tracking-wider ${
+								uncertain
+									? 'border-amber-300 bg-amber-50 text-amber-800'
+									: 'border-red-200 bg-red-50 text-red-700'
+							}`}
+						>
 							{error}
 						</p>
 					)}
 
-					<button type="submit" disabled={busy} className="btn-primary mt-4 w-full justify-center">
-						{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
-						Utwórz kampanię
-					</button>
+					{uncertain ? (
+						<Link href="/campaigns" className="btn-primary mt-4 w-full justify-center">
+							Sprawdź listę kampanii
+						</Link>
+					) : (
+						<button type="submit" disabled={busy} className="btn-primary mt-4 w-full justify-center">
+							{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+							Utwórz kampanię
+						</button>
+					)}
 				</div>
 			</div>
 		</form>

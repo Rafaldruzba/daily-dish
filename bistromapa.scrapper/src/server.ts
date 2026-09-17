@@ -4,7 +4,7 @@ import 'dotenv/config'
 import { scrapeFacebookPage } from './services/scraper.service.js'
 
 const app = express()
-const PORT = process.env.PORT || 3002
+const PORT = process.env.PORT || 4003
 
 app.use(cors())
 app.use(express.json())

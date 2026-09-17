@@ -3,32 +3,33 @@
 import { Check, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { ApiSaveError, sendJson } from '@/lib/api-client'
 import type { EmailTemplate } from '@/types'
 
 export function TemplateEditor({ template }: { template: EmailTemplate }) {
 	const [subject, setSubject] = useState(template.subject)
 	const [body, setBody] = useState(template.body)
 	const [busy, setBusy] = useState(false)
-	const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+	const [message, setMessage] = useState<{ tone: 'ok' | 'warn' | 'error'; text: string } | null>(null)
 
 	async function save() {
 		setBusy(true)
 		setMessage(null)
 
 		try {
-			const response = await fetch(`/api/email/templates/${template.id}`, {
+			// PUT z tą samą treścią jest idempotentny, więc ponowienie jest tu bezpieczne.
+			await sendJson<unknown>(`/api/email/templates/${template.id}`, {
 				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ subject, body }),
 			})
-			const payload = await response.json().catch(() => null)
-
-			if (!response.ok || payload?.success !== true) {
-				setMessage({ tone: 'error', text: payload?.error?.message ?? 'Nie udało się zapisać szablonu' })
-				return
-			}
 
 			setMessage({ tone: 'ok', text: 'Zapisano' })
+		} catch (err) {
+			if (err instanceof ApiSaveError) {
+				setMessage(err.uncertain ? { tone: 'warn', text: err.message } : { tone: 'error', text: err.message })
+			} else {
+				setMessage({ tone: 'error', text: 'Nieoczekiwany błąd — spróbuj ponownie.' })
+			}
 		} finally {
 			setBusy(false)
 		}
@@ -41,7 +42,11 @@ export function TemplateEditor({ template }: { template: EmailTemplate }) {
 					{template.name} <span className="text-stone-300">({template.key})</span>
 				</h2>
 				{message && (
-					<span className={`font-mono text-[10px] uppercase tracking-wider ${message.tone === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>
+					<span
+						className={`font-mono text-[10px] uppercase tracking-wider ${
+							message.tone === 'ok' ? 'text-emerald-700' : message.tone === 'warn' ? 'text-amber-700' : 'text-red-600'
+						}`}
+					>
 						{message.text}
 					</span>
 				)}
