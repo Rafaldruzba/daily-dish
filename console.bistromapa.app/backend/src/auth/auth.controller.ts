@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Throttle } from '@nestjs/throttler'
 import type { CookieOptions, Request, Response } from 'express'
@@ -17,7 +17,9 @@ export class AuthController {
 		private readonly config: ConfigService,
 	) {}
 
+	// @HttpCode(200): Nest domyślnie zwraca 201 dla POST, a logowanie nic nie tworzy.
 	@Public()
+	@HttpCode(HttpStatus.OK)
 	@Throttle({ default: { limit: 10, ttl: 60_000 } })
 	@Post('login')
 	async login(
@@ -33,6 +35,7 @@ export class AuthController {
 		return { user }
 	}
 
+	@HttpCode(HttpStatus.OK)
 	@Post('logout')
 	logout(@Res({ passthrough: true }) response: Response): { loggedOut: true } {
 		response.clearCookie(SESSION_COOKIE, { ...this.cookieOptions(), maxAge: undefined })
@@ -44,6 +47,7 @@ export class AuthController {
 		return this.auth.me(user.id)
 	}
 
+	@HttpCode(HttpStatus.OK)
 	@Post('password')
 	async changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto): Promise<{ changed: true }> {
 		await this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword)

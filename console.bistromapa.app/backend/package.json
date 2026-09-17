@@ -7,6 +7,7 @@
 		"start": "nest start",
 		"start:prod": "node dist/main.js",
 		"build": "nest build",
+		"test": "tsx test/run.ts",
 		"typecheck": "tsc --noEmit",
 		"seed": "tsx prisma/seed.ts",
 		"prisma:generate": "prisma generate",

@@ -8,6 +8,7 @@
 		"build": "tsc",
 		"dev": "tsx watch src/server.ts",
 		"start": "tsx src/server.ts",
+		"test": "tsx test/run.ts",
 		"seed": "tsx prisma/seed.ts"
 	},
 	"prisma": {

@@ -79,7 +79,7 @@ export class ActivationService {
 }
 
 /** jkowalski@example.com → j•••••••••@example.com */
-function maskEmail(email: string): string {
+export function maskEmail(email: string): string {
 	const [local, domain] = email.split('@')
 	if (!domain) return email
 
