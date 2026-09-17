@@ -24,6 +24,8 @@ const corsOptions = {
 
 		const allowedOrigins = [
 			process.env.FRONTEND_URL,
+			'https://staging.bistromapa.app',
+			'https://console.bistromapa.app',
 			'https://bistromapa.app',
 			'http://localhost:3000',
 			'http://localhost:5173',
