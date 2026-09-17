@@ -22,7 +22,7 @@ app.get('/widget', async (_req, res) => {
     // 6 zapytań — każde zwraca kolejną liczbę / stan
     const usersRes = await client.query('SELECT COUNT(*)::int as total FROM "User"');
     const visitsRes = await client.query('SELECT COALESCE(SUM(views),0)::int as total FROM "Restaurant"');
-    const restaurantsRes = await client.query('SELECT COUNT(*)::int as total FROM "Restaurant" WHERE isActive = true');
+    const restaurantsRes = await client.query('SELECT COUNT(*)::int as total FROM "Restaurant" WHERE "isActive" = true');
     const reviewsRes = await client.query('SELECT COUNT(*)::int as total FROM "Review"');
 
     // 5 — próby kontaktu z CRM przez osobny client (opcjonalnie; 0 jeśli brak)
