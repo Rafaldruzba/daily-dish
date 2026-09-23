@@ -27,26 +27,19 @@ export function getMobileUrl(url: string): string {
 /**
  * Główna funkcja skrapująca fanpage restauracji za pomocą Playwright
  */
-export async function scrapeFacebookPage(
-	restaurantName: string,
-	facebookUrl: string
-): Promise<ScrapeResult | null> {
+export async function scrapeFacebookPage(restaurantName: string, facebookUrl: string): Promise<ScrapeResult | null> {
 	console.log(`🔎 [Playwright Scraper] Rozpoczynam skrapowanie dla: ${restaurantName} (URL: ${facebookUrl})`)
 
 	const mobileUrl = getMobileUrl(facebookUrl)
 	const browser = await chromium.launch({
 		headless: true,
-		args: [
-			'--no-sandbox',
-			'--disable-setuid-sandbox',
-			'--disable-gl-drawing-for-tests',
-			'--disable-gpu',
-		],
+		args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gl-drawing-for-tests', '--disable-gpu'],
 	})
 
 	try {
 		const context = await browser.newContext({
-			userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+			userAgent:
+				'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
 			viewport: { width: 390, height: 844 },
 			deviceScaleFactor: 3,
 			isMobile: true,
@@ -68,9 +61,18 @@ export async function scrapeFacebookPage(
 		// Udajemy się na mobilną wersję profilu
 		await page.goto(mobileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
 
+		console.log('🌐 Final URL:', page.url())
+		console.log('📄 Title:', await page.title())
+
+		const bodyText = await page.locator('body').innerText()
+
+		console.log('📄 BODY:', bodyText.substring(0, 1000))
+
 		// Próbujemy zamknąć ewentualne banery cookie lub logowania, jeśli się pojawią
 		try {
-			const closeCookieBtn = page.locator('button:has-text("Zgadzam się"), button:has-text("Zaakceptuj"), button:has-text("OK")').first()
+			const closeCookieBtn = page
+				.locator('button:has-text("Zgadzam się"), button:has-text("Zaakceptuj"), button:has-text("OK")')
+				.first()
 			if (await closeCookieBtn.isVisible()) {
 				await closeCookieBtn.click()
 			}
@@ -79,13 +81,16 @@ export async function scrapeFacebookPage(
 		}
 
 		// Delikatne przewinięcie, aby załadować pierwsze posty
-		await page.evaluate(() => { const w = globalThis as typeof globalThis & { scrollBy?: (x:number,y:number)=>void }; w.scrollBy?.(0,400) })
+		await page.evaluate(() => {
+			const w = globalThis as typeof globalThis & { scrollBy?: (x: number, y: number) => void }
+			w.scrollBy?.(0, 400)
+		})
 		await page.waitForTimeout(1500)
 
 		// Pobieramy teksty postów
 		// Na m.facebook.com posty są najczęściej umieszczane w tagach article lub div[data-story-key]
 		const postsLocator = page.locator('article, div[data-story-key], div._5rgt, div._5pat').first()
-		if (await postsLocator.count() === 0) {
+		if ((await postsLocator.count()) === 0) {
 			console.warn(`⚠️ [Playwright Scraper] Nie znaleziono kontenerów postów na stronie dla: ${restaurantName}`)
 			await browser.close()
 			return null
@@ -106,7 +111,9 @@ export async function scrapeFacebookPage(
 
 		// Sprawdzamy czy post zawiera wymagane słowa kluczowe (np. "Danie dnia!", "Dziś polecamy")
 		const lowerText = postText.toLowerCase()
-		const hasKeywords = ['danie dnia', 'lunch', 'zestaw', 'menu', 'dzisiaj', 'dziś', 'dzis', 'polecamy', 'obiad'].some(keyword => lowerText.includes(keyword))
+		const hasKeywords = ['danie dnia', 'lunch', 'zestaw', 'menu', 'dzisiaj', 'dziś', 'dzis', 'polecamy', 'obiad'].some(
+			keyword => lowerText.includes(keyword),
+		)
 
 		if (!hasKeywords) {
 			console.log(`ℹ️ [Playwright Scraper] Post nie zawiera słów kluczowych dania dnia. Pomijam.`)
@@ -128,7 +135,7 @@ export async function scrapeFacebookPage(
 		try {
 			// Szukamy tagu img wewnątrz elementu posta
 			const imgLocator = postElement.locator('img').first()
-			if (await imgLocator.count() > 0) {
+			if ((await imgLocator.count()) > 0) {
 				const src = await imgLocator.getAttribute('src')
 				if (src && src.startsWith('http')) imageUrl = src
 			}
@@ -144,9 +151,8 @@ export async function scrapeFacebookPage(
 			imageUrl,
 			sourceUrl: facebookUrl,
 			sourcePostId: postId,
-			publishedAt: new Date()
+			publishedAt: new Date(),
 		}
-
 	} catch (err: any) {
 		console.error(`❌ [Playwright Scraper] Wyjątek podczas skrapowania ${restaurantName}:`, err.message || err)
 		await browser.close()

@@ -50,5 +50,5 @@ app.post('/api/scrape', async (req: Request, res: Response) => {
 })
 
 app.listen(PORT, () => {
-	console.log(`🚀 [Scraper Service] Działa na porcie http://localhost:${PORT}`)
+	console.log(`🚀 [Scraper Service] Działa na porcie ${PORT}`)
 })
