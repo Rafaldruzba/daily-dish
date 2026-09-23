@@ -79,7 +79,7 @@ export async function scrapeFacebookPage(
 		}
 
 		// Delikatne przewinięcie, aby załadować pierwsze posty
-		await page.evaluate(() => window.scrollBy(0, 400))
+		await page.evaluate(() => { const w = globalThis as typeof globalThis & { scrollBy?: (x:number,y:number)=>void }; w.scrollBy?.(0,400) })
 		await page.waitForTimeout(1500)
 
 		// Pobieramy teksty postów
