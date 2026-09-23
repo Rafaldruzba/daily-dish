@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js'
 import redisClient from '../lib/redis.js'
-import { fetchTodayDishes } from './daily-dish.service.js'
+import { queueTodayScraping } from './daily-dish.service.js'
+import logger from './logger.service.js'
 
 let lastRunDate: string | null = null
 
@@ -14,16 +15,16 @@ export async function checkExpiredSubscriptions() {
 		const expiredSubs = await prisma.subscription.findMany({
 			where: {
 				status: 'ACTIVE',
-				endsAt: { lt: now }
+				endsAt: { lt: now },
 			},
 			include: {
 				restaurant: {
 					select: {
 						id: true,
-						city: true
-					}
-				}
-			}
+						city: true,
+					},
+				},
+			},
 		})
 
 		if (expiredSubs.length > 0) {
@@ -32,11 +33,11 @@ export async function checkExpiredSubscriptions() {
 			// Update statuses to EXPIRED
 			await prisma.subscription.updateMany({
 				where: {
-					id: { in: expiredSubs.map(s => s.id) }
+					id: { in: expiredSubs.map(s => s.id) },
 				},
 				data: {
-					status: 'EXPIRED'
-				}
+					status: 'EXPIRED',
+				},
 			})
 
 			// Zmień status restauracji na PAUSE jeśli brak innych aktywnych subskrypcji
@@ -46,8 +47,8 @@ export async function checkExpiredSubscriptions() {
 					where: {
 						restaurantId: rId,
 						status: 'ACTIVE',
-						endsAt: { gt: now }
-					}
+						endsAt: { gt: now },
+					},
 				})
 
 				if (activeSubsCount === 0) {
@@ -56,8 +57,8 @@ export async function checkExpiredSubscriptions() {
 						where: { id: rId },
 						data: {
 							status: 'PAUSE',
-							isActive: false
-						}
+							isActive: false,
+						},
 					})
 				}
 			}
@@ -91,24 +92,26 @@ export async function cleanExpiredRemovalAccounts() {
 		const expiredRestaurants = await prisma.restaurant.findMany({
 			where: {
 				status: 'REMOVAL',
-				removalRequestedAt: { lt: threeMonthsAgo }
+				removalRequestedAt: { lt: threeMonthsAgo },
 			},
 			select: {
 				id: true,
 				name: true,
-				userId: true
-			}
+				userId: true,
+			},
 		})
 
 		if (expiredRestaurants.length > 0) {
-			console.log(`⏰ [Scheduler] Znaleziono ${expiredRestaurants.length} restauracji w stanie REMOVAL do trwałego usunięcia.`)
+			console.log(
+				`⏰ [Scheduler] Znaleziono ${expiredRestaurants.length} restauracji w stanie REMOVAL do trwałego usunięcia.`,
+			)
 
 			const ownerUserIds = [...new Set(expiredRestaurants.map(r => r.userId).filter(Boolean))] as string[]
 
 			for (const rest of expiredRestaurants) {
 				// Permanentne usunięcie restauracji z bazy (usuwanie kaskadowe)
 				await prisma.restaurant.delete({
-					where: { id: rest.id }
+					where: { id: rest.id },
 				})
 				console.log(`🗑️ [Scheduler] Trwale usunięto z bazy restaurację: ${rest.name} (${rest.id})`)
 			}
@@ -116,13 +119,15 @@ export async function cleanExpiredRemovalAccounts() {
 			// Sprawdź, czy któryś z właścicieli nie ma już żadnych innych restauracji i można go usunąć
 			for (const uId of ownerUserIds) {
 				const remainingRestCount = await prisma.restaurant.count({
-					where: { userId: uId }
+					where: { userId: uId },
 				})
 
 				if (remainingRestCount === 0) {
-					console.log(`🗑️ [Scheduler] Właściciel ${uId} nie posiada już żadnych lokali w bazie. Trwałe usunięcie konta użytkownika...`)
+					console.log(
+						`🗑️ [Scheduler] Właściciel ${uId} nie posiada już żadnych lokali w bazie. Trwałe usunięcie konta użytkownika...`,
+					)
 					await prisma.user.delete({
-						where: { id: uId }
+						where: { id: uId },
 					})
 				}
 			}
@@ -169,21 +174,23 @@ export function startDailyScheduler() {
 	// Sprawdzaj czas na pobranie dań co minutę (60 000 ms)
 	setInterval(async () => {
 		try {
-			const now = new Date()
-			const hours = now.getHours()
-			const minutes = now.getMinutes()
-			const todayString = now.toISOString().split('T')[0] // 'YYYY-MM-DD'
+			const checkHour = new Date().getHours()
+			const checkMinute = new Date().getMinutes()
+			const todayString = new Date().toISOString().split('T')[0]
 
-			// Wybija godzina 10:00 UTC (12 polskiego czasu), oraz sprawdzamy czy scheduler już nie wystartował dzisiaj
-			if (hours === 10 && minutes === 0 && lastRunDate !== todayString) {
+			// Wybija godzina 10:00 UTC (12 polskiego czasu)
+			if (checkHour === 10 && checkMinute === 0 && lastRunDate !== todayString) {
 				lastRunDate = todayString
-				console.log(`⏰ [Scheduler] Wybiła godzina 10:00! Automatyczne pobieranie dzisiejszych ofert rozpoczęte...`)
+				await logger.info(
+					'⏰ [Scheduler] Wybiła godzina 10:00! Automatyczne pobieranie dzisiejszych ofert rozpoczęte...',
+				)
 
-				const results = await fetchTodayDishes()
-				const successful = results.filter((r: any) => r.status === 'success').length
-				const errors = results.filter((r: any) => r.status === 'error').length
-
-				console.log(`⏰ [Scheduler] Sukces: pobrano dania z ${successful} restauracji. Błędy: ${errors}.`)
+				try {
+					const result = await queueTodayScraping()
+					await logger.info(`⏰ [Scheduler] Sukces: zakolejkowano dania z ${result.successful} restauracji.`)
+				} catch (error: any) {
+					await logger.error('❌ [Scheduler] Błąd podczas pobierania dań:', error.message || error)
+				}
 			}
 		} catch (error) {
 			console.error('❌ [Scheduler] Błąd podczas sprawdzania czasu lub pobierania dań:', error)

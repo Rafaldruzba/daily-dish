@@ -1,6 +1,8 @@
 import prisma from '../lib/prisma.js'
 import { fetchRestaurantDish } from './facebook.service.js'
 import { geocodeCity } from './geolocation.service.js'
+import { queueAllScrapingJobs } from './scraper-queue.service.js'
+import logger from './logger.service.js'
 
 async function getRestaurantsToFetch(city?: string) {
   if (!city) {
@@ -46,64 +48,78 @@ export async function fetchTodayDishes(city?: string) {
 	const today = new Date()
 	today.setUTCHours(0, 0, 0, 0)
 
-	for (const restaurant of restaurants) {
-		try {
-			const dish = await fetchRestaurantDish(restaurant)
+	// Równoległe pobieranie dań dla wszystkich restauracji
+	const dishResults = await Promise.all(
+		restaurants.map(async (restaurant) => {
+			try {
+				const dish = await fetchRestaurantDish(restaurant)
 
-			if (!dish) {
-				results.push({
+				if (!dish) {
+					return {
+						restaurantId: restaurant.id,
+						restaurant: restaurant.name,
+						status: 'not_found' as const,
+					}
+				}
+
+				const dailyDish = await prisma.dailyDish.upsert({
+					where: {
+						restaurantId_date: {
+							restaurantId: restaurant.id,
+							date: today,
+						},
+					},
+					update: {
+						name: dish.name,
+						description: dish.description ?? null,
+						price: dish.price ?? null,
+						imageUrl: dish.imageUrl ?? null,
+						sourceUrl: dish.sourceUrl ?? null,
+						sourcePostId: dish.sourcePostId ?? null,
+						publishedAt: dish.publishedAt ?? null,
+					},
+					create: {
+						restaurantId: restaurant.id,
+						name: dish.name,
+						description: dish.description ?? null,
+						price: dish.price ?? null,
+						imageUrl: dish.imageUrl ?? null,
+						sourceUrl: dish.sourceUrl ?? null,
+						sourcePostId: dish.sourcePostId ?? null,
+						date: today,
+						publishedAt: dish.publishedAt ?? null,
+					},
+				})
+
+				return {
 					restaurantId: restaurant.id,
 					restaurant: restaurant.name,
-					status: 'not_found',
-				})
-				continue
-			}
+					status: 'success' as const,
+					dish: dailyDish,
+				}
+			} catch (error) {
+				console.error(`❌ Błąd zapisywania dla restauracji ${restaurant.name}`, error)
 
-			const dailyDish = await prisma.dailyDish.upsert({
-				where: {
-					restaurantId_date: {
-						restaurantId: restaurant.id,
-						date: today,
-					},
-				},
-				update: {
-					name: dish.name,
-					description: dish.description ?? null,
-					price: dish.price ?? null,
-					imageUrl: dish.imageUrl ?? null,
-					sourceUrl: dish.sourceUrl ?? null,
-					sourcePostId: dish.sourcePostId ?? null,
-					publishedAt: dish.publishedAt ?? null,
-				},
-				create: {
+				return {
 					restaurantId: restaurant.id,
-					name: dish.name,
-					description: dish.description ?? null,
-					price: dish.price ?? null,
-					imageUrl: dish.imageUrl ?? null,
-					sourceUrl: dish.sourceUrl ?? null,
-					sourcePostId: dish.sourcePostId ?? null,
-					date: today,
-					publishedAt: dish.publishedAt ?? null,
-				},
-			})
+					restaurant: restaurant.name,
+					status: 'error' as const,
+				}
+			}
+		})
+	)
 
-			results.push({
-				restaurantId: restaurant.id,
-				restaurant: restaurant.name,
-				status: 'success',
-				dish: dailyDish,
-			})
-		} catch (error) {
-			console.error(`❌ Błąd zapisywania dla restauracji ${restaurant.name}`, error)
+	return dishResults
+}
 
-			results.push({
-				restaurantId: restaurant.id,
-				restaurant: restaurant.name,
-				status: 'error',
-			})
-		}
-	}
-
-	return results
+/**
+ * Queue-based version: delegates to BullMQ worker instead of direct fetching.
+ * Used by scheduler for automatic daily scraping.
+ */
+export async function queueTodayScraping() {
+	await logger.info('⏰ [Scheduler] Wybiela godzina scrape\'a — zakolejkowanie lokali...')
+	const jobs = await queueAllScrapingJobs()
+	const successful = jobs.length
+	await logger.info(`✅ [Scheduler] Zakolejkowano ${successful} zadań skrapowania.`)
+	return { successful, failed: 0 }
 }

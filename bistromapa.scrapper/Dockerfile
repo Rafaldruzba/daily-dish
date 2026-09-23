@@ -25,10 +25,14 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/test ./test
 
 # Pobieramy Chromium dedykowane dla naszej wersji Playwright wraz z niezbędnymi zależnościami OS
 RUN npx playwright install --with-deps chromium
 
-EXPOSE 4003
+# Testy przed uruchomieniem (opcjonalnie — usuń jeśli nie potrzebujesz w produkcji)
+RUN if [ -d test ]; then npm test || true; fi
+
+EXPOSE 3001
 
 CMD ["node", "dist/server.js"]

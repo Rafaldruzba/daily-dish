@@ -18,7 +18,7 @@ const connection = {
 export const scraperQueue = new Queue('scraper-queue', { connection })
 
 /**
- * Dodaje wszystkie aktywne i zatwierdzone restauracje do kolejki zadań skrapowania.
+ * Dodaje wszystkie aktywne restauracje do kolejki zadań skrapowania.
  */
 export async function queueAllScrapingJobs() {
 	try {
@@ -71,7 +71,7 @@ export const scraperWorker = new Worker(
 	'scraper-queue',
 	async job => {
 		const { restaurantId, name, facebookUrl } = job.data
-		console.log(`🤖 [Scraper Worker] Przetwarzanie lokalu: ${name} (ID: ${restaurantId})`)
+		await logger.info(`🤖 [Scraper Worker] Przetwarzanie lokalu: ${name} (ID: ${restaurantId})`)
 
 		// Sprawdzamy restaurację w bazie
 		const restaurant = await prisma.restaurant.findUnique({
@@ -80,7 +80,7 @@ export const scraperWorker = new Worker(
 		})
 
 		if (!restaurant || !restaurant.isActive || restaurant.status !== 'ACTIVE') {
-			console.log(`⚠️ [Scraper Worker] Lokal ${name} jest nieaktywny, omijanie zadania.`)
+			await logger.warn(`⚠️ [Scraper Worker] Lokal ${name} jest nieaktywny, omijanie zadania.`)
 			return { status: 'skipped', reason: 'Restaurant is not active' }
 		}
 
@@ -102,7 +102,7 @@ export const scraperWorker = new Worker(
 							s3ImageUrl = uploadedUrl
 						}
 					} catch (s3Err: any) {
-						console.error('⚠️ [Scraper Worker] Failed to upload scraped image to S3:', s3Err.message || s3Err)
+						await logger.warn('⚠️ [Scraper Worker] Failed to upload scraped image to S3:', s3Err.message || s3Err)
 					}
 				}
 
@@ -136,6 +136,7 @@ export const scraperWorker = new Worker(
 					},
 				})
 
+				await logger.info(`✅ [Scraper Worker] Pobrano danie dla ${name}: "${dishResult.name}"`)
 				return { status: 'success', name: dishResult.name }
 			} else {
 				// Brak posta na FB — sprawdzamy czy istnieje Oferta Stała
@@ -166,32 +167,34 @@ export const scraperWorker = new Worker(
 						},
 					})
 
+					await logger.info(`✅ [Scraper Worker] Fallback oferta stała dla ${name}: "${activeOffer.title}"`)
 					return { status: 'success_fallback', name: activeOffer.title }
 				}
 
+				await logger.warn(`⚠️ [Scraper Worker] Brak posta i oferty stałej dla ${name}`)
 				throw new Error('Brak dzisiejszego posta oraz brak oferty stałej (StandardOffer) w bazie.')
 			}
 		} catch (error: any) {
-			console.error(`❌ [Scraper Worker] Błąd dla lokalu ${name}:`, error.message || error)
-			throw error // Wyrzucamy błąd, aby BullMQ obsłużył próbę ponownego uruchomienia (attempts)
+			await logger.error(`❌ [Scraper Worker] Błąd dla lokalu ${name}:`, error.message || error)
+			throw error // Wyrzucamy błąd, aby BullMQ obsłużył próbę ponowną (attempts)
 		}
 	},
 	{
 		connection,
-		concurrency: 5, // Autopoziomowanie — max 5 bocznych procesów Chromium na raz
+		concurrency: 5,
 	}
 )
 
 // Obsługa globalnych zdarzeń kolejki
 scraperWorker.on('completed', job => {
-	console.log(`✅ [Scraper Queue] Zadanie ${job.id} dla lokalu ${job.data.name} zakończone sukcesem!`)
+	logger.info(`✅ [Scraper Queue] Zadanie ${job.id} dla lokalu ${job.data.name} zakończone sukcesem!`)
 })
 
 scraperWorker.on('failed', async (job, err) => {
-	console.error(`❌ [Scraper Queue] Zadanie ${job?.id} dla lokalu ${job?.data.name} nie powiodło się po ponowieniach:`, err.message)
-	
+	await logger.error(`❌ [Scraper Queue] Zadanie ${job?.id} dla lokalu ${job?.data.name} nie powiodło się po ponowieniach:`, err.message)
+
 	// Wysyłamy alert o błędzie na Gmaila admina
-	if (job) {
+	if (job?.data?.name) {
 		await sendAdminScrapingAlert([{ name: job.data.name, reason: err.message }])
 	}
 })

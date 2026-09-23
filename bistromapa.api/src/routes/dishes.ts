@@ -1,10 +1,11 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
-import { fetchTodayDishes } from '../services/daily-dish.service.js'
+import { fetchTodayDishes, queueTodayScraping } from '../services/daily-dish.service.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 import { getPresignedDownloadUrl } from '../services/storage.service.js'
+import logger from '../services/logger.service.js'
 
 const router = Router()
 
@@ -217,21 +218,48 @@ router.get('/:id', async (req, res) => {
 })
 
 // POST /api/dishes/admin/fetch-now
-// Wyzwala natychmiastowe, awaryjne skrapowanie wszystkich lokali za pomocą kolejki BullMQ (Tylko ADMIN)
+// Wyzwala natychmiastowe skrapowanie wszystkich lokali za pomocą kolejki BullMQ (Tylko ADMIN)
 router.post('/admin/fetch-now', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
 	try {
-		const { queueAllScrapingJobs } = await import('../services/scraper-queue.service.js')
-		const jobs = await queueAllScrapingJobs()
+		await logger.info('🔧 [Admin] Ręczne wyzwolenie awaryjnego skrapowania')
+		const result = await queueTodayScraping()
+		await logger.info(`✅ [Admin] Awaryjne skrapowanie zakończone. Zakolejkowano: ${result.successful}`)
 		res.json({
 			success: true,
-			message: `Awaryjne skrapowanie zostało pomyślnie zainicjowane. Zakolejkowano ${jobs.length} zadań.`,
-			jobs,
+			message: `Awaryjne skrapowanie zakończone. Zakolejkowano ${result.successful} lokali.`,
+			result,
 		})
 	} catch (error: any) {
+		await logger.error('❌ [Admin] Błąd podczas awaryjnego skrapowania:', error.message || error)
 		console.error('❌ Error triggering emergency scrape:', error)
 		res.status(500).json({
 			success: false,
 			message: 'Wystąpił błąd podczas wyzwalania awaryjnego pobierania.',
+		})
+	}
+})
+
+// POST /api/dishes/admin/fetch-now-direct
+// Wyzwala bezpośrednie pobranie dań (bez kolejki) — fallback gdy BullMQ nie jest dostępny (Tylko ADMIN)
+router.post('/admin/fetch-now-direct', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+	try {
+		await logger.info('🔧 [Admin] Ręczne wyzwolenie bezpośredniego pobierania dań (fallback)')
+		const city = (req.query.city as string) || undefined
+		const results = await fetchTodayDishes(city)
+		const successful = results.filter((r: any) => r.status === 'success' || r.status === 'success_fallback').length
+		const errors = results.filter((r: any) => r.status === 'error' || r.status === 'not_found').length
+		await logger.info(`✅ [Admin] Bezpośrednie pobieranie zakończone. Sukces: ${successful}, Błędy: ${errors}`)
+		res.json({
+			success: true,
+			message: `Pobrano dania z ${successful} restauracji. Błędy: ${errors}.`,
+			results,
+		})
+	} catch (error: any) {
+		await logger.error('❌ [Admin] Błąd podczas bezpośredniego pobierania dań:', error.message || error)
+		console.error(error)
+		res.status(500).json({
+			success: false,
+			message: 'Nie udało się pobrać dań.',
 		})
 	}
 })

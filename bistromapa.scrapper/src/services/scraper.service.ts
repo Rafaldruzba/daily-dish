@@ -13,7 +13,7 @@ export interface ScrapeResult {
 /**
  * Konwertuje link na lżejszą, mobilną wersję Facebooka m.facebook.com
  */
-function getMobileUrl(url: string): string {
+export function getMobileUrl(url: string): string {
 	let cleanUrl = url.trim()
 	if (cleanUrl.includes('www.facebook.com')) {
 		return cleanUrl.replace('www.facebook.com', 'm.facebook.com')

@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense, type FormEvent } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
-import { RefreshCw,
+import {
+	RefreshCw,
 	Mail,
 	MapPin,
 	Star,
@@ -18,6 +19,7 @@ import { RefreshCw,
 	Trash2,
 	Building2,
 	X,
+	Bolt,
 } from 'lucide-react'
 import { Payment, Restaurant, RestaurantForm } from '@/lib/types'
 import { parseCuisinesInput } from '@/lib/format'
@@ -92,6 +94,7 @@ function ForRestaurantsContent() {
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
 	const [success, setSuccess] = useState('')
+	const [scraperLoading, setScraperLoading] = useState(false)
 
 	const [deleteModal, setDeleteModal] = useState<{
 		isOpen: boolean
@@ -495,6 +498,30 @@ function ForRestaurantsContent() {
 			console.error(err)
 		} finally {
 			setLoadingRemovalUsers(false)
+		}
+	}
+
+	const handleTriggerScrape = async () => {
+		if (!token || !isAdmin) return
+		setScraperLoading(true)
+		setError('')
+		setSuccess('')
+		try {
+			const res = await fetch(`${API_URL}/dishes/admin/fetch-now`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` },
+			})
+			const data = await res.json()
+			if (res.ok) {
+				setSuccess(data.message || 'Skrapowanie zakończone pomyślnie.')
+			} else {
+				setError(data.message || 'Nie udało się wykonać skrapowania.')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Błąd połączenia z serwerem.')
+		} finally {
+			setScraperLoading(false)
 		}
 	}
 
@@ -929,11 +956,19 @@ function ForRestaurantsContent() {
 									Zatwierdzone restauracje (
 									{restaurants.filter(r => r.status === 'APPROVED' || r.status === 'ACTIVE').length})
 								</h2>
-								<button
-									onClick={loadAdminRestaurants}
-									className='px-3 py-1.5 border border-stone-200 text-xs font-mono flex items-center gap-1 cursor-pointer bg-white'>
-									<RefreshCw className='w-3 h-3' /> Odśwież
-								</button>
+								<div className='flex items-center gap-2'>
+									<button
+										onClick={handleTriggerScrape}
+										disabled={scraperLoading}
+										className='px-3 py-1.5 bg-black text-white hover:bg-stone-800 disabled:opacity-50 transition-colors font-mono text-[10px] uppercase tracking-wider font-bold flex items-center gap-1 cursor-pointer shadow-sm'>
+										<Bolt className='w-3 h-3' /> {scraperLoading ? 'Skrapowanie…' : 'Skrapuj teraz'}
+									</button>
+									<button
+										onClick={loadAdminRestaurants}
+										className='px-3 py-1.5 border border-stone-200 text-xs font-mono flex items-center gap-1 cursor-pointer bg-white'>
+										<RefreshCw className='w-3 h-3' /> Odśwież scrapper
+									</button>
+								</div>
 							</div>
 							{loading ? (
 								<p className='text-stone-400 text-xs font-mono'>Ładowanie...</p>
