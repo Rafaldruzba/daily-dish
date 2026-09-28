@@ -14,6 +14,10 @@ body {
 	-webkit-font-smoothing: antialiased;
 }
 
+button {
+	cursor: pointer;
+}
+
 /* Wspólne klasy przycisków CRM — spójne z widokiem szczegółów leada */
 .btn-primary {
 	display: inline-flex;
