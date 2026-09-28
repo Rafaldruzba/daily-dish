@@ -57,9 +57,7 @@ export class BistroMapaApiClient {
 				'content-type': 'application/json',
 				authorization: `Bearer ${this.token}`,
 			},
-			body: JSON.stringify(payload),
-		console.log("[BistroMapaApiClient] Wysylka onboarding payload:", JSON.stringify(payload))
-		console.log("[BistroMapaApiClient] Email w payload:", payload.email)
+			body: JSON.stringify(payload)
 		})
 
 		if (!response.ok) {

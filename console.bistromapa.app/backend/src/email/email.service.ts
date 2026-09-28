@@ -11,25 +11,50 @@ export interface RenderedEmail {
 	body: string
 }
 
-/** Zmienne dostępne w szablonach — treści nie są hardkodowane w komponentach (§23). */
+/**
+ * Renderuje zmienne w szablonie:
+ *
+ * {{name}}
+ * {{city}}
+ * {{activationUrl}}
+ *
+ * Zmienne przekazane w wywołaniu mają pierwszeństwo
+ * przed standardowymi danymi leada.
+ */
 export function renderTemplate(template: string, variables: Record<string, string | null | undefined>): string {
-	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => variables[key] ?? '')
+	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
+		return variables[key] ?? ''
+	})
 }
 
 /**
- * Szablony w bazie są zwykłym tekstem (tak je edytuje panel), a Resend wysyła HTML.
- * Dlatego escapujemy znaczniki i zamieniamy nowe linie na <br> — inaczej treść
- * zlewa się w jeden akapit, a link aktywacyjny nie jest klikalny.
+ * Szablony w bazie mogą zawierać pełny HTML.
+ *
+ * Jeżeli body zaczyna się od <!DOCTYPE albo <html,
+ * traktujemy je jako gotowy HTML.
+ *
+ * W przeciwnym przypadku traktujemy je jako zwykły tekst
+ * i zamieniamy linki oraz nowe linie na HTML.
  */
 export function bodyToHtml(body: string): string {
+	const trimmed = body.trim()
+
+	if (trimmed.toLowerCase().startsWith('<!doctype html') || trimmed.toLowerCase().startsWith('<html')) {
+		return trimmed
+	}
+
 	const escaped = body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 	const withLinks = escaped.replace(
 		/(https?:\/\/[^\s<]+)/g,
-		(url) => `<a href="${url}" style="color:#1c1917">${url}</a>`,
+		url => `<a href="${url}" style="color:#e87522;text-decoration:underline;">${url}</a>`,
 	)
 
-	return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1c1917">${withLinks.replace(/\n/g, '<br>')}</div>`
+	return `
+		<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#292724;">
+			${withLinks.replace(/\n/g, '<br>')}
+		</div>
+	`
 }
 
 @Injectable()
@@ -43,13 +68,13 @@ export class EmailService {
 		private readonly audit: AuditService,
 		config: ConfigService,
 	) {
-		const apiKey = config.get<string>('RESEND_API')
-		this.from = config.get<string>('EMAIL_FROM') ?? ''
+		const apiKey = config.get<string>('RESEND_API')?.trim()
+		this.from = config.get<string>('EMAIL_FROM')?.trim() || 'BistroMapa <kontakt@bistromapa.app>'
 
 		if (apiKey) {
 			this.resend = new Resend(apiKey)
 		} else {
-			this.logger.warn('RESEND_API nie jest ustawiona — wysyłka emaili zwróci błąd')
+			this.logger.warn('RESEND_API nie jest ustawiona — wysyłka emaili będzie niedostępna')
 		}
 	}
 
@@ -57,17 +82,39 @@ export class EmailService {
 		return this.resend !== undefined && this.from !== ''
 	}
 
+	/**
+	 * Lista wszystkich szablonów emaili.
+	 */
 	async listTemplates() {
-		return this.prisma.emailTemplate.findMany({ orderBy: { key: 'asc' } })
+		return this.prisma.emailTemplate.findMany({
+			orderBy: { key: 'asc' },
+		})
 	}
 
+	/**
+	 * Aktualizacja szablonu emaila.
+	 */
 	async updateTemplate(id: string, dto: UpdateTemplateDto) {
-		const template = await this.prisma.emailTemplate.findUnique({ where: { id } })
-		if (!template) throw new NotFoundException('Szablon nie istnieje')
+		const template = await this.prisma.emailTemplate.findUnique({
+			where: { id },
+		})
 
-		return this.prisma.emailTemplate.update({ where: { id }, data: { subject: dto.subject, body: dto.body } })
+		if (!template) {
+			throw new NotFoundException('Szablon nie istnieje')
+		}
+
+		return this.prisma.emailTemplate.update({
+			where: { id },
+			data: {
+				subject: dto.subject,
+				body: dto.body,
+			},
+		})
 	}
 
+	/**
+	 * Lista logów wysłanych emaili.
+	 */
 	async listLogs(leadId: string | undefined, page: number, limit: number) {
 		const where = leadId ? { leadId } : {}
 
@@ -77,28 +124,59 @@ export class EmailService {
 				orderBy: { sentAt: 'desc' },
 				skip: (page - 1) * limit,
 				take: limit,
-				include: { lead: { select: { id: true, name: true } } },
+				include: {
+					lead: {
+						select: {
+							id: true,
+							name: true,
+						},
+					},
+				},
 			}),
 			this.prisma.emailLog.count({ where }),
 		])
 
-		return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) }
+		return {
+			items,
+			total,
+			page,
+			limit,
+			pages: Math.max(1, Math.ceil(total / limit)),
+		}
 	}
 
-	/** Wysyłka z szablonu — logujemy każde wysłanie i błąd (readme §23). */
+	/**
+	 * Główna metoda wysyłania emaili.
+	 *
+	 * Wszystkie automatyczne i ręczne wiadomości
+	 * powinny przechodzić przez tę metodę.
+	 */
 	async send(dto: SendEmailDto, adminUserId: string | null) {
-		const lead = await this.prisma.lead.findUnique({ where: { id: dto.leadId } })
-		if (!lead) throw new NotFoundException('Lead nie istnieje')
+		const lead = await this.prisma.lead.findUnique({
+			where: { id: dto.leadId },
+		})
 
-		const recipient = dto.to ?? lead.email
-		if (!recipient) throw new BadRequestException('Lead nie ma adresu email — podaj odbiorcę ręcznie')
+		if (!lead) {
+			throw new NotFoundException('Lead nie istnieje')
+		}
 
-		const template = await this.prisma.emailTemplate.findUnique({ where: { key: dto.templateKey } })
+		const recipient = dto.to?.trim() || lead.email?.trim()
+
+		if (!recipient) {
+			throw new BadRequestException('Lead nie ma adresu email — podaj odbiorcę ręcznie')
+		}
+
+		const template = await this.prisma.emailTemplate.findUnique({
+			where: {
+				key: dto.templateKey,
+			},
+		})
+
 		if (!template && (!dto.subject || !dto.body)) {
 			throw new BadRequestException(`Szablon "${dto.templateKey}" nie istnieje — podaj temat i treść ręcznie`)
 		}
 
-		const variables = {
+		const variables: Record<string, string | null | undefined> = {
 			name: lead.name,
 			city: lead.city,
 			address: lead.address,
@@ -106,26 +184,42 @@ export class EmailService {
 			contactPerson: lead.contactPerson,
 			email: lead.email,
 			website: lead.website,
-			// Zmienne wywołania (np. activationUrl) nadpisują dane leada.
+
+			// Zmienne przekazane przy konkretnym wysłaniu
+			// nadpisują standardowe dane leada.
 			...(dto.variables ?? {}),
 		}
 
 		const subject = renderTemplate(dto.subject ?? template?.subject ?? '', variables)
+
 		const body = renderTemplate(dto.body ?? template?.body ?? '', variables)
 
 		if (!this.resend) {
-			await this.logFailure(dto.leadId, template?.id ?? null, recipient, subject, adminUserId, 'RESEND_API nie jest skonfigurowana')
-			throw new BadRequestException('RESEND_API nie jest skonfigurowana — uzupełnij w backendzie')
+			const error = 'RESEND_API nie jest skonfigurowana'
+
+			await this.logFailure(lead.id, template?.id ?? null, recipient, subject, adminUserId, error)
+
+			throw new BadRequestException(error)
+		}
+
+		if (!subject.trim()) {
+			throw new BadRequestException('Email nie ma tematu')
+		}
+
+		if (!body.trim()) {
+			throw new BadRequestException('Email nie ma treści')
 		}
 
 		try {
-			await this.resend.emails.send({
+			const result = await this.resend.emails.send({
 				from: this.from,
 				to: recipient,
 				subject,
-				text: body,
+				text: this.htmlToPlainText(body),
 				html: bodyToHtml(body),
 			})
+
+			this.logger.log(`Email wysłany do ${recipient} — "${subject}"`)
 
 			await this.prisma.emailLog.create({
 				data: {
@@ -147,21 +241,64 @@ export class EmailService {
 			})
 
 			await this.prisma.lead.update({
-				where: { id: lead.id },
-				data: { contactAttempts: { increment: 1 }, lastContactAt: new Date() },
+				where: {
+					id: lead.id,
+				},
+				data: {
+					contactAttempts: {
+						increment: 1,
+					},
+					lastContactAt: new Date(),
+				},
 			})
 
-			await this.audit.log({ action: 'EMAIL_SENT', leadId: lead.id, adminUserId, details: { to: recipient, subject } })
+			await this.audit.log({
+				action: 'EMAIL_SENT',
+				leadId: lead.id,
+				adminUserId,
+				details: {
+					to: recipient,
+					subject,
+					resendId: result.data?.id ?? null,
+				},
+			})
 
-			return { sent: true, to: recipient }
+			return {
+				sent: true,
+				to: recipient,
+				resendId: result.data?.id ?? null,
+			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Nieznany błąd wysyłki'
+
+			this.logger.error(`Błąd wysyłki emaila do ${recipient}: ${message}`)
+
 			await this.logFailure(lead.id, template?.id ?? null, recipient, subject, adminUserId, message)
 
 			throw new BadRequestException(`Nie udało się wysłać emaila: ${message}`)
 		}
 	}
 
+	/**
+	 * Zamienia HTML na prosty tekst.
+	 * Używane jako wersja text/plain emaila.
+	 */
+	private htmlToPlainText(body: string): string {
+		return body
+			.replace(/<br\s*\/?>/gi, '\n')
+			.replace(/<\/p>/gi, '\n\n')
+			.replace(/<\/div>/gi, '\n')
+			.replace(/<[^>]+>/g, '')
+			.replace(/&nbsp;/gi, ' ')
+			.replace(/&amp;/gi, '&')
+			.replace(/&lt;/gi, '<')
+			.replace(/&gt;/gi, '>')
+			.trim()
+	}
+
+	/**
+	 * Loguje nieudaną próbę wysyłki.
+	 */
 	private async logFailure(
 		leadId: string,
 		templateId: string | null,
@@ -171,7 +308,15 @@ export class EmailService {
 		error: string,
 	): Promise<void> {
 		await this.prisma.emailLog.create({
-			data: { leadId, templateId, adminUserId, to, subject, status: 'ERROR', error },
+			data: {
+				leadId,
+				templateId,
+				adminUserId,
+				to,
+				subject,
+				status: 'ERROR',
+				error,
+			},
 		})
 	}
 }
