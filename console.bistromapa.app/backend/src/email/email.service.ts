@@ -51,18 +51,25 @@ export function bodyToHtml(body: string): string {
 	)
 
 	return `
-		<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#292724;max-width:600px;margin:0 auto;">
-			<div style="background:#e87522;padding:24px 20px;text-align:center;color:#fff;">
-				<div style="font-size:26px;font-weight:bold;letter-spacing:1px;">BistroMapa.app</div>
-				<div style="font-size:11px;opacity:0.85;margin-top:4px;">Odkrywaj restauracje, zarządzaj profilami</div>
-			</div>
-			<div style="padding:28px 24px;background:#fff;border:1px solid #eceae5;border-top:none;">
-				${withLinks.replace(/\n/g, '<br>')}
-			</div>
-			<div style="padding:14px 24px;background:#f7f5f0;text-align:center;font-size:12px;color:#7a7468;border:1px solid #eceae5;border-top:none;">
-				© BistroMapa.app · <a href="https://bistromapa.app" style="color:#e87522;text-decoration:underline;">bistromapa.app</a>
+		<div style="margin:0; padding:20px 10px; background-color:#f7f5f1; font-family:Arial, Helvetica, sans-serif; color:#292724;">
+	<div style="max-width:650px; margin:0 auto; background:#ffffff; border:1px solid #e9e4dc; border-radius:14px; overflow:hidden;">
+
+		<div style="padding:28px 32px 22px; border-bottom:1px solid #eee9e2;">
+			<div style="font-size:13px; font-weight:bold; letter-spacing:2px; color:#e87522; text-transform:uppercase;">
+				BISTRO MAPA
 			</div>
 		</div>
+		<div style="padding:28px 24px;background:#fff;border:1px solid #eceae5;border-top:none;">
+				${withLinks.replace(/\n/g, '<br>')}
+		</div>
+
+		<div style="padding:22px 32px; background:#faf9f7; border-top:1px solid #eee9e2;">
+			<p style="margin:0; font-size:12px; line-height:1.6; color:#8a847c; text-align:center;">
+				Support | © BistroMapa.app · <a href="https://bistromapa.app" style="color:#e87522;text-decoration:underline;">bistromapa.app</a>
+			</p>
+		</div>
+	</div>
+</div>
 	`
 }
 
