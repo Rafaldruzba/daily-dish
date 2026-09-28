@@ -51,8 +51,17 @@ export function bodyToHtml(body: string): string {
 	)
 
 	return `
-		<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#292724;">
-			${withLinks.replace(/\n/g, '<br>')}
+		<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#292724;max-width:600px;margin:0 auto;">
+			<div style="background:#e87522;padding:24px 20px;text-align:center;color:#fff;">
+				<div style="font-size:26px;font-weight:bold;letter-spacing:1px;">BistroMapa.app</div>
+				<div style="font-size:11px;opacity:0.85;margin-top:4px;">Odkrywaj restauracje, zarządzaj profilami</div>
+			</div>
+			<div style="padding:28px 24px;background:#fff;border:1px solid #eceae5;border-top:none;">
+				${withLinks.replace(/\n/g, '<br>')}
+			</div>
+			<div style="padding:14px 24px;background:#f7f5f0;text-align:center;font-size:12px;color:#7a7468;border:1px solid #eceae5;border-top:none;">
+				© BistroMapa.app · <a href="https://bistromapa.app" style="color:#e87522;text-decoration:underline;">bistromapa.app</a>
+			</div>
 		</div>
 	`
 }
