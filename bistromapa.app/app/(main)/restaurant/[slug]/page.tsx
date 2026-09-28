@@ -21,6 +21,7 @@ interface RestaurantSeoData {
 	description: string | null
 	rating: number | null
 	cuisines: string[]
+	backgroundImageUrl?: string | null
 	latitude: number | null
 	longitude: number | null
 }
@@ -30,7 +31,7 @@ async function getRestaurant(slug: string): Promise<RestaurantSeoData | null> {
 		const response = await fetch(`${API_URL}/restaurants/${slug}`, { next: { revalidate: 600 } })
 		if (!response.ok) return null
 
-		return await response.json()
+		const data = await response.json(); return { ...data, backgroundImageUrl: data.backgroundImageUrl || null };
 	} catch {
 		return null
 	}
@@ -59,6 +60,7 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 		},
 		openGraph: {
 			type: 'website',
+			images: restaurant?.backgroundImageUrl ? [{ url: restaurant.backgroundImageUrl, width: 1200, height: 630 }] : [],
 			title: `${restaurant.name} — restauracja w ${restaurant.city}`,
 			description,
 			url: `https://bistromapa.app/restaurant/${restaurant.slug}`,
@@ -100,7 +102,8 @@ export default async function RestaurantPage({ params }: RestaurantPageProps) {
 						bestRating: 5,
 					},
 				}),
-				...(restaurant.cuisines.length > 0 && { servesCuisine: restaurant.cuisines }),
+				...(restaurant.backgroundImageUrl && { image: restaurant.backgroundImageUrl }),
+					...(restaurant.cuisines.length > 0 && { servesCuisine: restaurant.cuisines }),
 			}
 		: null
 

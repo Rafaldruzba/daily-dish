@@ -316,10 +316,16 @@ router.get('/:id', async (req, res) => {
 				)
 			: []
 
+		// Sign background image URL if present
+		const signedBackgroundImageUrl = restaurant.backgroundImageUrl
+			? await getPresignedDownloadUrl(restaurant.backgroundImageUrl)
+			: null
+
 		const mappedRestaurant = {
 			...restaurant,
 			standardOffers: signedStandardOffers,
 			dishes: signedDishes,
+			backgroundImageUrl: signedBackgroundImageUrl,
 		}
 
 		res.json(mappedRestaurant)
@@ -345,6 +351,87 @@ router.post('/:id/view', async (req, res) => {
 	} catch (error) {
 		// Ignorujemy błędy, by nie psuć UX
 		res.json({ success: false })
+	}
+})
+
+// POST /api/restaurants/:id/upload-background
+// Przesyła zdjęcie tła (banner) restauracji do S3 i zapisuje URL w bazie
+router.post('/:id/upload-background', authenticate, upload.single('image'), async (req: AuthRequest, res: Response) => {
+	try {
+		const { id } = req.params
+		const user = req.user
+
+		if (!id) {
+			return res.status(400).json({ success: false, message: 'ID lokalu jest wymagane.' })
+		}
+
+		const restaurant = await prisma.restaurant.findUnique({
+			where: { id: id as string },
+		})
+
+		if (!restaurant) {
+			return res.status(404).json({ success: false, message: 'Restauracja nie istnieje.' })
+		}
+
+		// Tylko admin lub właściciel lokalu może ustawiać zdjęcie tła
+		if (!user || (user.role !== 'ADMIN' && restaurant.userId !== user.id)) {
+			return res.status(403).json({ success: false, message: 'Brak uprawnień do zmiany zdjęcia tła tego lokalu.' })
+		}
+
+		if (!req.file) {
+			return res.status(400).json({ success: false, message: 'Brak pliku do przesłania.' })
+		}
+
+		const s3Url = await uploadImageBuffer(req.file.buffer, req.file.mimetype, `restaurant-${id}/background`)
+
+		if (!s3Url) {
+			return res.status(500).json({ success: false, message: 'Nie udało się przesłać pliku do magazynu danych S3.' })
+		}
+
+		// Zapisujemy URL zdjęcia tła w bazie
+		await prisma.restaurant.update({
+			where: { id },
+			data: { backgroundImageUrl: s3Url },
+		})
+
+		res.json({
+			success: true,
+			imageUrl: s3Url,
+		})
+	} catch (error) {
+		console.error('Error uploading background image:', error)
+		res.status(500).json({ success: false, message: 'Wystąpił błąd podczas przesyłania zdjęcia tła.' })
+	}
+})
+
+// DELETE /api/restaurants/:id/background
+// Usuwa zdjęcie tła restauracji (ustawia backgroundImageUrl na null)
+router.delete('/:id/background', authenticate, async (req: AuthRequest, res: Response) => {
+	try {
+		const { id } = req.params
+		const user = req.user
+
+		const restaurant = await prisma.restaurant.findUnique({
+			where: { id: id as string },
+		})
+
+		if (!restaurant) {
+			return res.status(404).json({ success: false, message: 'Restauracja nie istnieje.' })
+		}
+
+		if (!user || (user.role !== 'ADMIN' && restaurant.userId !== user.id)) {
+			return res.status(403).json({ success: false, message: 'Brak uprawnień.' })
+		}
+
+		await prisma.restaurant.update({
+			where: { id },
+			data: { backgroundImageUrl: null },
+		})
+
+		res.json({ success: true, message: 'Zdjęcie tło zostało usunięte.' })
+	} catch (error) {
+		console.error('Error deleting background image:', error)
+		res.status(500).json({ success: false, message: 'Nie udało się usunąć zdjęcia tła.' })
 	}
 })
 
@@ -631,7 +718,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 			return res.status(403).json({ success: false, message: 'Brak uprawnień do edycji tej restauracji' })
 		}
 
-		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu, cuisines } = req.body
+		const { name, slug, phone, address, city, facebookUrl, isActive, description, generalMenu, cuisines, backgroundImageUrl } = req.body
 
 		const restaurant = await prisma.restaurant.update({
 			where: {
@@ -668,6 +755,9 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 				}),
 				...(generalMenu !== undefined && {
 					generalMenu: generalMenu?.trim() || null,
+				}),
+				...(backgroundImageUrl !== undefined && {
+					backgroundImageUrl: backgroundImageUrl || null,
 				}),
 			},
 		})

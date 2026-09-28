@@ -29,6 +29,8 @@ model Restaurant {
   status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
   views              Int         @default(0)         // Licznik odwiedzin profilu/dań
 
+  backgroundImageUrl String?  // URL zdjęcia tła z storage (fallback gdy FB nie dostarczy obrazka)
+
   userId             String?
 
   user               User?        @relation(fields: [userId], references: [id], onDelete: SetNull)

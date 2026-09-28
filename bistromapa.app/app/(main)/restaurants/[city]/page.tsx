@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 	const cityName = data?.city ?? decodeURIComponent(city)
 
 	return {
+		images: [{url: "https://bistromapa.app/logo.png"}],
 		title: `Restauracje w ${cityName} — lokale, menu i opinie`,
 		description: `Znajdź restauracje w ${cityName}. Sprawdź menu, zdjęcia, opinie i informacje o lokalach w BistroMapa.`,
 		alternates: {

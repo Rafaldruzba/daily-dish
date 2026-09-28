@@ -57,6 +57,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 		title: `${cuisineName} w ${cityName} — najlepsze lokale`,
 		description: `Restauracje ${cuisineName.toLowerCase()} w ${cityName}. Sprawdź menu, zdjęcia i opinie lokali w BistroMapa.`,
 		alternates: {
+			canonical: `https://bistromapa.app/restaurants/${citySlug}/${categoryName}`
 			canonical: `https://bistromapa.app/restaurants/${citySlug}/${cuisineSlug}`,
 		},
 		// Kategoria bez realnej treści (poniżej progu) nie powinna trafiać do indeksu

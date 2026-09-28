@@ -68,6 +68,7 @@ export interface Restaurant {
 	subscription?: Subscription | null
 	subscriptions?: RawSubscription[]
 	user?: { name: string | null; email: string } | null
+	backgroundImageUrl?: string | null
 }
 
 export interface RestaurantCatalogProps {
@@ -185,6 +186,7 @@ export interface RestaurantDetail {
 		isActive: boolean
 	}>
 	menuItems?: MenuItem[]
+	backgroundImageUrl?: string | null
 }
 
 export interface EditFormState {
@@ -200,4 +202,5 @@ export interface EditFormState {
 	staticOfferDesc: string
 	staticOfferPrice: string
 	staticOfferImg: string
+	backgroundImageUrl: string
 }

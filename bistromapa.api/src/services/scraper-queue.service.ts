@@ -106,6 +106,20 @@ export const scraperWorker = new Worker(
 					}
 				}
 
+				// Jeśli FB dostarczyło dane ale bez obrazka, użyj zdjęcia tła (backgroundImageUrl)
+				if (!s3ImageUrl && dishResult) {
+					const bgImage = restaurant.backgroundImageUrl || null
+					if (bgImage) {
+						try {
+							// Upewniamy się, że zdjęcie tła jest dostępne (presigned URL nie potrzebne tu — zapisujemy oryginalny URL z bazy)
+							s3ImageUrl = bgImage
+							await logger.info(`📸 [Scraper Worker] Fallback zdjęcia tła dla ${name} z backgroundImageUrl`)
+						} catch (e: any) {
+							await logger.warn('⚠️ [Scraper Worker] Błąd przy fallback zdjęcia tła:', e.message || e)
+						}
+					}
+				}
+
 				// Sukces — zapisujemy pobrane danie w bazie
 				await prisma.dailyDish.upsert({
 					where: {

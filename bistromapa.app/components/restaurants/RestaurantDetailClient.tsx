@@ -108,6 +108,7 @@ export default function RestaurantDetailClient() {
 		staticOfferDesc: '',
 		staticOfferPrice: '',
 		staticOfferImg: '',
+		backgroundImageUrl: '',
 	})
 
 	// Popup
@@ -146,6 +147,42 @@ export default function RestaurantDetailClient() {
 			setError('Nie udało się przesłać zdjęcia.')
 		} finally {
 			setUploadingImage(false)
+		}
+	}
+
+	const [uploadingBackground, setUploadingBackground] = useState(false)
+
+	const handleBackgroundImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (!file || !restaurant) return
+
+		try {
+			setUploadingBackground(true)
+			setError('')
+			setSuccess('')
+
+			const formData = new FormData()
+			formData.append('image', file)
+
+			const res = await fetch(`${API_URL}/restaurants/${restaurant.id}/upload-background`, {
+				method: 'POST',
+				headers: token ? { Authorization: `Bearer ${token}` } : {},
+				body: formData,
+			})
+
+			const data = await res.json()
+			if (res.ok && data.success) {
+				setEditForm(prev => ({ ...prev, backgroundImageUrl: data.imageUrl }))
+				setSuccess('Zdjęcie tło zostało pomyślnie przesłane!')
+				fetchDetails()
+			} else {
+				setError(data.message || 'Błąd podczas przesyłania zdjęcia tła.')
+			}
+		} catch (err) {
+			console.error(err)
+			setError('Nie udało się przesłać zdjęcia tła.')
+		} finally {
+			setUploadingBackground(false)
 		}
 	}
 
@@ -264,6 +301,7 @@ export default function RestaurantDetailClient() {
 				staticOfferDesc: activeOffer ? activeOffer.description || '' : '',
 				staticOfferPrice: activeOffer && activeOffer.price !== null ? String(activeOffer.price) : '',
 				staticOfferImg: activeOffer ? activeOffer.imageUrl || '' : '',
+				backgroundImageUrl: data.backgroundImageUrl || '',
 			})
 
 			// Wczytanie opinii
@@ -324,6 +362,7 @@ export default function RestaurantDetailClient() {
 					description: editForm.description,
 					generalMenu: editForm.generalMenu,
 					cuisines: parseCuisinesInput(editForm.cuisines),
+					backgroundImageUrl: editForm.backgroundImageUrl || null,
 				}),
 			})
 
@@ -651,6 +690,18 @@ export default function RestaurantDetailClient() {
 					{error}
 				</div>
 			)}
+			{/* Main Profile Banner / Background Image */}
+			{restaurant.backgroundImageUrl && (
+				<div className='relative w-full h-48 md:h-64  overflow-hidden shadow-md mb-6'>
+					<img
+						src={restaurant.backgroundImageUrl}
+						alt={`${restaurant.name} — zdjęcie tła`}
+						className='w-full h-full object-cover'
+					/>
+					<div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent' />
+				</div>
+			)}
+
 			{/* Main Profile Info Card */}
 			<section className='border border-stone-200 bg-white p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm relative overflow-hidden text-left'>
 				<div className='space-y-4 flex-grow'>
@@ -1612,6 +1663,42 @@ export default function RestaurantDetailClient() {
 								/>
 							</div>
 
+							<div className='space-y-1.5 pt-2 border-t border-stone-100'>
+								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
+									Zdjęcie tła (banner profilu)
+								</label>
+								<div className='flex items-center gap-4 flex-wrap bg-white p-3 border border-stone-200'>
+									{editForm.backgroundImageUrl ? (
+										<div className='relative w-24 h-24 bg-stone-50 border border-stone-100 shadow-xs shrink-0 group'>
+											<img src={editForm.backgroundImageUrl} alt='Zdjęcie tło' className='w-full h-full object-cover' />
+											<button
+												type='button'
+												onClick={() => setEditForm(prev => ({ ...prev, backgroundImageUrl: '' }))}
+												className='absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-sm hover:bg-red-700 cursor-pointer transition-colors'
+												title='Usuń'>
+												<X className='w-3 h-3' />
+											</button>
+										</div>
+									) : (
+										<div className='w-24 h-24 border border-dashed border-stone-200 bg-stone-50 flex flex-col items-center justify-center text-stone-400 shrink-0'>
+											<Globe className='w-4 h-4 opacity-40 animate-pulse' style={{ animationDuration: '4s' }} />
+											<span className='text-[8px] font-mono mt-1'>Brak foto</span>
+										</div>
+									)}
+									<div className='flex-grow min-w-[180px] text-left'>
+										<input
+											type='file'
+											accept='image/*'
+											onChange={handleBackgroundImageUpload}
+											disabled={uploadingBackground}
+											className='block w-full text-[10px] text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:border file:border-stone-200 file:bg-stone-50 file:text-stone-700 file:font-mono file:text-[9px] file:uppercase file:font-bold file:tracking-wider file:cursor-pointer hover:file:border-black hover:file:text-black file:transition-all disabled:opacity-45'
+										/>
+										<p className='text-[9px] text-stone-400 mt-1 font-mono'>
+											{uploadingBackground ? 'Trwa przesyłanie...' : 'Zalecane: 16:9 JPG/PNG, max 5MB'}
+										</p>
+									</div>
+								</div>
+							</div>
 							<div className='flex gap-2 pt-4 border-t border-stone-100 font-mono text-[10px] uppercase tracking-wider font-bold'>
 								<button
 									type='submit'
