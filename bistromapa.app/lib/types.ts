@@ -34,7 +34,7 @@ export interface MenuItem {
 export interface RawSubscription {
 	id: string
 	restaurantId: string
-	type: 'BASE' | 'PROMOTION' | 'STATIC_MENU' | 'FREE_TRIAL'
+	type: 'BASE' | 'PROMOTION' | 'FREE_TRIAL'
 	status: string
 	startsAt: string
 	endsAt: string

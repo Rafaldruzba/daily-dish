@@ -1,1 +1,0 @@
-- Scrapper/SEO: scrapper nie wymaga zmian (imageUrl z FB CDN, storage przez backend PutObjectCommand); pozostały 3 zadania DB/Redis

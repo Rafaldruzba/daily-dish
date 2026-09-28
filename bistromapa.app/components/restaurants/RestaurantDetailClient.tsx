@@ -30,6 +30,8 @@ import { parseCuisinesInput, formatCuisine } from '@/lib/format'
 import { API_URL } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 
+import { trackEvent } from '@/lib/analytics'
+
 export default function RestaurantDetailClient() {
 	const { slug } = useParams<{ slug: string }>()
 	const router = useRouter()
@@ -333,6 +335,16 @@ export default function RestaurantDetailClient() {
 		fetchDetails()
 	}, [slug])
 
+	useEffect(() => {
+		if (!restaurant) return
+
+		trackEvent('view_restaurant', {
+			restaurant_id: restaurant.id,
+			restaurant_name: restaurant.name,
+			city: restaurant.city,
+		})
+	}, [restaurant])
+
 	// --- 2. Check Ownership ---
 	const isOwner = user && restaurant && (user.role === 'ADMIN' || restaurant.userId === user.id)
 
@@ -570,6 +582,11 @@ export default function RestaurantDetailClient() {
 			})
 			const data = await res.json()
 			if (res.ok) {
+				trackEvent('submit_review', {
+					restaurant_id: restaurant.id,
+					restaurant_name: restaurant.name,
+					rating: newRating,
+				})
 				setReviewSuccess('Dziękujemy! Twoja opinia została pomyślnie dodana.')
 				setNewComment('')
 				setNewRating(5)
@@ -750,7 +767,15 @@ export default function RestaurantDetailClient() {
 							<p className='flex items-center gap-2'>
 								<Phone className='w-4 h-4 text-stone-400 shrink-0' />
 								<strong>Telefon:</strong>{' '}
-								<a href={`tel:${restaurant.phone}`} className='hover:text-black hover:underline'>
+								<a
+									href={`tel:${restaurant.phone}`}
+									onClick={() =>
+										trackEvent('click_phone', {
+											restaurant_id: restaurant.id,
+											restaurant_name: restaurant.name,
+										})
+									}
+									className='hover:text-black hover:underline'>
 									{restaurant.phone}
 								</a>
 							</p>
@@ -1233,6 +1258,12 @@ export default function RestaurantDetailClient() {
 									{restaurant.facebookUrl ? (
 										<a
 											href={restaurant.facebookUrl}
+											onClick={() =>
+												trackEvent('facebook_click', {
+													restaurant_id: restaurant.id,
+													restaurant_name: restaurant.name,
+												})
+											}
 											target='_blank'
 											rel='noopener noreferrer'
 											className='w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-black hover:bg-stone-900 text-white font-mono text-xs uppercase tracking-widest font-bold transition-colors cursor-pointer shadow-sm'>

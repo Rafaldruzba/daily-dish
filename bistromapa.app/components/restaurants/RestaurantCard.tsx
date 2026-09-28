@@ -7,6 +7,7 @@ import { formatCuisine } from '@/lib/format'
 import { Heart, MapPin, Phone, Star } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { trackEvent } from '@/lib/analytics'
 
 interface RestaurantCardProps {
 	restaurant: Restaurant
@@ -31,6 +32,10 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 				if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
 					return
 				}
+				trackEvent('click_website', {
+					restaurant_id: restaurant.id,
+					restaurant_name: restaurant.name,
+				})
 				router.push(`/restaurant/${restaurant.slug}`)
 			}}
 			className={`cursor-pointer relative overflow-hidden p-6 border bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 transition-all ${
@@ -96,7 +101,15 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 					{restaurant.phone && (
 						<p className='flex items-center gap-1.5'>
 							<Phone className='w-3.5 h-3.5 text-stone-400 shrink-0' />
-							<a href={`tel:${restaurant.phone}`} className='hover:text-black'>
+							<a
+								href={`tel:${restaurant.phone}`}
+								className='hover:text-black'
+								onClick={() =>
+									trackEvent('click_phone', {
+										restaurant_id: restaurant.id,
+										restaurant_name: restaurant.name,
+									})
+								}>
 								{restaurant.phone}
 							</a>
 						</p>
@@ -126,6 +139,12 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 
 				<Link
 					href={`/restaurant/${restaurant.slug}`}
+					onClick={e => {
+						trackEvent('click_website', {
+							restaurant_id: restaurant.id,
+							restaurant_name: restaurant.name,
+						})
+					}}
 					className='px-3 py-2 border border-black text-black hover:bg-black hover:text-white transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer font-bold'>
 					Zobacz profil
 				</Link>
@@ -136,6 +155,10 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 						onClick={e => {
 							e.preventDefault()
 							e.stopPropagation()
+							trackEvent('facebook_click', {
+								restaurant_id: restaurant.id,
+								restaurant_name: restaurant.name,
+							})
 							window.open(restaurant.facebookUrl as string, '_blank', 'noopener,noreferrer')
 						}}
 						className='px-3 py-2 border border-stone-200 text-stone-600 hover:border-black hover:bg-stone-50 transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-white'>

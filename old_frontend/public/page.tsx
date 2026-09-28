@@ -7,6 +7,7 @@ import { useLocation } from '@/context/LocationContext'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Restaurant } from '@/lib/types'
+import { trackEvent } from '@/lib/analytics'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -261,7 +262,15 @@ export default function RestaurantsPage() {
 												{restaurant.phone && (
 													<p className='flex items-center gap-1.5'>
 														<Phone className='w-3.5 h-3.5 text-stone-400 shrink-0' />
-														<a href={`tel:${restaurant.phone}`} className='hover:text-black'>
+														<a
+															href={`tel:${restaurant.phone}`}
+															onClick={() =>
+																trackEvent('click_phone', {
+																	restaurant_id: restaurant.id,
+																	restaurant_name: restaurant.name,
+																})
+															}
+															className='hover:text-black'>
 															{restaurant.phone}
 														</a>
 													</p>

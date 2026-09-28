@@ -6,6 +6,7 @@ import { RefreshCw, Search, Loader, MapPin, Phone, Star, ArrowRight, Navigation 
 import Link from 'next/link'
 import { Coords, Restaurant, RestaurantWithCoords } from '@/lib/types'
 import { useLocation } from '@/context/LocationContext'
+import { trackEvent } from '@/lib/analytics'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -297,7 +298,13 @@ export default function MapPage() {
 										target='_blank'
 										rel='noopener noreferrer'
 										className='text-[10px] font-mono uppercase tracking-wider text-stone-500 hover:text-black flex items-center gap-1 font-semibold'
-										onClick={e => e.stopPropagation()}>
+										onClick={e => {
+											e.stopPropagation()
+											trackEvent('click_phone', {
+												restaurant_id: rest.id,
+												restaurant_name: rest.name,
+											})
+										}}>
 										<Navigation className='w-3 h-3' /> Google Maps
 									</a>
 									<Link
@@ -376,6 +383,12 @@ export default function MapPage() {
 										href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedRestaurant.name}, ${selectedRestaurant.address || ''}, ${selectedRestaurant.city}`)}`}
 										target='_blank'
 										rel='noopener noreferrer'
+										onClick={() =>
+											trackEvent('click_map', {
+												restaurant_id: selectedRestaurant.id,
+												restaurant_name: selectedRestaurant.name,
+											})
+										}
 										className='w-full text-center py-1.5 border border-stone-200 hover:border-black text-[10px] font-mono uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-stone-50 transition-colors font-bold text-stone-700'>
 										<Navigation className='w-3 h-3' /> Pokaż w Google Maps
 									</a>

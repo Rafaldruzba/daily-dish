@@ -7,8 +7,7 @@ export default function robots(): MetadataRoute.Robots {
 		rules: {
 			userAgent: '*',
 			allow: '/',
-			// Panel właściciela i strony logowania nie mają wartości w indeksie
-			disallow: ['/for-restaurants', '/login', '/register', '/reset-password'],
+			disallow: ['/for-restaurants', '/login', '/register', '/reset-password', '/admin', '/api/'],
 		},
 		sitemap: `${BASE_URL}/sitemap.xml`,
 		host: BASE_URL,

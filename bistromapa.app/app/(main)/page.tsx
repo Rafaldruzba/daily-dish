@@ -8,6 +8,8 @@ import { useLocation } from '@/context/LocationContext'
 import { useAuth } from '@/context/AuthContext'
 import { Preloader } from '@/components/ui/Preloader'
 
+import { trackEvent } from '@/lib/analytics'
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 const formatCurrency = (price: string | number | null) => {
@@ -298,13 +300,22 @@ function HomePageContent() {
 											if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
 												return
 											}
+
 											if (dish.restaurant) {
+												trackEvent('click_website', {
+													restaurant_id: dish.restaurant.id,
+													restaurant_name: dish.restaurant.name,
+												})
 												router.push(`/restaurant/${dish.restaurant.slug}`)
 											}
 										}}
 										onKeyDown={e => {
 											if (e.key === 'Enter' || e.key === ' ') {
 												if (dish.restaurant) {
+													trackEvent('click_website', {
+														restaurant_id: dish.restaurant.id,
+														restaurant_name: dish.restaurant.name,
+													})
 													router.push(`/restaurant/${dish.restaurant.slug}`)
 												}
 											}
@@ -392,7 +403,13 @@ function HomePageContent() {
 													{dish.restaurant.phone && (
 														<a
 															href={`tel:${dish.restaurant.phone}`}
-															onClick={e => e.stopPropagation()}
+															onClick={e => {
+																e.stopPropagation()
+																trackEvent('click_phone', {
+																	restaurant_id: dish.restaurant?.id,
+																	restaurant_name: dish.restaurant?.name,
+																})
+															}}
 															className='text-stone-500 hover:text-black text-xs font-mono flex items-center gap-1.5 transition-colors'
 															title='Zadzwoń do restauracji'>
 															<Phone className='w-3' />
@@ -409,6 +426,10 @@ function HomePageContent() {
 														onClick={e => {
 															e.stopPropagation()
 															dish.restaurant && handleRecordView(dish.restaurant.id)
+															trackEvent('facebook_click', {
+																restaurant_id: dish.restaurant && dish.restaurant.id,
+																restaurant_name: dish.restaurant && dish.restaurant.name,
+															})
 														}}
 														className='w-full text-center py-2 border border-black hover:bg-black hover:text-white transition-colors text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-1.5 cursor-pointer'>
 														Źródło oferty

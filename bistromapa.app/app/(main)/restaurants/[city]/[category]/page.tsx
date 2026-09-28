@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+
 import RestaurantCatalog from '@/components/restaurants/RestaurantCatalog'
+
+const BASE_URL = 'https://bistromapa.app'
 
 const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
@@ -28,16 +31,41 @@ interface CitySeoData {
 }
 
 /**
- * null  -> miasto nie istnieje (404)
- * undefined -> błąd backendu (nie chcemy fałszywego 404 przy chwilowej awarii)
+ * null      -> miasto nie istnieje -> 404
+ * undefined -> błąd backendu -> nie robimy fałszywego 404
  */
 async function getCityData(citySlug: string): Promise<CitySeoData | null | undefined> {
 	try {
-		const response = await fetch(`${API_URL}/seo/cities/${citySlug}`, { next: { revalidate: 3600 } })
-		if (response.status === 404) return null
-		if (!response.ok) return undefined
+		const response = await fetch(`${API_URL}/seo/cities/${encodeURIComponent(citySlug)}`, {
+			next: {
+				revalidate: 3600,
+			},
+		})
 
-		return await response.json()
+		if (response.status === 404) {
+			return null
+		}
+
+		if (!response.ok) {
+			return undefined
+		}
+
+		const data = await response.json()
+
+		return {
+			city: data.city,
+			citySlug: data.citySlug,
+			restaurantCount: Number(data.restaurantCount) || 0,
+			seoEnabled: Boolean(data.seoEnabled),
+			cuisines: Array.isArray(data.cuisines)
+				? data.cuisines.map((item: CityCuisine) => ({
+						name: item.name,
+						slug: item.slug,
+						count: Number(item.count) || 0,
+						seoEnabled: Boolean(item.seoEnabled),
+					}))
+				: [],
+		}
 	} catch {
 		return undefined
 	}
@@ -45,88 +73,224 @@ async function getCityData(citySlug: string): Promise<CitySeoData | null | undef
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
 	const { city, category } = await params
+
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const cuisineSlug = decodeURIComponent(category).toLowerCase()
 
 	const data = await getCityData(citySlug)
+
+	// Miasto nie istnieje
+	if (data === null) {
+		return {
+			title: 'Strona nie znaleziona | BistroMapa',
+			robots: {
+				index: false,
+				follow: true,
+			},
+		}
+	}
+
 	const cityName = data?.city ?? decodeURIComponent(city)
+
 	const cuisine = data?.cuisines.find(item => item.slug === cuisineSlug)
+
 	const cuisineName = cuisine?.name ?? decodeURIComponent(category)
 
+	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}/${cuisineSlug}`
+
+	const title = `${cuisineName} w ${cityName} — restauracje`
+
+	const description =
+		cuisine && cuisine.count > 0
+			? `Restauracje ${cuisineName.toLowerCase()} w ${cityName}. Znajdź ${cuisine.count} lokali, sprawdź menu, zdjęcia i opinie w BistroMapa.`
+			: `Restauracje ${cuisineName.toLowerCase()} w ${cityName}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
+
+	const shouldIndex = Boolean(cuisine) && Boolean(cuisine?.seoEnabled) && (cuisine?.count ?? 0) > 0
+
 	return {
-		title: `${cuisineName} w ${cityName} — najlepsze lokale`,
-		description: `Restauracje ${cuisineName.toLowerCase()} w ${cityName}. Sprawdź menu, zdjęcia i opinie lokali w BistroMapa.`,
+		title,
+		description,
+
 		alternates: {
-			canonical: `https://bistromapa.app/restaurants/${citySlug}/${categoryName}`
-			canonical: `https://bistromapa.app/restaurants/${citySlug}/${cuisineSlug}`,
+			canonical: canonicalUrl,
 		},
-		// Kategoria bez realnej treści (poniżej progu) nie powinna trafiać do indeksu
-		...((!cuisine || !cuisine.seoEnabled) && { robots: { index: false, follow: true } }),
+
+		robots: {
+			index: shouldIndex,
+			follow: true,
+		},
+
+		openGraph: {
+			type: 'website',
+			locale: 'pl_PL',
+			url: canonicalUrl,
+			siteName: 'BistroMapa',
+			title,
+			description,
+			images: [
+				{
+					url: `${BASE_URL}/logo.png`,
+					width: 1200,
+					height: 630,
+					alt: `${cuisineName} w ${cityName} — BistroMapa`,
+				},
+			],
+		},
+
+		twitter: {
+			card: 'summary_large_image',
+			title,
+			description,
+			images: [`${BASE_URL}/logo.png`],
+		},
 	}
 }
 
 export default async function CategoryRestaurantsPage({ params }: CategoryPageProps) {
 	const { city, category } = await params
+
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const cuisineSlug = decodeURIComponent(category).toLowerCase()
 
 	const data = await getCityData(citySlug)
+
+	// Prawdziwe 404 tylko gdy miasto faktycznie nie istnieje.
+	if (data === null) {
+		notFound()
+	}
+
 	const cityName = data?.city ?? decodeURIComponent(city)
+
 	const cuisine = data?.cuisines.find(item => item.slug === cuisineSlug)
 
-	// Miasto nie istnieje albo kuchnia nie występuje w tym mieście = brak treści
-	if (data === null || (data && !cuisine)) notFound()
+	// Jeżeli backend odpowiedział poprawnie i kuchni nie ma,
+	// URL nie reprezentuje istniejącej strony.
+	if (data && !cuisine) {
+		notFound()
+	}
 
 	const cuisineName = cuisine?.name ?? decodeURIComponent(category)
 
-	const otherCuisines = data?.cuisines.filter(item => item.seoEnabled && item.slug !== cuisineSlug) ?? []
+	const otherCuisines =
+		data?.cuisines.filter(item => item.seoEnabled && item.count > 0 && item.slug !== cuisineSlug) ?? []
+
+	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}/${cuisineSlug}`
+
+	const breadcrumbJsonLd = {
+		'@context': 'https://schema.org',
+		'@type': 'BreadcrumbList',
+		itemListElement: [
+			{
+				'@type': 'ListItem',
+				position: 1,
+				name: 'Restauracje',
+				item: `${BASE_URL}/restaurants`,
+			},
+			{
+				'@type': 'ListItem',
+				position: 2,
+				name: cityName,
+				item: `${BASE_URL}/restaurants/${citySlug}`,
+			},
+			{
+				'@type': 'ListItem',
+				position: 3,
+				name: cuisineName,
+				item: canonicalUrl,
+			},
+		],
+	}
+
+	const collectionPageJsonLd = {
+		'@context': 'https://schema.org',
+		'@type': 'CollectionPage',
+		name: `${cuisineName} w ${cityName}`,
+		url: canonicalUrl,
+		description: `Restauracje ${cuisineName.toLowerCase()} w ${cityName}.`,
+		isPartOf: {
+			'@type': 'WebSite',
+			name: 'BistroMapa',
+			url: BASE_URL,
+		},
+	}
 
 	return (
-		<main className='min-h-screen bg-[#fdfdfd]'>
-			<section className='mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8'>
-				<nav className='mb-6 font-mono text-[10px] uppercase tracking-wider text-stone-400 font-bold'>
-					<Link href='/restaurants' className='hover:text-black transition-colors'>
-						Restauracje
-					</Link>
-					<span className='mx-2'>/</span>
-					<Link href={`/restaurants/${citySlug}`} className='hover:text-black transition-colors'>
-						{cityName}
-					</Link>
-					<span className='mx-2'>/</span>
-					<span className='text-stone-600'>{cuisineName}</span>
-				</nav>
+		<>
+			<script
+				type='application/ld+json'
+				dangerouslySetInnerHTML={{
+					__html: JSON.stringify(breadcrumbJsonLd),
+				}}
+			/>
 
-				<div className='mb-10'>
-					<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>
-						{cuisineName} w {cityName}
-					</h1>
+			<script
+				type='application/ld+json'
+				dangerouslySetInnerHTML={{
+					__html: JSON.stringify(collectionPageJsonLd),
+				}}
+			/>
 
-					<p className='mt-3 max-w-2xl text-stone-600'>
-						Restauracje {cuisineName.toLowerCase()} w {cityName}. Sprawdź menu, zdjęcia i opinie.
-					</p>
+			<main className='min-h-screen bg-[#fdfdfd]'>
+				<section className='mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8'>
+					<nav
+						aria-label='Breadcrumb'
+						className='mb-6 font-mono text-[10px] uppercase tracking-wider text-stone-400 font-bold'>
+						<Link href='/restaurants' className='hover:text-black transition-colors'>
+							Restauracje
+						</Link>
 
-					{cuisine && (
-						<p className='mt-3 font-mono text-xs uppercase tracking-widest text-stone-400'>
-							{cuisine.count} restauracji
-						</p>
-					)}
-				</div>
+						<span className='mx-2'>/</span>
 
-				{otherCuisines.length > 0 && (
-					<nav className='mb-10 flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
-						{otherCuisines.map(item => (
-							<Link
-								key={item.slug}
-								href={`/restaurants/${citySlug}/${item.slug}`}
-								className='px-3 py-1.5 border border-stone-200 text-stone-600 hover:border-black hover:text-black transition-colors bg-white'>
-								{item.name} ({item.count})
-							</Link>
-						))}
+						<Link href={`/restaurants/${citySlug}`} className='hover:text-black transition-colors'>
+							{cityName}
+						</Link>
+
+						<span className='mx-2'>/</span>
+
+						<span className='text-stone-600'>{cuisineName}</span>
 					</nav>
-				)}
 
-				<RestaurantCatalog citySlug={citySlug} cuisine={cuisineSlug} />
-			</section>
-		</main>
+					<header className='mb-10'>
+						<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>
+							{cuisineName} w {cityName}
+						</h1>
+
+						<p className='mt-3 max-w-2xl text-stone-600'>
+							Restauracje {cuisineName.toLowerCase()} w {cityName}. Sprawdź menu, zdjęcia i opinie lokali.
+						</p>
+
+						{cuisine && (
+							<p className='mt-3 font-mono text-xs uppercase tracking-widest text-stone-400'>
+								{cuisine.count}{' '}
+								{cuisine.count === 1
+									? 'restauracja'
+									: cuisine.count >= 2 && cuisine.count <= 4
+										? 'restauracje'
+										: 'restauracji'}
+							</p>
+						)}
+					</header>
+
+					{otherCuisines.length > 0 && (
+						<nav aria-label={`Inne rodzaje kuchni w ${cityName}`} className='mb-10'>
+							<h2 className='mb-4 font-mono text-xs uppercase tracking-widest text-stone-400'>Inne rodzaje kuchni</h2>
+
+							<div className='flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
+								{otherCuisines.map(item => (
+									<Link
+										key={item.slug}
+										href={`/restaurants/${citySlug}/${item.slug}`}
+										className='px-3 py-1.5 border border-stone-200 text-stone-600 hover:border-black hover:text-black transition-colors bg-white'>
+										{item.name} ({item.count})
+									</Link>
+								))}
+							</div>
+						</nav>
+					)}
+
+					<RestaurantCatalog citySlug={citySlug} cuisine={cuisineSlug} />
+				</section>
+			</main>
+		</>
 	)
 }

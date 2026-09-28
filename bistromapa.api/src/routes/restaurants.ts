@@ -44,7 +44,6 @@ function mapRestaurantSubscription(restaurant: any) {
 		let plan = 'FREE_TRIAL'
 		if (latestSub.type === 'BASE') plan = 'BASE'
 		else if (latestSub.type === 'PROMOTION') plan = 'PROMOTION'
-		else if (latestSub.type === 'STATIC_MENU') plan = 'STATIC_MENU'
 
 		return {
 			...restaurant,
@@ -60,14 +59,12 @@ function mapRestaurantSubscription(restaurant: any) {
 	}
 
 	// Określ najwyższy poziom planu subskrypcji dla aktywnych planów
-	const hasStaticMenu = activeSubs.some((sub: any) => sub.type === 'STATIC_MENU')
 	const hasPromotion = activeSubs.some((sub: any) => sub.type === 'PROMOTION')
 	const hasBase = activeSubs.some((sub: any) => sub.type === 'BASE')
 	const hasTrial = activeSubs.some((sub: any) => sub.type === 'FREE_TRIAL')
 
 	let plan = 'FREE_TRIAL'
-	if (hasStaticMenu) plan = 'STATIC_MENU'
-	else if (hasPromotion) plan = 'PROMOTION'
+	if (hasPromotion) plan = 'PROMOTION'
 	else if (hasBase) plan = 'BASE'
 	else if (hasTrial) plan = 'FREE_TRIAL'
 
@@ -273,7 +270,7 @@ router.get('/:id', async (req, res) => {
 
 		// Próba wyszukania po unikalnym ID
 		restaurant = await prisma.restaurant.findUnique({
-			where: { id },
+			where: { id: id as string },
 			include: {
 				dishes: { orderBy: { date: 'desc' } },
 				menuItems: { orderBy: { order: 'asc' } },
@@ -343,7 +340,7 @@ router.post('/:id/view', async (req, res) => {
 		if (!id) return res.status(400).json({ success: false, message: 'Nieprawidłowe ID' })
 
 		await prisma.restaurant.update({
-			where: { id },
+			where: { id: id as string },
 			data: { views: { increment: 1 } },
 		})
 
@@ -390,7 +387,7 @@ router.post('/:id/upload-background', authenticate, upload.single('image'), asyn
 
 		// Zapisujemy URL zdjęcia tła w bazie
 		await prisma.restaurant.update({
-			where: { id },
+			where: { id: id as string },
 			data: { backgroundImageUrl: s3Url },
 		})
 
@@ -424,7 +421,7 @@ router.delete('/:id/background', authenticate, async (req: AuthRequest, res: Res
 		}
 
 		await prisma.restaurant.update({
-			where: { id },
+			where: { id: id as string },
 			data: { backgroundImageUrl: null },
 		})
 
@@ -544,7 +541,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 
 			restaurant = await prisma.$transaction(async tx => {
 				const rest = await tx.restaurant.update({
-					where: { id },
+					where: { id: id as string },
 					data: {
 						status: 'ACTIVE',
 						isActive: true, // Zatwierdzenie admina uaktywnia lokal (widoczny na mapie)
@@ -575,7 +572,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequ
 			})
 		} else {
 			restaurant = await prisma.restaurant.update({
-				where: { id },
+				where: { id: id as string },
 				data: { status: 'REJECTED', isActive: false },
 			})
 		}
@@ -601,7 +598,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 		}
 
 		const restaurant = await prisma.restaurant.findUnique({
-			where: { id },
+			where: { id: id as string },
 			include: { user: true },
 		})
 
@@ -617,7 +614,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 			await prisma.$transaction([
 				// 1. Upewnij się, że restauracja jest aktywna
 				prisma.restaurant.update({
-					where: { id },
+					where: { id: id as string },
 					data: { status: 'ACTIVE', isActive: true },
 				}),
 				// 2. Przedłużenie/nadpisanie subskrypcji próbnej
@@ -638,7 +635,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 			await prisma.$transaction([
 				// 1. Aktywuj restaurację
 				prisma.restaurant.update({
-					where: { id },
+					where: { id: id as string },
 					data: { status: 'ACTIVE', isActive: true },
 				}),
 				// 2. Aktywuj abonament podstawowy
@@ -660,7 +657,7 @@ router.put('/admin/:id/subscription', authenticate, requireAdmin, async (req: Au
 			await prisma.$transaction([
 				// 1. Zmiana statusu lokalu na REMOVAL
 				prisma.restaurant.update({
-					where: { id },
+					where: { id: id as string },
 					data: {
 						status: 'REMOVAL',
 						removalRequestedAt: now,

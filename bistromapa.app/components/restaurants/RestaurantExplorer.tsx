@@ -6,6 +6,7 @@ import { Search } from 'lucide-react'
 import RestaurantCard from './RestaurantCard'
 import { Restaurant } from '@/lib/types'
 import { API_URL } from '@/lib/api'
+import { trackEvent } from '@/lib/analytics'
 
 interface CityOption {
 	city: string
@@ -29,7 +30,9 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 			const query = params.toString()
 			const response = await fetch(`${API_URL}/restaurants${query ? `?${query}` : ''}`)
 			if (!response.ok) throw new Error('Nie udało się pobrać restauracji')
-
+			trackEvent('search', {
+				search_term: query,
+			})
 			setRestaurants(await response.json())
 		} catch (error) {
 			console.error('Błąd pobierania restauracji:', error)
@@ -51,7 +54,12 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 		if (!typed) return
 
 		const match = cities.find(city => city.city.toLowerCase() === typed || city.citySlug === typed)
-		if (match) router.push(`/restaurants/${match.citySlug}`)
+		if (match) {
+			router.push(`/restaurants/${match.citySlug}`)
+			trackEvent('search', {
+				search_term: typed,
+			})
+		}
 	}
 
 	return (
@@ -81,9 +89,7 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 							</option>
 						))}
 					</datalist>
-					<p className='text-[9px] text-stone-400 font-mono'>
-						Wybór miasta przenosi na jego stronę.
-					</p>
+					<p className='text-[9px] text-stone-400 font-mono'>Wybór miasta przenosi na jego stronę.</p>
 				</div>
 
 				<div className='space-y-1.5'>

@@ -24,6 +24,7 @@ import {
 import { Payment, Restaurant, RestaurantForm } from '@/lib/types'
 import { parseCuisinesInput } from '@/lib/format'
 import { useAuth } from '@/context/AuthContext'
+import { trackEvent } from '@/lib/analytics'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 const INITIAL_FORM_STATE: RestaurantForm = {
@@ -717,6 +718,10 @@ function ForRestaurantsContent() {
 			const data = await response.json()
 			if (!response.ok) throw new Error(data.message || 'Błąd.')
 			setSuccess(`Zgłoszono kandydaturę: ${data.name}`)
+			trackEvent('save_restaurant', {
+				restaurant_id: 'not available',
+				restaurant_name: form.name,
+			})
 			setForm(INITIAL_FORM_STATE)
 			loadOwnedRestaurants()
 		} catch (err: any) {

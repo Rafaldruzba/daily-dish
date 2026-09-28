@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { GoogleAnalytics } from '@next/third-parties/google'
 import { Providers } from './providers'
 import './globals.css'
 
@@ -86,7 +87,7 @@ const webSiteJsonLd = {
 		'@type': 'SearchAction',
 		target: {
 			'@type': 'EntryPoint',
-			urlTemplate: 'https://bistromapa.app/restauracje?q={search_term_string}',
+			urlTemplate: 'https://bistromapa.app/restaurants?q={search_term_string}',
 		},
 		'query-input': 'required name=search_term_string',
 	},
@@ -96,14 +97,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html lang='pl' suppressHydrationWarning>
 			<head>
-				<script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
-				<script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }} />
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify(organizationJsonLd),
+					}}
+				/>
+
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify(webSiteJsonLd),
+					}}
+				/>
+
 				<link rel='preconnect' href='https://maps.googleapis.com' />
 				<link rel='preconnect' href='https://fonts.googleapis.com' />
 				<link rel='preconnect' href='https://fonts.gstatic.com' crossOrigin='anonymous' />
 			</head>
+
 			<body className='min-h-screen bg-[#fdfdfd] text-stone-900 antialiased'>
 				<Providers>{children}</Providers>
+
+				{process.env.NEXT_PUBLIC_GA_ID && <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />}
 			</body>
 		</html>
 	)

@@ -56,7 +56,7 @@ model Subscription {
   restaurantId     String
   restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
-  type             String     // e.g., 'BASE', 'PROMOTION', 'STATIC_MENU'
+  type             String     // e.g., 'BASE', 'PROMOTION', 'FREE_TRIAL'
   status           String     // e.g., 'ACTIVE', 'EXPIRED', 'CANCELLED'
   
   startsAt         DateTime
