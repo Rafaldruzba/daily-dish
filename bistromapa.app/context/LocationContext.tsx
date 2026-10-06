@@ -31,6 +31,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 	const setLanguage = (lang: string) => {
 		setLanguageState(lang)
 		localStorage.setItem('user_language', lang)
+		document.cookie = 'NEXT_LOCALE=' + lang + ';path=/;max-age=31536000'
 	}
 
 	return (

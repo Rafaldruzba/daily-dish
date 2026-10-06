@@ -2,15 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocation } from '@/context/LocationContext'
+import { useTranslations } from 'next-intl'
 
 export function Navbar() {
+	const t = useTranslations('Navbar')
 	const { user, logout } = useAuth()
-	const { city, setCity } = useLocation()
+	const { city, setCity, setLanguage, language } = useLocation()
 	const pathname = usePathname()
+	const router = useRouter()
 	const [isOpen, setIsOpen] = useState(false)
 
 	const handleChangeCity = () => {
@@ -19,10 +22,31 @@ export function Navbar() {
 		window.location.reload()
 	}
 
+	const handleLanguageChange = (lang: 'pl' | 'en') => {
+		setLanguage(lang)
+
+		// pathname np. /pl/restaurants/lodz
+		// usuwamy obecny locale i dokładamy nowy
+		const segments = pathname.split('/').filter(Boolean)
+
+		if (segments[0] === 'pl' || segments[0] === 'en') {
+			segments[0] = lang
+		} else {
+			segments.unshift(lang)
+		}
+
+		const newPath = '/' + segments.join('/')
+
+		router.push(newPath)
+		setIsOpen(false)
+	}
+
 	const navLinkClass = (active: boolean) =>
 		`px-4 py-2 border-b-2 transition-colors ${
 			active ? 'border-black text-black font-bold' : 'border-transparent text-stone-500 hover:text-black'
 		}`
+
+	const isPolish = language === 'pl'
 
 	return (
 		<div className='relative'>
@@ -45,33 +69,56 @@ export function Navbar() {
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
-				<Link href='/' className={navLinkClass(pathname === '/')}>
+				<Link href={`/${language}`} className={navLinkClass(pathname === `/${language}`)}>
 					<span className='flex items-center gap-1.5'>
 						<Utensils className='w-3.5 h-3.5' />
-						Dania dnia
+						{t('home')}
 					</span>
 				</Link>
 
-				<Link href='/restaurants' className={navLinkClass(pathname === '/restaurants')}>
+				<Link href={`/${language}/restaurants`} className={navLinkClass(pathname === `/${language}/restaurants`)}>
 					<span className='flex items-center gap-1.5'>
 						<Store className='w-3.5 h-3.5' />
-						Katalog
+						{t('catalog')}
 					</span>
 				</Link>
 
-				<Link href='/map' className={navLinkClass(pathname === '/map')}>
+				<Link href={`/${language}/map`} className={navLinkClass(pathname === `/${language}/map`)}>
 					<span className='flex items-center gap-1.5'>
 						<Map className='w-3.5 h-3.5' />
-						Mapa lokali
+						{t('map')}
 					</span>
 				</Link>
 
-				<Link href='/for-restaurants' className={navLinkClass(pathname === '/for-restaurants')}>
+				<Link
+					href={`/${language}/for-restaurants`}
+					className={navLinkClass(pathname === `/${language}/for-restaurants`)}>
 					<span className='flex items-center gap-1.5'>
 						<Building className='w-3.5 h-3.5' />
-						{user ? 'PROFIL' : 'DLA RESTAURACJI'}
+						{user ? t('profile') : t('for-restaurants')}
 					</span>
 				</Link>
+
+				<div className='h-4 w-px bg-stone-200 mx-2'></div>
+
+				{/* Language switch */}
+				<div className='flex items-center border border-stone-200 bg-stone-50'>
+					<button
+						onClick={() => handleLanguageChange('pl')}
+						className={`px-2.5 py-1.5 transition-colors ${
+							isPolish ? 'bg-black text-white' : 'text-stone-500 hover:text-black hover:bg-stone-100'
+						}`}>
+						PL
+					</button>
+
+					<button
+						onClick={() => handleLanguageChange('en')}
+						className={`px-2.5 py-1.5 transition-colors ${
+							!isPolish ? 'bg-black text-white' : 'text-stone-500 hover:text-black hover:bg-stone-100'
+						}`}>
+						EN
+					</button>
+				</div>
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
@@ -80,31 +127,34 @@ export function Navbar() {
 						<span className='text-stone-400 flex items-center gap-1 text-[11px] font-sans normal-case'>
 							<User className='w-3.5 h-3.5 text-stone-500' />
 							{user.name || user.email}
+
 							{user.role === 'ADMIN' && (
 								<span className='text-[9px] uppercase tracking-widest bg-black text-white px-1.5 py-0.5 ml-1 font-mono'>
 									Admin
 								</span>
 							)}
 						</span>
+
 						<button
 							onClick={logout}
 							className='px-3 py-1.5 border border-stone-200 text-stone-700 hover:border-black hover:text-black transition-colors flex items-center gap-1.5 cursor-pointer'>
 							<LogOut className='w-3.5 h-3.5' />
-							Wyloguj
+							{t('logout')}
 						</button>
 					</div>
 				) : (
 					<div className='flex items-center gap-2'>
 						<Link
-							href='/login'
+							href={`/${language}/login`}
 							className='px-3 py-1.5 text-stone-700 hover:text-black transition-colors flex items-center gap-1.5'>
 							<LogIn className='w-3.5 h-3.5' />
-							Zaloguj
+							{t('login')}
 						</Link>
+
 						<Link
-							href='/register'
+							href={`/${language}/register`}
 							className='px-3 py-1.5 bg-black text-white hover:bg-stone-900 transition-colors flex items-center gap-1.5'>
-							Zarejestruj
+							{t('register')}
 						</Link>
 					</div>
 				)}
@@ -122,36 +172,69 @@ export function Navbar() {
 
 					<div className='flex flex-col gap-3'>
 						<Link
-							href='/'
+							href={`/${language}`}
 							onClick={() => setIsOpen(false)}
-							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
+							className={`py-2 flex items-center gap-2 ${
+								pathname === `/${language}` ? 'text-black font-bold' : 'text-stone-500'
+							}`}>
 							<Utensils className='w-4 h-4' />
-							Dania dnia
+							{t('home')}
 						</Link>
 
 						<Link
-							href='/restaurants'
+							href={`/${language}/restaurants`}
 							onClick={() => setIsOpen(false)}
-							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
+							className={`py-2 flex items-center gap-2 ${
+								pathname === `/${language}/restaurants` ? 'text-black font-bold' : 'text-stone-500'
+							}`}>
 							<Store className='w-4 h-4' />
-							Katalog
+							{t('catalog')}
 						</Link>
 
 						<Link
-							href='/map'
+							href={`/${language}/map`}
 							onClick={() => setIsOpen(false)}
-							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
+							className={`py-2 flex items-center gap-2 ${
+								pathname === `/${language}/map` ? 'text-black font-bold' : 'text-stone-500'
+							}`}>
 							<Map className='w-4 h-4' />
-							Mapa lokali
+							{t('map')}
 						</Link>
 
 						<Link
-							href='/for-restaurants'
+							href={`/${language}/for-restaurants`}
 							onClick={() => setIsOpen(false)}
-							className={`py-2 flex items-center gap-2 ${pathname === '/' ? 'text-black font-bold' : 'text-stone-500'}`}>
+							className={`py-2 flex items-center gap-2 ${
+								pathname === `/${language}/for-restaurants` ? 'text-black font-bold' : 'text-stone-500'
+							}`}>
 							<Building className='w-4 h-4' />
-							{user ? 'PROFIL' : 'DLA RESTAURACJI'}
+							{user ? t('profile') : t('for-restaurants')}
 						</Link>
+					</div>
+
+					<hr className='border-stone-100 my-1' />
+
+					{/* Mobile language switch */}
+					<div className='flex items-center justify-between py-2'>
+						<span className='text-[10px] text-stone-400 tracking-widest'>{t('language')}</span>
+
+						<div className='flex items-center border border-stone-200 bg-stone-50'>
+							<button
+								onClick={() => handleLanguageChange('pl')}
+								className={`px-3 py-1.5 transition-colors ${
+									isPolish ? 'bg-black text-white' : 'text-stone-500 hover:text-black hover:bg-stone-100'
+								}`}>
+								PL
+							</button>
+
+							<button
+								onClick={() => handleLanguageChange('en')}
+								className={`px-3 py-1.5 transition-colors ${
+									!isPolish ? 'bg-black text-white' : 'text-stone-500 hover:text-black hover:bg-stone-100'
+								}`}>
+								EN
+							</button>
+						</div>
 					</div>
 
 					<hr className='border-stone-100 my-1' />
@@ -161,15 +244,18 @@ export function Navbar() {
 							<div className='flex flex-col gap-0.5 normal-case font-sans text-stone-600 text-xs'>
 								<span className='font-semibold text-stone-900 flex items-center gap-1'>
 									<User className='w-3.5 h-3.5' />
-									{user.name || 'Użytkownik'}
+									{user.name || t('user')}
 								</span>
+
 								<span className='text-[10px] text-stone-400'>{user.email}</span>
+
 								{user.role === 'ADMIN' && (
 									<span className='text-[8px] uppercase tracking-widest bg-black text-white px-1.5 py-0.5 w-max font-mono mt-1'>
 										Admin
 									</span>
 								)}
 							</div>
+
 							<button
 								onClick={() => {
 									logout()
@@ -177,23 +263,24 @@ export function Navbar() {
 								}}
 								className='w-full py-2 border border-stone-200 text-stone-700 hover:border-black hover:text-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer'>
 								<LogOut className='w-3.5 h-3.5' />
-								Wyloguj
+								{t('logout')}
 							</button>
 						</div>
 					) : (
 						<div className='flex flex-col gap-2'>
 							<Link
-								href='/logowanie'
+								href={`/${language}/login`}
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 border border-stone-200 text-stone-700 hover:border-black hover:text-black transition-colors flex items-center justify-center gap-1.5'>
 								<LogIn className='w-3.5 h-3.5' />
-								Zaloguj
+								{t('login')}
 							</Link>
+
 							<Link
-								href='/rejestracja'
+								href={`/${language}/register`}
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 bg-black text-white hover:bg-stone-900 transition-colors flex items-center justify-center gap-1.5 text-center'>
-								Zarejestruj
+								{t('register')}
 							</Link>
 						</div>
 					)}

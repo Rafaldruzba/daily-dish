@@ -1,0 +1,11 @@
+{
+	"Preloader": {
+		"title": "Welcome to BistroMapa!",
+		"subtitle": "Before we start, tell us where you're looking for food.",
+		"inputPlaceholder": "Enter city, e.g. London",
+		"searchBtn": "Search restaurants",
+		"radius": "(within 30km)",
+		"languagePolish": "Polski",
+		"languageEnglish": "English"
+	}
+}

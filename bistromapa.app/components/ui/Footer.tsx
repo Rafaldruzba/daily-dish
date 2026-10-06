@@ -4,10 +4,12 @@ import { useState, type FormEvent } from 'react'
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import { Mail, Send } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
+import { useTranslations } from 'next-intl'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_MAIL || 'kontakt@bistromapa.app'
 
 export function Footer() {
+	const t = useTranslations('Footer')
 	const { executeRecaptcha } = useGoogleReCaptcha()
 	const [email, setEmail] = useState('')
 	const [description, setDescription] = useState('')
@@ -21,20 +23,20 @@ export function Footer() {
 		setSuccess('')
 
 		if (!email.trim()) {
-			setError('Podaj adres e-mail.')
+			setError(t('address-email'))
 			return
 		}
 		if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-			setError('Podaj poprawny adres e-mail.')
+			setError(t('address-email-again'))
 			return
 		}
 		if (description.trim().length < 10) {
-			setError('Napisz wiadomość (min. 10 znaków).')
+			setError(t('write-message'))
 			return
 		}
 
 		if (!executeRecaptcha) {
-			setError('System weryfikacji antyspamowej nie jest jeszcze gotowy. Odśwież stronę.')
+			setError(t('anti-spam-sys'))
 			return
 		}
 
@@ -50,11 +52,11 @@ export function Footer() {
 				body: JSON.stringify({ email: email.trim(), description: description.trim(), recaptchaToken }),
 			})
 
-			setSuccess('Wiadomość została wysłana. Dziękujemy za kontakt!')
+			setSuccess(t('message-sent'))
 			setEmail('')
 			setDescription('')
 		} catch (err: any) {
-			setError(err.message || 'Wystąpił błąd podczas wysyłania wiadomości.')
+			setError(err.message || t('message-error'))
 		} finally {
 			setLoading(false)
 		}
@@ -71,7 +73,7 @@ export function Footer() {
 							<span className='font-mono text-sm font-black tracking-widest text-stone-900'>BISTRO MAPA</span>
 						</div>
 						<p className='font-mono text-xs text-stone-400 uppercase tracking-wide'>
-							© {new Date().getFullYear()} BistroMapa. Wszystkie prawa zastrzeżone.
+							© {new Date().getFullYear()} BistroMapa. {t('copywright')}
 						</p>
 						<a
 							href={`mailto:${CONTACT_EMAIL}`}
@@ -83,24 +85,28 @@ export function Footer() {
 
 					{/* Kontakt */}
 					<div className='text-left'>
-						<h3 className='font-mono text-xs uppercase tracking-widest text-stone-900 font-bold mb-3'>Kontakt</h3>
+						<h3 className='font-mono text-xs uppercase tracking-widest text-stone-900 font-bold mb-3'>
+							{t('contact')}
+						</h3>
 						<form onSubmit={handleSubmit} className='space-y-3 font-sans text-xs'>
 							<div className='space-y-1'>
-								<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Twój e-mail *</label>
+								<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
+									{t('your-address-email')}
+								</label>
 								<input
 									type='email'
 									value={email}
 									onChange={e => setEmail(e.target.value)}
-									placeholder='np. jan@przyklad.pl'
+									placeholder={t('address-email-example')}
 									className='w-full px-3 py-2 bg-white border border-stone-200 outline-none text-sm focus:border-stone-400'
 								/>
 							</div>
 							<div className='space-y-1'>
-								<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>Wiadomość *</label>
+								<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>{t('message')}</label>
 								<textarea
 									value={description}
 									onChange={e => setDescription(e.target.value)}
-									placeholder='Napisz do nas...'
+									placeholder={t('textarea-placeholder')}
 									rows={3}
 									className='w-full px-3 py-2 bg-white border border-stone-200 outline-none text-sm resize-none focus:border-stone-400'
 								/>
@@ -112,10 +118,10 @@ export function Footer() {
 								disabled={loading}
 								className='w-full bg-black text-white hover:bg-stone-900 transition-colors py-2.5 font-mono text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50'>
 								{loading ? (
-									'Wysyłanie...'
+									t('sending')
 								) : (
 									<>
-										<Send className='w-3.5 h-3.5' /> Wyślij
+										<Send className='w-3.5 h-3.5' /> {t('send')}
 									</>
 								)}
 							</button>
@@ -124,17 +130,17 @@ export function Footer() {
 
 					{/* Linki */}
 					<div className='text-left'>
-						<h3 className='font-mono text-xs uppercase tracking-widest text-stone-900 font-bold mb-3'>Informacje</h3>
+						<h3 className='font-mono text-xs uppercase tracking-widest text-stone-900 font-bold mb-3'>{t('info')}</h3>
 						<div className='flex flex-col items-start gap-2 font-mono text-xs text-stone-400'>
 							<a href='/regulamin.pdf' target='_blank' rel='noreferrer' className='hover:text-black transition-colors'>
-								Regulamin
+								{t('terms')}
 							</a>
 							<a
 								href='/policy-privacy.pdf'
 								target='_blank'
 								rel='noreferrer'
 								className='hover:text-black transition-colors'>
-								Prywatność
+								{t('privacy-policy')}
 							</a>
 							<a
 								href='https://github.com/Rafaldruzba/daily-dish'
@@ -148,7 +154,7 @@ export function Footer() {
 								target='_blank'
 								rel='noreferrer'
 								className='hover:text-black transition-colors'>
-								COFFE
+								COFFEE
 							</a>
 						</div>
 					</div>
