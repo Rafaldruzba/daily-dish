@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 import { Home, Compass } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 export default function NotFoundPage() {
+	const t = useTranslations('NotFound')
 	const router = useRouter()
 	const [countdown, setCountdown] = useState(5)
 
@@ -37,16 +39,18 @@ export default function NotFoundPage() {
 				</div>
 
 				<div className='space-y-2'>
-					<span className='text-xs uppercase tracking-widest font-mono text-stone-400'>Błąd nawigacji</span>
-					<h1 className='text-2xl font-bold font-serif text-stone-900'>Zagubiono drogę</h1>
-					<p className='text-stone-500 text-xs leading-relaxed max-w-sm mx-auto font-sans'>
-						Strona, której szukasz, nie istnieje lub została przeniesiona. Nie martw się, sprowadzimy Cię z powrotem na
-						właściwy szlak.
-					</p>
+					<span className='text-xs uppercase tracking-widest font-mono text-stone-400'>{t('error')}</span>
+					<h1 className='text-2xl font-bold font-serif text-stone-900'>{t('way')}</h1>
+					<p className='text-stone-500 text-xs leading-relaxed max-w-sm mx-auto font-sans'>{t('text')}</p>
 				</div>
 
 				<div className='bg-stone-50 border border-stone-100 p-3 text-[11px] font-mono text-stone-500'>
-					Automatyczne przekierowanie do strony głównej za <span className='font-bold text-black'>{countdown}s</span>...
+					{t('text2')}{' '}
+					<span className='font-bold text-black'>
+						{countdown}
+						{t('s')}
+					</span>
+					{t('dots')}
 				</div>
 
 				<div className='pt-2'>
@@ -54,7 +58,7 @@ export default function NotFoundPage() {
 						href='/'
 						className='w-full bg-black text-white hover:bg-stone-900 transition-colors py-3 font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer'>
 						<Home className='w-4 h-4' />
-						Wróć do strony głównej
+						{t('back')}
 					</Link>
 				</div>
 			</div>

@@ -3,6 +3,7 @@ import { Link } from '@/lib/navigation'
 import { notFound } from 'next/navigation'
 
 import RestaurantCatalog from '@/components/restaurants/RestaurantCatalog'
+import { useTranslations } from 'next-intl'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -147,6 +148,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 }
 
 export default async function CategoryRestaurantsPage({ params }: CategoryPageProps) {
+	const t = useTranslations('CategoryPage')
 	const { city, category } = await params
 
 	const citySlug = decodeURIComponent(city).toLowerCase()
@@ -236,7 +238,7 @@ export default async function CategoryRestaurantsPage({ params }: CategoryPagePr
 						aria-label='Breadcrumb'
 						className='mb-6 font-mono text-[10px] uppercase tracking-wider text-stone-400 font-bold'>
 						<Link href='/restaurants' className='hover:text-black transition-colors'>
-							Restauracje
+							{t('restaurants')}
 						</Link>
 
 						<span className='mx-2'>/</span>
@@ -252,28 +254,28 @@ export default async function CategoryRestaurantsPage({ params }: CategoryPagePr
 
 					<header className='mb-10'>
 						<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>
-							{cuisineName} w {cityName}
+							{cuisineName} {t('in')} {cityName}
 						</h1>
 
 						<p className='mt-3 max-w-2xl text-stone-600'>
-							Restauracje {cuisineName.toLowerCase()} w {cityName}. Sprawdź menu, zdjęcia i opinie lokali.
+							{t('restaurants')} {cuisineName.toLowerCase()} {t('in')} {cityName}. {t('text')}
 						</p>
 
 						{cuisine && (
 							<p className='mt-3 font-mono text-xs uppercase tracking-widest text-stone-400'>
 								{cuisine.count}{' '}
 								{cuisine.count === 1
-									? 'restauracja'
+									? t('restaurant-a')
 									: cuisine.count >= 2 && cuisine.count <= 4
-										? 'restauracje'
-										: 'restauracji'}
+										? t('restaurant-e')
+										: t('restaurant-i')}
 							</p>
 						)}
 					</header>
 
 					{otherCuisines.length > 0 && (
-						<nav aria-label={`Inne rodzaje kuchni w ${cityName}`} className='mb-10'>
-							<h2 className='mb-4 font-mono text-xs uppercase tracking-widest text-stone-400'>Inne rodzaje kuchni</h2>
+						<nav aria-label={`${t('aria-label')} ${cityName}`} className='mb-10'>
+							<h2 className='mb-4 font-mono text-xs uppercase tracking-widest text-stone-400'>{t('cuisine')}</h2>
 
 							<div className='flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-wider font-bold'>
 								{otherCuisines.map(item => (

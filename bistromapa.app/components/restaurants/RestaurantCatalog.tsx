@@ -82,9 +82,9 @@ export default function RestaurantCatalog({ citySlug, cuisine }: RestaurantCatal
 	if (restaurants.length === 0) {
 		return (
 			<div className='border border-dashed border-stone-200 bg-stone-50 p-10 text-center'>
-				<h2 className='text-lg font-bold font-serif text-stone-900'>Nie znaleziono restauracji</h2>
+				<h2 className='text-lg font-bold font-serif text-stone-900'>{t('not-fonud-restaurant')}</h2>
 
-				<p className='mt-2 text-stone-500 text-sm'>Spróbuj wybrać inne miasto lub kategorię.</p>
+				<p className='mt-2 text-stone-500 text-sm'>{t('change-category')}</p>
 			</div>
 		)
 	}
@@ -104,7 +104,9 @@ export default function RestaurantCatalog({ citySlug, cuisine }: RestaurantCatal
 				</nav>
 			)}
 
-			<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Znaleziono: {restaurants.length}</p>
+			<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>
+				{t('found')} {restaurants.length}
+			</p>
 
 			<div className='grid gap-6 sm:grid-cols-1 lg:grid-cols-2'>
 				{restaurants.map(restaurant => (

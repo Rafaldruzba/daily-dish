@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import RestaurantDetailClient from '@/components/restaurants/RestaurantDetailClient'
+import { useTranslations } from 'next-intl'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -146,6 +147,7 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 }
 
 export default async function RestaurantPage({ params }: RestaurantPageProps) {
+	const t = useTranslations('Restaurant-slug')
 	const { slug } = await params
 	const restaurant = await getRestaurant(slug)
 
@@ -270,7 +272,7 @@ export default async function RestaurantPage({ params }: RestaurantPageProps) {
 			<Suspense
 				fallback={
 					<div className='flex min-h-[50vh] items-center justify-center'>
-						<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie profilu...</p>
+						<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>{t('profile')}</p>
 					</div>
 				}>
 				<RestaurantDetailClient />

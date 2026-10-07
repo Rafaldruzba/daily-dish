@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo, type FormEvent } from 'react'
 import { Link } from '@/lib/navigation'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 
 import {
 	MapPin,
@@ -29,10 +30,12 @@ import { EditFormState, MenuItem, RestaurantDetail } from '@/lib/types'
 import { parseCuisinesInput, formatCuisine } from '@/lib/format'
 import { API_URL } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
-
 import { trackEvent } from '@/lib/analytics'
 
+import { useTranslations } from 'next-intl'
+
 export default function RestaurantDetailClient() {
+	const t = useTranslations('DetailClient')
 	const { slug } = useParams<{ slug: string }>()
 	const router = useRouter()
 	const { user, token, toggleFavorite, isFavorite } = useAuth()
@@ -50,7 +53,7 @@ export default function RestaurantDetailClient() {
 	const handleShare = async () => {
 		const shareData = {
 			title: restaurant?.name || 'Bistromapa',
-			text: `Sprawdź menu i oferty dnia w restauracji ${restaurant?.name} na Bistromapa.pl!`,
+			text: `${t('share.shareText1')} ${restaurant?.name} ${t('share.shareText2')}`,
 			url: window.location.href,
 		}
 
@@ -140,13 +143,13 @@ export default function RestaurantDetailClient() {
 			const data = await res.json()
 			if (res.ok && data.success) {
 				setEditForm(prev => ({ ...prev, staticOfferImg: data.imageUrl }))
-				setSuccess('Zdjęcie zostało pomyślnie przesłane na S3!')
+				setSuccess(t('offers.uploaded'))
 			} else {
-				setError(data.message || 'Błąd podczas przesyłania zdjęcia.')
+				setError(data.message || t('offers.uploadError'))
 			}
 		} catch (err) {
 			console.error(err)
-			setError('Nie udało się przesłać zdjęcia.')
+			setError(t('errors.uploadImage'))
 		} finally {
 			setUploadingImage(false)
 		}
@@ -175,14 +178,14 @@ export default function RestaurantDetailClient() {
 			const data = await res.json()
 			if (res.ok && data.success) {
 				setEditForm(prev => ({ ...prev, backgroundImageUrl: data.imageUrl }))
-				setSuccess('Zdjęcie tło zostało pomyślnie przesłane!')
+				setSuccess(t('offers.backgroundUploaded'))
 				fetchDetails()
 			} else {
-				setError(data.message || 'Błąd podczas przesyłania zdjęcia tła.')
+				setError(data.message || t('offers.backgroundUploadError'))
 			}
 		} catch (err) {
 			console.error(err)
-			setError('Nie udało się przesłać zdjęcia tła.')
+			setError(t('errors.uploadBackground'))
 		} finally {
 			setUploadingBackground(false)
 		}
@@ -280,8 +283,8 @@ export default function RestaurantDetailClient() {
 			setError('')
 			const response = await fetch(`${API_URL}/restaurants/${slug}`)
 			if (!response.ok) {
-				if (response.status === 404) throw new Error('Restauracja nie istnieje')
-				throw new Error('Nie udało się pobrać danych lokalu')
+				if (response.status === 404) throw new Error(t('errors.restaurantNotFound'))
+				throw new Error(t('errors.fetchRestaurant'))
 			}
 			const data: RestaurantDetail = await response.json()
 			setRestaurant(data)
@@ -313,7 +316,7 @@ export default function RestaurantDetailClient() {
 			fetch(`${API_URL}/restaurants/${data.id}/view`, { method: 'POST' }).catch(() => {})
 		} catch (err) {
 			console.error(err)
-			setError(err instanceof Error ? err.message : 'Wystąpił błąd połączenia')
+			setError(err instanceof Error ? err.message : t('errors.connection'))
 		} finally {
 			setLoading(false)
 		}
@@ -380,7 +383,7 @@ export default function RestaurantDetailClient() {
 
 			if (!response.ok) {
 				const data = await response.json()
-				throw new Error(data.message || 'Nie udało się zaktualizować profilu.')
+				throw new Error(data.message || t('errors.saveProfile'))
 			}
 
 			// 2. Zapisujemy lub aktualizujemy StandardOffer w odrębnej powiązanej tabeli
@@ -409,18 +412,18 @@ export default function RestaurantDetailClient() {
 
 				if (!offerRes.ok) {
 					const data = await offerRes.json()
-					throw new Error(data.message || 'Nie udało się zapisać Oferty Stałej.')
+					throw new Error(data.message || t('errors.saveOffer'))
 				}
 			}
 
-			setSuccess('Profil restauracji oraz Oferta Stała zostały pomyślnie zaktualizowane!')
+			setSuccess(t('offers.saved'))
 			setIsEditing(false)
 
 			// Refresh page details
 			fetchDetails()
 		} catch (err) {
 			console.error(err)
-			setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisywania.')
+			setError(err instanceof Error ? err.message : t('errors.genericSave'))
 		} finally {
 			setSaving(false)
 		}
@@ -432,7 +435,7 @@ export default function RestaurantDetailClient() {
 			restaurant.standardOffers && restaurant.standardOffers.length > 0 ? restaurant.standardOffers[0] : null
 		if (!activeOffer) return
 
-		if (!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć Ofertę Stałą?')) return
+		if (!window.confirm(t('offers.deleteConfirm'))) return
 
 		try {
 			setSaving(true)
@@ -445,7 +448,7 @@ export default function RestaurantDetailClient() {
 			})
 
 			if (res.ok) {
-				setSuccess('Oferta Stała została pomyślnie usunięta!')
+				setSuccess(t('offers.deleted'))
 				setEditForm(prev => ({
 					...prev,
 					staticOfferTitle: '',
@@ -456,11 +459,11 @@ export default function RestaurantDetailClient() {
 				fetchDetails()
 			} else {
 				const data = await res.json()
-				setError(data.message || 'Nie udało się usunąć Oferty Stałej.')
+				setError(data.message || t('errors.deleteOffer'))
 			}
 		} catch (err) {
 			console.error(err)
-			setError('Błąd połączenia z serwerem.')
+			setError(t('errors.serverConnection'))
 		} finally {
 			setSaving(false)
 		}
@@ -492,7 +495,7 @@ export default function RestaurantDetailClient() {
 
 		const itemsToSubmit = newMenuItems.filter(item => item.name.trim() !== '')
 		if (itemsToSubmit.length === 0) {
-			setMenuError('Podaj przynajmniej nazwę dla dodawanej pozycji.')
+			setMenuError(t('errors.addMenuItemValidation'))
 			return
 		}
 
@@ -512,7 +515,7 @@ export default function RestaurantDetailClient() {
 
 			if (!response.ok) {
 				const data = await response.json()
-				throw new Error(data.message || 'Nie udało się dodać pozycji do menu.')
+				throw new Error(data.message || t('errors.addMenuItem'))
 			}
 
 			// Refresh details from backend
@@ -523,11 +526,11 @@ export default function RestaurantDetailClient() {
 				setMenuItems(freshData.menuItems || [])
 			}
 
-			setMenuSuccess('Pozycje zostały pomyślnie dodane do menu!')
+			setMenuSuccess(t('menu.added'))
 			setNewMenuItems([{ name: '', description: '', price: '', category: '' }])
 		} catch (err) {
 			console.error(err)
-			setMenuError(err instanceof Error ? err.message : 'Błąd podczas dodawania pozycji.')
+			setMenuError(err instanceof Error ? err.message : t('errors.menuAddError'))
 		} finally {
 			setMenuActionLoading(false)
 		}
@@ -535,7 +538,7 @@ export default function RestaurantDetailClient() {
 
 	const handleDeleteMenuItem = async (itemId: string) => {
 		if (!restaurant || !token) return
-		if (!window.confirm('Czy na pewno chcesz usunąć tę pozycję z menu?')) return
+		if (!window.confirm(t('menu.deleteConfirm'))) return
 
 		try {
 			setMenuActionLoading(true)
@@ -551,14 +554,14 @@ export default function RestaurantDetailClient() {
 
 			if (!response.ok) {
 				const data = await response.json()
-				throw new Error(data.message || 'Nie udało się usunąć pozycji z menu.')
+				throw new Error(data.message || t('errors.deleteMenuItem'))
 			}
 
 			setMenuItems(prev => prev.filter(item => item.id !== itemId))
-			setMenuSuccess('Pozycja została pomyślnie usunięta z menu!')
+			setMenuSuccess(t('menu.deleted'))
 		} catch (err) {
 			console.error(err)
-			setMenuError(err instanceof Error ? err.message : 'Błąd podczas usuwania pozycji.')
+			setMenuError(err instanceof Error ? err.message : t('errors.menuDeleteError'))
 		} finally {
 			setMenuActionLoading(false)
 		}
@@ -587,17 +590,17 @@ export default function RestaurantDetailClient() {
 					restaurant_name: restaurant.name,
 					rating: newRating,
 				})
-				setReviewSuccess('Dziękujemy! Twoja opinia została pomyślnie dodana.')
+				setReviewSuccess(t('reviews.success'))
 				setNewComment('')
 				setNewRating(5)
 				loadReviews(restaurant.id)
 				fetchDetails() // Odświeża średnią ocenę
 			} else {
-				setReviewError(data.message || 'Nie udało się dodać opinii.')
+				setReviewError(data.message || t('errors.reviewSubmit'))
 			}
 		} catch (err) {
 			console.error('Error submitting review:', err)
-			setReviewError('Wystąpił błąd połączenia z serwerem.')
+			setReviewError(t('errors.reviewConnection'))
 		} finally {
 			setSubmittingReview(false)
 		}
@@ -661,7 +664,7 @@ export default function RestaurantDetailClient() {
 		return (
 			<div className='flex flex-col items-center justify-center min-h-[50vh] space-y-4'>
 				<Loader className='w-8 h-8 text-black animate-spin' />
-				<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Ładowanie profilu lokalu...</p>
+				<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>{t('loading')}</p>
 			</div>
 		)
 	}
@@ -672,14 +675,14 @@ export default function RestaurantDetailClient() {
 				<div className='w-12 h-12 bg-stone-50 border border-stone-200 text-stone-800 flex items-center justify-center font-serif text-lg font-bold mx-auto shadow-sm'>
 					!
 				</div>
-				<h1 className='text-2xl font-bold font-serif text-stone-900'>Coś poszło nie tak</h1>
+				<h1 className='text-2xl font-bold font-serif text-stone-900'>{t('somethingWentWrong')}</h1>
 				<p className='text-stone-500 text-sm max-w-md mx-auto leading-relaxed'>
-					{error || 'Restauracja nie została znaleziona.'}
+					{error || t('errors.restaurantMissing')}
 				</p>
 				<Link
 					href='/'
 					className='inline-flex items-center gap-1.5 px-4 py-2 border border-black hover:bg-black hover:text-white transition-colors font-mono text-xs uppercase tracking-widest font-bold cursor-pointer'>
-					<ArrowLeft className='w-4 h-4' /> Powrót
+					<ArrowLeft className='w-4 h-4' /> {t('navigation.back')}
 				</Link>
 			</main>
 		)
@@ -694,7 +697,7 @@ export default function RestaurantDetailClient() {
 				<Link
 					href='/'
 					className='inline-flex items-center gap-1.5 text-stone-500 hover:text-black font-mono text-xs uppercase tracking-widest transition-colors font-bold'>
-					<ArrowLeft className='w-4 h-4' /> Powrót
+					<ArrowLeft className='w-4 h-4' /> {t('navigation.back')}
 				</Link>
 			</div>
 			{success && (
@@ -732,7 +735,7 @@ export default function RestaurantDetailClient() {
 									{Number(restaurant.rating).toFixed(1)}
 								</span>
 							) : (
-								<span className='text-xs font-mono text-stone-400'>Brak ocen</span>
+								<span className='text-xs font-mono text-stone-400'>{t('restaurant.noRating')}</span>
 							)}
 						</div>
 						<span className='font-mono text-[10px] uppercase tracking-wider text-stone-400 block mt-1'>
@@ -754,19 +757,19 @@ export default function RestaurantDetailClient() {
 					</div>
 
 					<p className='text-stone-600 text-sm md:text-base leading-relaxed font-sans max-w-2xl'>
-						{restaurant.description || 'Ten lokal nie dodał jeszcze swojego opisu.'}
+						{restaurant.description || t('restaurant.noDescription')}
 					</p>
 
 					{/* Metadata fields */}
 					<div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs font-sans text-stone-500 border-t border-stone-100'>
 						<p className='flex items-center gap-2'>
 							<MapPin className='w-4 h-4 text-stone-400 shrink-0' />
-							<strong>Adres:</strong> {restaurant.address}, {restaurant.city}
+							<strong>{t('restaurant.address')}</strong> {restaurant.address}, {restaurant.city}
 						</p>
 						{restaurant.phone && (
 							<p className='flex items-center gap-2'>
 								<Phone className='w-4 h-4 text-stone-400 shrink-0' />
-								<strong>Telefon:</strong>{' '}
+								<strong>{t('restaurant.phone')}</strong>{' '}
 								<a
 									href={`tel:${restaurant.phone}`}
 									onClick={() =>
@@ -793,10 +796,10 @@ export default function RestaurantDetailClient() {
 								? 'border-green-600 bg-green-50 text-green-600 animate-pulse'
 								: 'border-stone-200 text-stone-500 hover:border-black hover:text-black hover:bg-stone-50'
 						}`}
-						title='Udostępnij ten lokal'>
+						title={t('share.title')}>
 						<Share2 className='w-4 h-4' />
 						<span className='text-[10px] font-mono uppercase tracking-wider font-bold'>
-							{copied ? 'Skopiowano!' : 'Udostępnij'}
+							{copied ? t('share.copied') : t('share.button')}
 						</span>
 					</button>
 
@@ -821,7 +824,9 @@ export default function RestaurantDetailClient() {
 							className='p-3 border border-stone-200 hover:border-black hover:bg-stone-50 text-stone-500 hover:text-black transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm'
 							title='Zgłoś błąd w danych lokalu'>
 							<Flag className='w-4 h-4 text-red-600 shrink-0' />
-							<span className='text-[10px] font-mono uppercase tracking-wider font-bold'>Zgłoś błąd</span>
+							<span className='text-[10px] font-mono uppercase tracking-wider font-bold'>
+								{t('restaurant.reportError')}
+							</span>
 						</button>
 					)}
 
@@ -830,7 +835,7 @@ export default function RestaurantDetailClient() {
 						<button
 							onClick={() => setIsEditing(true)}
 							className='px-4 py-2.5 border border-black hover:bg-black hover:text-white text-black transition-colors flex items-center gap-2 font-mono text-xs uppercase tracking-widest font-bold cursor-pointer shadow-sm'>
-							<Edit className='w-4 h-4' /> Edytuj
+							<Edit className='w-4 h-4' /> {t('restaurant.edit')}
 						</button>
 					)}
 				</div>
@@ -846,7 +851,7 @@ export default function RestaurantDetailClient() {
 									? 'border-black text-black'
 									: 'border-transparent text-stone-400 hover:text-stone-800'
 							}`}>
-							Oferta Dnia
+							{t('navigation.dailyOffer')}
 						</button>
 						<button
 							onClick={() => router.push('?tab=opinions')}
@@ -855,7 +860,7 @@ export default function RestaurantDetailClient() {
 									? 'border-black text-black'
 									: 'border-transparent text-stone-400 hover:text-stone-800'
 							}`}>
-							Opinie ({reviews.length})
+							{t('navigation.opinions')} ({reviews.length})
 						</button>
 						<button
 							onClick={() => router.push('?tab=about-us')}
@@ -864,7 +869,7 @@ export default function RestaurantDetailClient() {
 									? 'border-black text-black'
 									: 'border-transparent text-stone-400 hover:text-stone-800'
 							}`}>
-							O nas
+							{t('navigation.about')}
 						</button>
 						<button
 							onClick={() => router.push('?tab=menu')}
@@ -873,7 +878,7 @@ export default function RestaurantDetailClient() {
 									? 'border-black text-black'
 									: 'border-transparent text-stone-400 hover:text-stone-800'
 							}`}>
-							Menu Ogólne
+							{t('navigation.generalMenu')}
 						</button>
 					</nav>
 				</div>
@@ -884,7 +889,7 @@ export default function RestaurantDetailClient() {
 					{activeTab === 'dishes' && (
 						<div className='space-y-6'>
 							<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-								<Clock className='w-3.5 h-3.5' /> Oferty i dania dnia
+								<Clock className='w-3.5 h-3.5' /> {t('offers.sectionTitle')}
 							</h2>
 
 							{restaurant.dishes.length === 0 ? (
@@ -900,7 +905,7 @@ export default function RestaurantDetailClient() {
 													<div className='flex justify-between items-start gap-4'>
 														<div>
 															<span className='px-2 py-0.5 bg-stone-100 text-stone-700 font-mono text-[9px] uppercase font-bold tracking-wider block w-max mb-1.5 shadow-sm'>
-																Nasza Oferta Stała
+																{t('offers.staticOffer')}
 															</span>
 															<h3 className='font-serif text-lg font-bold text-stone-900'>{activeOffer.title}</h3>
 														</div>
@@ -920,7 +925,7 @@ export default function RestaurantDetailClient() {
 														<div className='mt-4 w-full max-h-[360px] overflow-hidden border border-stone-200 bg-stone-50 shadow-xs'>
 															<img
 																src={activeOffer.imageUrl}
-																alt={activeOffer.title || 'Zdjęcie oferty stałej'}
+																alt={activeOffer.title || t('offers.image')}
 																className='w-full h-auto object-cover max-h-[360px]'
 															/>
 														</div>
@@ -931,7 +936,7 @@ export default function RestaurantDetailClient() {
 									})()
 								) : (
 									<div className='border border-dashed border-stone-200 py-12 text-center bg-stone-50 rounded-none'>
-										<p className='font-mono text-xs text-stone-400 uppercase'>Brak aktualnych dań dnia w systemie.</p>
+										<p className='font-mono text-xs text-stone-400 uppercase'>{t('offers.noDailyOffers')}</p>
 									</div>
 								)
 							) : (
@@ -974,7 +979,7 @@ export default function RestaurantDetailClient() {
 														target='_blank'
 														rel='noopener noreferrer'
 														className='inline-flex items-center gap-1 hover:text-black font-bold'>
-														Post źródłowy <Globe className='w-3 h-3' />
+														{t('dishes.source')} <Globe className='w-3 h-3' />
 													</a>
 												)}
 											</div>
@@ -989,24 +994,21 @@ export default function RestaurantDetailClient() {
 									<div className='border-b border-stone-100 pb-2.5'>
 										<h3 className='font-serif font-bold text-stone-900 text-base flex items-center gap-1.5'>
 											<BookOpen className='w-4.5 h-4.5' />
-											Zarządzaj swoją Ofertą Stałą
+											{t('offers.manageTitle')}
 										</h3>
-										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>
-											Ta oferta będzie wyświetlana klientom jako danie dnia w przypadku, gdy robot nie pobierze nowego
-											posta z Facebooka na dany dzień.
-										</p>
+										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>{t('offers.manageDescription')}</p>
 									</div>
 
 									<form onSubmit={handleSave} className='space-y-4 font-sans text-xs'>
 										<div className='space-y-1.5'>
 											<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-												Tytuł Oferty Stałej *
+												{t('offers.title')}
 											</label>
 											<input
 												type='text'
 												value={editForm.staticOfferTitle}
 												onChange={e => setEditForm(prev => ({ ...prev, staticOfferTitle: e.target.value }))}
-												placeholder='np. Lunch Szefa Kuchni (Kotlet schabowy + Zupa krem)'
+												placeholder={t('offers.titlePlaceholder')}
 												className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-sans text-xs bg-white'
 												required
 											/>
@@ -1015,19 +1017,19 @@ export default function RestaurantDetailClient() {
 										<div className='grid grid-cols-1 md:grid-cols-3 gap-3 items-end'>
 											<div className='md:col-span-2 space-y-1.5'>
 												<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-													Opis Oferty Stałej
+													{t('offers.description')}
 												</label>
 												<input
 													type='text'
 													value={editForm.staticOfferDesc}
 													onChange={e => setEditForm(prev => ({ ...prev, staticOfferDesc: e.target.value }))}
-													placeholder='Grillowany filet w sosie kurkowym, frytki i bukiet surówek...'
+													placeholder={t('offers.descriptionPlaceholder')}
 													className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-sans bg-white'
 												/>
 											</div>
 											<div className='space-y-1.5'>
 												<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-													Cena Oferty Stałej (PLN) *
+													{t('offers.price')}
 												</label>
 												<input
 													type='number'
@@ -1044,28 +1046,28 @@ export default function RestaurantDetailClient() {
 										{/* S3 Image upload space for Static Offer */}
 										<div className='space-y-1.5 pt-1.5'>
 											<label className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-												Zdjęcie Oferty Stałej
+												{t('offers.image')}
 											</label>
 											<div className='flex items-center gap-4 flex-wrap bg-white p-3 border border-stone-200'>
 												{editForm.staticOfferImg ? (
 													<div className='relative w-16 h-16 bg-stone-50 border border-stone-100 shadow-xs shrink-0 group'>
 														<img
 															src={editForm.staticOfferImg}
-															alt='Podgląd oferty'
+															alt={t('offers.impreviewage')}
 															className='w-full h-full object-cover'
 														/>
 														<button
 															type='button'
 															onClick={() => setEditForm(prev => ({ ...prev, staticOfferImg: '' }))}
 															className='absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-sm hover:bg-red-700 cursor-pointer transition-colors'
-															title='Usuń zdjęcie'>
+															title={t('offers.removeImage')}>
 															<X className='w-3 h-3' />
 														</button>
 													</div>
 												) : (
 													<div className='w-16 h-16 border border-dashed border-stone-200 bg-stone-50 flex flex-col items-center justify-center text-stone-400 shrink-0'>
 														<Globe className='w-4 h-4 opacity-40 animate-pulse' style={{ animationDuration: '4s' }} />
-														<span className='text-[8px] font-mono mt-1'>Brak foto</span>
+														<span className='text-[8px] font-mono mt-1'>{t('offers.noPhoto')}</span>
 													</div>
 												)}
 
@@ -1084,9 +1086,7 @@ export default function RestaurantDetailClient() {
 															file:transition-all disabled:opacity-45'
 													/>
 													<p className='text-[9px] text-stone-400 mt-1 font-mono'>
-														{uploadingImage
-															? 'Trwa przesyłanie do chmury S3...'
-															: 'Zalecane: proporcje 4:3, JPG/PNG, maks. 5MB.'}
+														{uploadingImage ? t('offers.uploading') : t('offers.uploadRecommendation')}
 													</p>
 												</div>
 											</div>
@@ -1097,7 +1097,7 @@ export default function RestaurantDetailClient() {
 												type='submit'
 												disabled={saving}
 												className='px-5 py-2.5 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-[10px] uppercase tracking-widest font-bold disabled:opacity-50 cursor-pointer shadow-sm'>
-												{saving ? 'Zapisywanie...' : 'Zapisz Ofertę Stałą'}
+												{saving ? t('offers.saving') : t('offers.save')}
 											</button>
 											{restaurant.standardOffers && restaurant.standardOffers.length > 0 && (
 												<button
@@ -1105,7 +1105,7 @@ export default function RestaurantDetailClient() {
 													onClick={handleDeleteStaticOffer}
 													disabled={saving}
 													className='px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-600 transition-all font-mono text-[10px] uppercase font-bold tracking-widest cursor-pointer shadow-sm'>
-													Usuń Ofertę Stałą
+													{t('offers.delete')}
 												</button>
 											)}
 										</div>
@@ -1119,17 +1119,17 @@ export default function RestaurantDetailClient() {
 					{activeTab === 'opinions' && (
 						<div className='space-y-8'>
 							<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-								<MessageSquare className='w-3.5 h-3.5' /> Opinie i recenzje smakoszy
+								<MessageSquare className='w-3.5 h-3.5' /> {t('reviews.title')}
 							</h2>
 
 							{/* Formularz dodawania nowej opinii (Widoczny tylko dla roli USER) */}
 							{user && user.role === 'USER' && (
 								<div className='border border-stone-200 p-6 bg-stone-50 space-y-4 shadow-sm'>
-									<h3 className='font-serif font-bold text-stone-900 text-base'>Dodaj swoją opinię</h3>
+									<h3 className='font-serif font-bold text-stone-900 text-base'>{t('reviews.addTitle')}</h3>
 									<form onSubmit={handleSubmitReview} className='space-y-4 font-sans text-sm'>
 										<div className='flex items-center gap-3'>
 											<label className='font-mono text-xs uppercase tracking-wider font-bold text-stone-600'>
-												Ocena lokalu:
+												{t('reviews.rating')}
 											</label>
 											<div className='flex gap-1'>
 												{[1, 2, 3, 4, 5].map(val => (
@@ -1147,13 +1147,13 @@ export default function RestaurantDetailClient() {
 										</div>
 										<div className='space-y-1.5'>
 											<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-												Twój Komentarz *
+												{t('reviews.comment')}
 											</label>
 											<textarea
 												rows={4}
 												value={newComment}
 												onChange={e => setNewComment(e.target.value)}
-												placeholder='Opisz swoje wrażenia kulinarne, napisz co warto zamówić...'
+												placeholder={t('reviews.commentPlaceholder')}
 												className='w-full px-4 py-2.5 bg-white border border-stone-200 focus:outline-none focus:border-black text-sm text-stone-900 font-sans leading-relaxed'
 												required
 											/>
@@ -1162,7 +1162,7 @@ export default function RestaurantDetailClient() {
 											type='submit'
 											disabled={submittingReview}
 											className='px-5 py-2 bg-black text-white hover:bg-stone-900 transition-colors font-mono text-xs uppercase tracking-widest font-bold disabled:opacity-50 cursor-pointer shadow-sm'>
-											{submittingReview ? 'Publikowanie...' : 'Opublikuj opinię'}
+											{submittingReview ? t('reviews.publishing') : t('reviews.publish')}
 										</button>
 									</form>
 
@@ -1183,12 +1183,8 @@ export default function RestaurantDetailClient() {
 							<div className='space-y-4'>
 								{reviews.length === 0 ? (
 									<div className='py-12 border border-dashed border-stone-200 text-center bg-stone-50 rounded-none'>
-										<p className='text-stone-400 text-xs font-mono uppercase'>
-											Ten lokal nie posiada jeszcze żadnych recenzji.
-										</p>
-										<p className='text-stone-400 text-[10px] font-sans italic mt-1'>
-											Bądź pierwszym, który wystawi komentarz!
-										</p>
+										<p className='text-stone-400 text-xs font-mono uppercase'>{t('reviews.emptyTitle')}</p>
+										<p className='text-stone-400 text-[10px] font-sans italic mt-1'>{t('reviews.emptySubtitle')}</p>
 									</div>
 								) : (
 									reviews.map(rev => (
@@ -1199,7 +1195,7 @@ export default function RestaurantDetailClient() {
 												<div>
 													<h4 className='font-serif font-bold text-stone-900 text-sm'>{rev.user?.name || 'Smakosz'}</h4>
 													<span className='text-[10px] text-stone-400 font-mono uppercase'>
-														Wystawiono: {new Date(rev.createdAt).toLocaleDateString('pl-PL')}
+														{t('reviews.posted')} {new Date(rev.createdAt).toLocaleDateString('pl-PL')}
 													</span>
 												</div>
 												<div className='flex items-center gap-3'>
@@ -1212,7 +1208,7 @@ export default function RestaurantDetailClient() {
 														<button
 															onClick={() => setReportingReviewId(rev.id)}
 															className='p-1.5 border border-stone-100 hover:border-red-600 hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors rounded-sm cursor-pointer'
-															title='Zgłoś nieodpowiedni komentarz'>
+															title={t('reviews.report')}>
 															<Flag className='w-3.5 h-3.5' />
 														</button>
 													)}
@@ -1231,17 +1227,17 @@ export default function RestaurantDetailClient() {
 						<div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
 							<div className='md:col-span-2 space-y-6'>
 								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-									<BookOpen className='w-3.5 h-3.5' /> O naszej restauracji
+									<BookOpen className='w-3.5 h-3.5' /> {t('about.title')}
 								</h2>
 
 								<div className='bg-stone-50 border border-stone-200 p-6 font-sans text-stone-600 text-xs md:text-sm leading-relaxed whitespace-pre-line shadow-sm'>
-									{restaurant.description || 'Ten lokal nie dodał jeszcze rozszerzonego opisu o sobie.'}
+									{restaurant.description || t('about.emptyDescription')}
 								</div>
 							</div>
 
 							<div className='space-y-6'>
 								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-									<Globe className='w-3.5 h-3.5' /> Kanały social media
+									<Globe className='w-3.5 h-3.5' /> {t('about.socialTitle')}
 								</h2>
 
 								<div className='border border-stone-200 p-5 bg-white space-y-4 shadow-sm'>
@@ -1249,9 +1245,9 @@ export default function RestaurantDetailClient() {
 										FB
 									</div>
 									<div className='space-y-1'>
-										<h4 className='font-serif font-bold text-stone-900 text-sm'>Profil Facebook</h4>
+										<h4 className='font-serif font-bold text-stone-900 text-sm'>{t('about.facebookProfile')}</h4>
 										<p className='text-stone-400 text-[10px] font-mono leading-relaxed truncate'>
-											{restaurant.facebookUrl || 'Brak powiązanego profilu'}
+											{restaurant.facebookUrl || t('about.noFacebook')}
 										</p>
 									</div>
 
@@ -1267,13 +1263,13 @@ export default function RestaurantDetailClient() {
 											target='_blank'
 											rel='noopener noreferrer'
 											className='w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-black hover:bg-stone-900 text-white font-mono text-xs uppercase tracking-widest font-bold transition-colors cursor-pointer shadow-sm'>
-											Odwiedź social media
+											{t('about.visitSocial')}
 										</a>
 									) : (
 										<button
 											disabled
 											className='w-full px-4 py-2 border border-dashed border-stone-200 text-stone-300 font-mono text-xs uppercase tracking-widest font-bold cursor-not-allowed'>
-											Profil nieaktywny
+											{t('about.inactive')}
 										</button>
 									)}
 								</div>
@@ -1286,7 +1282,7 @@ export default function RestaurantDetailClient() {
 						<div className='space-y-8'>
 							<div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-stone-100 pb-2'>
 								<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 flex items-center gap-1.5'>
-									<BookOpen className='w-3.5 h-3.5' /> Karta Menu Głównego
+									<BookOpen className='w-3.5 h-3.5' /> {t('menu.title')}
 								</h2>
 							</div>
 
@@ -1294,10 +1290,8 @@ export default function RestaurantDetailClient() {
 							{isOwner && (
 								<div className='border border-stone-200 p-6 md:p-8 bg-stone-50 space-y-6 shadow-sm mt-10 text-left'>
 									<div className='border-b border-stone-100 pb-3'>
-										<h3 className='font-serif font-bold text-stone-900 text-base'>Dodaj nowe pozycje do Menu</h3>
-										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>
-											Możesz dodać wiele pozycji jednocześnie, wpisując je poniżej.
-										</p>
+										<h3 className='font-serif font-bold text-stone-900 text-base'>{t('menu.addTitle')}</h3>
+										<p className='text-[11px] text-stone-400 font-mono mt-0.5'>{t('menu.addDescription')}</p>
 									</div>
 
 									<form onSubmit={handleSaveNewMenuItems} className='space-y-4 font-sans text-xs'>
@@ -1307,32 +1301,32 @@ export default function RestaurantDetailClient() {
 												className='p-4 border border-stone-200 bg-white grid grid-cols-1 md:grid-cols-12 gap-3 relative shadow-xs'>
 												<div className='md:col-span-4 space-y-1'>
 													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
-														Nazwa Pozycji *
+														{t('menu.itemName')}
 													</label>
 													<input
 														type='text'
 														value={item.name}
 														onChange={e => handleNewRowChange(index, 'name', e.target.value)}
-														placeholder='np. Kotlet schabowy z ziemniakami'
+														placeholder={t('menu.itemNamePlaceholder')}
 														className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
 														required
 													/>
 												</div>
 												<div className='md:col-span-4 space-y-1'>
 													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
-														Krótki opis pozycji
+														{t('menu.itemDescription')}
 													</label>
 													<input
 														type='text'
 														value={item.description}
 														onChange={e => handleNewRowChange(index, 'description', e.target.value)}
-														placeholder='Zestaw z kapustą zasmażaną i purée...'
+														placeholder={t('menu.itemDescriptionPlaceholder')}
 														className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-sans'
 													/>
 												</div>
 												<div className='md:col-span-2 space-y-1'>
 													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
-														Cena (PLN) *
+														{t('menu.price')}
 													</label>
 													<input
 														type='number'
@@ -1346,14 +1340,14 @@ export default function RestaurantDetailClient() {
 												</div>
 												<div className='md:col-span-2 space-y-1 pr-6'>
 													<label className='text-[10px] font-mono text-stone-500 uppercase font-bold block'>
-														Kategoria
+														{t('menu.category')}
 													</label>
 													<input
 														type='text'
 														value={item.category}
 														onChange={e => handleNewRowChange(index, 'category', e.target.value)}
 														list='categories-list'
-														placeholder='np. Obiady'
+														placeholder={t('menu.categoryPlaceholder')}
 														className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-mono'
 													/>
 												</div>
@@ -1363,7 +1357,7 @@ export default function RestaurantDetailClient() {
 														type='button'
 														onClick={() => handleRemoveNewRow(index)}
 														className='absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-red-600 p-1 cursor-pointer'
-														title='Usuń ten wiersz'>
+														title={t('menu.removeRow')}>
 														<X className='w-4 h-4' />
 													</button>
 												)}
@@ -1375,13 +1369,13 @@ export default function RestaurantDetailClient() {
 												type='button'
 												onClick={handleAddNewRow}
 												className='px-4 py-2 border border-stone-200 hover:border-black text-stone-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-white shadow-sm'>
-												<Plus className='w-3.5 h-3.5' /> Dodaj kolejną pozycję
+												<Plus className='w-3.5 h-3.5' /> {t('menu.addAnother')}
 											</button>
 											<button
 												type='submit'
 												disabled={menuActionLoading}
 												className='px-5 py-2.5 bg-black text-white hover:bg-stone-900 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm'>
-												<Check className='w-3.5 h-3.5' /> Zapisz dodawane menu
+												<Check className='w-3.5 h-3.5' /> {t('menu.save')}
 											</button>
 										</div>
 									</form>
@@ -1408,9 +1402,7 @@ export default function RestaurantDetailClient() {
 										</div>
 									) : (
 										<div className='py-12 border border-dashed border-stone-200 text-center bg-stone-50 rounded-none'>
-											<p className='text-stone-400 text-xs font-mono uppercase'>
-												To menu główne lokalu nie posiada jeszcze dodanych pozycji.
-											</p>
+											<p className='text-stone-400 text-xs font-mono uppercase'>{t('menu.empty')}</p>
 										</div>
 									)}
 								</div>
@@ -1446,7 +1438,7 @@ export default function RestaurantDetailClient() {
 																	onClick={() => handleDeleteMenuItem(item.id)}
 																	disabled={menuActionLoading}
 																	className='hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer font-mono text-[9px] uppercase font-bold tracking-wider'>
-																	<Trash2 className='w-3.5 h-3.5' /> Usuń
+																	<Trash2 className='w-3.5 h-3.5' /> {t('edit.remove')}
 																</button>
 															)}
 														</div>
@@ -1470,10 +1462,7 @@ export default function RestaurantDetailClient() {
 			</section>
 			{/* Support banner block */}
 			<section className='bg-stone-50 border border-stone-200 p-6 md:p-8 text-center max-w-4xl mx-auto shadow-sm'>
-				<p className='text-stone-500 text-xs md:text-sm font-sans'>
-					Oferty pobierane są automatycznie z oficjalnego profilu lokalu na Facebooku raz na dobę. Jeśli zauważysz błąd
-					w danych restauracji, możesz zgłosić to za pomocą formularza w prawym górnym rogu.
-				</p>
+				<p className='text-stone-500 text-xs md:text-sm font-sans'>{t('support.text')}</p>
 			</section>
 			{/* --- MODALE --- */}
 			{/* 1. MODAL ZGŁOSZENIA BŁĘDU LOKALU */}
@@ -1488,37 +1477,37 @@ export default function RestaurantDetailClient() {
 						<div className='border-b border-stone-100 pb-3'>
 							<h3 className='text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5'>
 								<AlertTriangle className='w-5 h-5 text-red-600 shrink-0' />
-								Zgłoś błąd w danych lokalu
+								{t('restaurant.reportErrorTitle')}
 							</h3>
 							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
-								Zgłoszenie do moderatora
+								{t('report.subtitle')}
 							</p>
 						</div>
 
 						<form onSubmit={handleReportRestaurant} className='space-y-4 font-sans text-xs'>
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Kategoria zgłoszenia *
+									{t('report.category')}
 								</label>
 								<select
 									value={restaurantReportReason}
 									onChange={e => setRestaurantReportReason(e.target.value)}
 									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white'>
-									<option value='INCORRECT_DATA'>Niepoprawne dane (adres, telefon, menu...)</option>
-									<option value='SCAM'>Oszustwo / Nieuczciwość</option>
-									<option value='IMPERSONATION'>Podszywanie się pod markę</option>
-									<option value='OTHER'>Inne naruszenie</option>
+									<option value='INCORRECT_DATA'>{t('report.incorrectData')}</option>
+									<option value='SCAM'>{t('report.scam')}</option>
+									<option value='IMPERSONATION'>{t('report.impersonation')}</option>
+									<option value='OTHER'>{t('report.other')}</option>
 								</select>
 							</div>
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Opis szczegółowy *
+									{t('report.details')}
 								</label>
 								<textarea
 									rows={4}
 									value={restaurantReportDetails}
 									onChange={e => setRestaurantReportDetails(e.target.value)}
-									placeholder='Wpisz poprawne dane lub szczegółowo uzasadnij oszustwo lokalu...'
+									placeholder={t('report.detailsPlaceholder')}
 									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs leading-relaxed font-sans'
 									required
 								/>
@@ -1529,13 +1518,13 @@ export default function RestaurantDetailClient() {
 									type='submit'
 									disabled={isSubmittingRestaurantReport}
 									className='px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow'>
-									Wyślij zgłoszenie
+									{t('report.submit')}
 								</button>
 								<button
 									type='button'
 									onClick={() => setIsReportingRestaurant(false)}
 									className='px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer'>
-									Anuluj
+									{t('report.cancel')}
 								</button>
 							</div>
 						</form>
@@ -1554,26 +1543,26 @@ export default function RestaurantDetailClient() {
 						<div className='border-b border-stone-100 pb-3'>
 							<h3 className='text-xl font-bold font-serif text-stone-900 flex items-center gap-1.5'>
 								<Flag className='w-5 h-5 text-red-600 shrink-0' />
-								Zgłoś recenzję użytkownika
+								{t('reviews.reportTitle')}
 							</h3>
 							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
-								Zgłoszenie do moderatora
+								{t('report.subtitle')}
 							</p>
 						</div>
 
 						<form onSubmit={handleReportReview} className='space-y-4 font-sans text-xs'>
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Powód zgłoszenia opinii *
+									{t('reviews.reportReason')}
 								</label>
 								<select
 									value={reviewReportReason}
 									onChange={e => setReviewReportReason(e.target.value)}
 									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs bg-white'>
-									<option value='VULGAR'>Komentarz wulgarny / obraźliwy</option>
-									<option value='UNTRUTHFUL'>Opinia nieprawdziwa / spam</option>
-									<option value='TOS_VIOLATION'>Naruszający regulamin serwisu</option>
-									<option value='RIGHTS_VIOLATION'>Naruszający prawa osób trzecich</option>
+									<option value='VULGAR'>{t('report.reviewVulgar')}</option>
+									<option value='UNTRUTHFUL'>{t('report.reviewUntruthful')}</option>
+									<option value='TOS_VIOLATION'>{t('report.reviewTos')}</option>
+									<option value='RIGHTS_VIOLATION'>{t('report.reviewRights')}</option>
 								</select>
 							</div>
 
@@ -1582,13 +1571,13 @@ export default function RestaurantDetailClient() {
 									type='submit'
 									disabled={isSubmittingReviewReport}
 									className='px-4 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm flex-grow'>
-									Zgłoś i ukryj
+									{t('reviews.reportSubmit')}
 								</button>
 								<button
 									type='button'
 									onClick={() => setReportingReviewId(null)}
 									className='px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer'>
-									Anuluj
+									{t('report.cancel')}
 								</button>
 							</div>
 						</form>
@@ -1606,16 +1595,16 @@ export default function RestaurantDetailClient() {
 						</button>
 
 						<div className='border-b border-stone-100 pb-3'>
-							<h3 className='text-xl font-bold font-serif text-stone-900'>Edytuj informacje o lokalu</h3>
+							<h3 className='text-xl font-bold font-serif text-stone-900'>{t('edit.title')}</h3>
 							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider block mt-1'>
-								Zarządzaj swoimi danymi kontaktowymi i stałą ofertą lokalu
+								{t('edit.subtitle')}
 							</p>
 						</div>
 
 						<form onSubmit={handleSave} className='space-y-4 font-sans text-xs max-h-[60vh] overflow-y-auto pr-2'>
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Nazwa restauracji *
+									{t('edit.name')}
 								</label>
 								<input
 									type='text'
@@ -1629,7 +1618,7 @@ export default function RestaurantDetailClient() {
 							<div className='grid grid-cols-2 gap-4'>
 								<div className='space-y-1.5'>
 									<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-										Telefon kontaktowy *
+										{t('edit.phone')}
 									</label>
 									<input
 										type='tel'
@@ -1641,7 +1630,7 @@ export default function RestaurantDetailClient() {
 								</div>
 								<div className='space-y-1.5'>
 									<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-										Adres (Ulica i nr) *
+										{t('edit.address')}
 									</label>
 									<input
 										type='text'
@@ -1655,7 +1644,7 @@ export default function RestaurantDetailClient() {
 
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Facebook Fanpage URL *
+									{t('edit.facebook')}
 								</label>
 								<input
 									type='url'
@@ -1668,23 +1657,21 @@ export default function RestaurantDetailClient() {
 
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Rodzaje kuchni
+									{t('edit.cuisines')}
 								</label>
 								<input
 									type='text'
 									value={editForm.cuisines}
 									onChange={e => setEditForm(prev => ({ ...prev, cuisines: e.target.value }))}
-									placeholder='np. pizza, kuchnia wloska'
+									placeholder={t('edit.cuisinesPlaceholder')}
 									className='w-full px-3 py-2 border border-stone-200 focus:outline-none focus:border-black font-mono text-xs'
 								/>
-								<p className='text-[9px] text-stone-400 font-mono'>
-									Oddziel przecinkami. Wpływa na kategorie w katalogu i SEO.
-								</p>
+								<p className='text-[9px] text-stone-400 font-mono'>{t('edit.cuisinesHint')}</p>
 							</div>
 
 							<div className='space-y-1.5'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Krótki opis o lokalu
+									{t('edit.description')}
 								</label>
 								<textarea
 									rows={3}
@@ -1696,24 +1683,28 @@ export default function RestaurantDetailClient() {
 
 							<div className='space-y-1.5 pt-2 border-t border-stone-100'>
 								<label className='text-xs uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-									Zdjęcie tła (banner profilu)
+									{t('edit.background')}
 								</label>
 								<div className='flex items-center gap-4 flex-wrap bg-white p-3 border border-stone-200'>
 									{editForm.backgroundImageUrl ? (
 										<div className='relative w-24 h-24 bg-stone-50 border border-stone-100 shadow-xs shrink-0 group'>
-											<img src={editForm.backgroundImageUrl} alt='Zdjęcie tło' className='w-full h-full object-cover' />
+											<img
+												src={editForm.backgroundImageUrl}
+												alt={t('edit.backgroundAlt')}
+												className='w-full h-full object-cover'
+											/>
 											<button
 												type='button'
 												onClick={() => setEditForm(prev => ({ ...prev, backgroundImageUrl: '' }))}
 												className='absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 shadow-sm hover:bg-red-700 cursor-pointer transition-colors'
-												title='Usuń'>
+												title={t('edit.remove')}>
 												<X className='w-3 h-3' />
 											</button>
 										</div>
 									) : (
 										<div className='w-24 h-24 border border-dashed border-stone-200 bg-stone-50 flex flex-col items-center justify-center text-stone-400 shrink-0'>
 											<Globe className='w-4 h-4 opacity-40 animate-pulse' style={{ animationDuration: '4s' }} />
-											<span className='text-[8px] font-mono mt-1'>Brak foto</span>
+											<span className='text-[8px] font-mono mt-1'>{t('no-photo')}</span>
 										</div>
 									)}
 									<div className='flex-grow min-w-[180px] text-left'>
@@ -1725,7 +1716,7 @@ export default function RestaurantDetailClient() {
 											className='block w-full text-[10px] text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:border file:border-stone-200 file:bg-stone-50 file:text-stone-700 file:font-mono file:text-[9px] file:uppercase file:font-bold file:tracking-wider file:cursor-pointer hover:file:border-black hover:file:text-black file:transition-all disabled:opacity-45'
 										/>
 										<p className='text-[9px] text-stone-400 mt-1 font-mono'>
-											{uploadingBackground ? 'Trwa przesyłanie...' : 'Zalecane: 16:9 JPG/PNG, max 5MB'}
+											{uploadingBackground ? t('edit.uploading') : t('edit.uploadHint')}
 										</p>
 									</div>
 								</div>
@@ -1735,13 +1726,13 @@ export default function RestaurantDetailClient() {
 									type='submit'
 									disabled={saving}
 									className='px-5 py-2.5 bg-black hover:bg-stone-900 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm flex-grow'>
-									<Check className='w-4 h-4' /> Zapisz i zaktualizuj
+									<Check className='w-4 h-4' /> {t('edit.save')}
 								</button>
 								<button
 									type='button'
 									onClick={() => setIsEditing(false)}
 									className='px-4 py-2.5 border border-stone-200 hover:border-black text-stone-700 transition-all cursor-pointer'>
-									Anuluj
+									{t('report.cancel')}
 								</button>
 							</div>
 						</form>
@@ -1760,17 +1751,17 @@ export default function RestaurantDetailClient() {
 						</button>
 
 						{/* Tytuł i Treść zależna od typu zgłoszenia */}
-						<h2 className='text-xl font-bold mb-2'>Dziękujemy!</h2>
+						<h2 className='text-xl font-bold mb-2'>{t('notifications.thanks')}</h2>
 
 						<p className='text-gray-700 text-sm mb-4'>
-							{activePopup === 'reportRestaurant' && 'Zgłoszenie błędu lokalu zostało przesłane do moderatora.'}
-							{activePopup === 'reportReview' &&
-								'Opinia została pomyślnie zgłoszona i ukryta do czasu weryfikacji przez moderatora.'}
+							{activePopup === 'reportRestaurant' && t('notifications.restaurantReport')}
+							{activePopup === 'reportReview' && t('notifications.reviewReport')}
 						</p>
 
 						{/* Licznik z pomarańczowym akcentem */}
 						<div className='text-xs text-gray-500'>
-							Zamknięcie za <span className='font-bold text-orange-500 text-sm'>{timeLeft}</span> s...
+							{t('notifications.closing')} <span className='font-bold text-orange-500 text-sm'>{timeLeft}</span>{' '}
+							{t('notifications.seconds')}
 						</div>
 					</div>
 				</div>
