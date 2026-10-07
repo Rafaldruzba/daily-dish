@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import RestaurantExplorer from '@/components/restaurants/RestaurantExplorer'
-import { getTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 
-const API_URL =
-	process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
 export const metadata: Metadata = {
 	title: 'Restauracje — katalog lokali i kuchni',
@@ -33,28 +32,22 @@ async function getCities(): Promise<CityOption[]> {
 }
 
 export default async function RestaurantsPage() {
-	const t = await getTranslations('Catalog')
+	const t = await getTranslations('RestaurantsPage')
 	const cities = await getCities()
 
 	return (
 		<main className='min-h-screen bg-[#fdfdfd]'>
 			<section className='mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8'>
 				<div className='mb-10'>
-					<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>
-						{t('restaurants-in-city')}
-					</h1>
+					<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>{t('restaurants-in-city')}</h1>
 
-					<p className='mt-3 max-w-2xl text-stone-600'>
-						{t('search-restaurants')}
-					</p>
+					<p className='mt-3 max-w-2xl text-stone-600'>{t('search-restaurants')}</p>
 				</div>
 
 				{/* Linkowanie wewnętrzne renderowane po stronie serwera — bez tego strony miast są osierocone */}
 				{cities.length > 0 && (
 					<nav className='mb-10'>
-						<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-4'>
-							{t('search-city')}
-						</h2>
+						<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-4'>{t('search-city')}</h2>
 						<div className='flex flex-wrap gap-2'>
 							{cities.map(item => (
 								<Link

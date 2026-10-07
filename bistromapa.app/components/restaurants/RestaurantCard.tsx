@@ -8,12 +8,14 @@ import { Heart, MapPin, Phone, Star } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { trackEvent } from '@/lib/analytics'
+import { useTranslations } from 'next-intl'
 
 interface RestaurantCardProps {
 	restaurant: Restaurant
 }
 
 export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
+	const t = useTranslations('RestaurantCard')
 	const router = useRouter()
 	const { city } = useLocation()
 	const { user, toggleFavorite, isFavorite } = useAuth()
@@ -68,12 +70,12 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 									{Number(restaurant.rating).toFixed(1)}
 								</span>
 							) : (
-								<span className='text-[10px] text-stone-400 font-mono'>Brak ocen</span>
+								<span className='text-[10px] text-stone-400 font-mono'>{t('no-rating')}</span>
 							)}
 
 							{isUserVicinity && (
 								<span className='text-[9px] font-mono font-bold uppercase tracking-wider bg-black text-white px-2 py-0.5'>
-									W Twojej okolicy
+									{t('vicinity')}
 								</span>
 							)}
 						</div>
@@ -120,7 +122,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 			<div className='flex flex-wrap items-center gap-3 shrink-0 self-end sm:self-auto'>
 				{!restaurant.isActive && (
 					<span className='text-[10px] font-mono uppercase bg-stone-100 text-stone-500 border border-stone-200 px-2 py-1 font-bold'>
-						Scrapowanie wstrzymane
+						{t('inactive')}
 					</span>
 				)}
 
@@ -133,7 +135,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 								: 'border-stone-200 text-stone-400 hover:text-black hover:border-stone-400'
 						}`}>
 						<Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : ''}`} />
-						{isFav && <span className='font-mono text-[10px] uppercase tracking-wider mr-1'>Ulubiona</span>}
+						{isFav && <span className='font-mono text-[10px] uppercase tracking-wider mr-1'>{t('favorite')}</span>}
 					</button>
 				)}
 
@@ -146,7 +148,7 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
 						})
 					}}
 					className='px-3 py-2 border border-black text-black hover:bg-black hover:text-white transition-colors font-mono text-[10px] uppercase tracking-wider flex items-center gap-1 cursor-pointer font-bold'>
-					Zobacz profil
+					{t('view-profile')}
 				</Link>
 
 				{restaurant.facebookUrl && (

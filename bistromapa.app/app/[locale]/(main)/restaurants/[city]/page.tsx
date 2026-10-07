@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import RestaurantCatalog from '@/components/restaurants/RestaurantCatalog'
-import { getTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -96,7 +96,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 			? `Znajdź restauracje w ${cityName}. Przeglądaj ${data.restaurantCount} lokali, sprawdź menu, zdjęcia, opinie i rodzaje kuchni w BistroMapa.`
 			: `Znajdź restauracje w ${cityName}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
 
-	const canonicalUrl = `${BASE_URL}/pl/restaurants/${citySlug}`
+	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}`
 	const imageUrl = `${BASE_URL}/logo.png`
 
 	return {
@@ -153,7 +153,7 @@ export default async function CityRestaurantsPage({ params }: CityPageProps) {
 
 	const seoLinks = data?.cuisines.filter(cuisine => cuisine.seoEnabled && cuisine.count > 0) ?? []
 
-	const canonicalUrl = `${BASE_URL}/pl/restaurants/${citySlug}`
+	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}`
 
 	const breadcrumbJsonLd = {
 		'@context': 'https://schema.org',
@@ -208,7 +208,7 @@ export default async function CityRestaurantsPage({ params }: CityPageProps) {
 					<nav
 						aria-label='Breadcrumb'
 						className='mb-6 font-mono text-[10px] uppercase tracking-wider text-stone-400 font-bold'>
-						<Link href='/pl/restaurants' className='hover:text-black transition-colors'>
+						<Link href='/restaurants' className='hover:text-black transition-colors'>
 							{t('restaurants')}
 						</Link>
 
@@ -249,7 +249,7 @@ export default async function CityRestaurantsPage({ params }: CityPageProps) {
 								{seoLinks.map(item => (
 									<Link
 										key={item.slug}
-										href={`/pl/restaurants/${citySlug}/${item.slug}`}
+										href={`/restaurants/${citySlug}/${item.slug}`}
 										className='px-3 py-1.5 border border-stone-200 text-stone-600 hover:border-black hover:text-black transition-colors bg-white'>
 										{item.name} ({item.count})
 									</Link>

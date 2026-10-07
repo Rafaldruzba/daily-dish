@@ -147,7 +147,6 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 
 export default async function RestaurantPage({ params }: RestaurantPageProps) {
 	const { slug } = await params
-
 	const restaurant = await getRestaurant(slug)
 
 	/**

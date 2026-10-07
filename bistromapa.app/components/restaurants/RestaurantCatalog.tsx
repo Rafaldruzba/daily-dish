@@ -5,8 +5,10 @@ import Link from 'next/link'
 import RestaurantCard from './RestaurantCard'
 import { Restaurant, RestaurantCatalogProps } from '@/lib/types'
 import { API_URL } from '@/lib/api'
+import { useTranslations } from 'next-intl'
 
 export default function RestaurantCatalog({ citySlug, cuisine }: RestaurantCatalogProps) {
+	const t = useTranslations('Catalog')
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [cuisines, setCuisines] = useState<Array<{ name: string; slug: string; count: number }>>([])
 	const [loading, setLoading] = useState(true)
@@ -25,7 +27,7 @@ export default function RestaurantCatalog({ citySlug, cuisine }: RestaurantCatal
 				const response = await fetch(`${API_URL}/restaurants${query ? `?${query}` : ''}`)
 
 				if (!response.ok) {
-					throw new Error('Nie udało się pobrać restauracji')
+					throw new Error(t('error'))
 				}
 
 				const data = await response.json()

@@ -25,7 +25,7 @@ export function Navbar() {
 	const handleLanguageChange = (lang: 'pl' | 'en') => {
 		setLanguage(lang)
 
-		// pathname np. /pl/restaurants/lodz
+		// pathname np. /restaurants/lodz
 		// usuwamy obecny locale i dokładamy nowy
 		const segments = pathname.split('/').filter(Boolean)
 

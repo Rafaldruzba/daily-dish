@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useLocale } from 'next-intl'
 
 import { Lock, Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -16,7 +17,7 @@ const t = useTranslations('Login')
 export default function LoginPage() {
 	const { login } = useAuth()
 	const router = useRouter()
-
+	const locale = useLocale()
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
 	const [error, setError] = useState('')
@@ -230,7 +231,7 @@ export default function LoginPage() {
 						<div className='text-center mt-8 pt-6 border-t border-stone-100'>
 							<p className='text-stone-500 text-xs'>
 								Nie masz konta?{' '}
-								<Link href='/register' className='text-black font-mono font-bold hover:underline'>
+								<Link href={`/${locale}/register`} className='text-black font-mono font-bold hover:underline'>
 									Utwórz konto
 								</Link>
 							</p>

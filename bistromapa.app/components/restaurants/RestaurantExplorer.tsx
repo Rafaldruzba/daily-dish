@@ -7,6 +7,7 @@ import RestaurantCard from './RestaurantCard'
 import { Restaurant } from '@/lib/types'
 import { API_URL } from '@/lib/api'
 import { trackEvent } from '@/lib/analytics'
+import { useTranslations } from 'next-intl'
 
 interface CityOption {
 	city: string
@@ -15,6 +16,7 @@ interface CityOption {
 }
 
 export default function RestaurantExplorer({ cities }: { cities: CityOption[] }) {
+	const t = useTranslations('Explorer')
 	const router = useRouter()
 	const [restaurants, setRestaurants] = useState<Restaurant[]>([])
 	const [loading, setLoading] = useState(true)
@@ -29,7 +31,7 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 
 			const query = params.toString()
 			const response = await fetch(`${API_URL}/restaurants${query ? `?${query}` : ''}`)
-			if (!response.ok) throw new Error('Nie udało się pobrać restauracji')
+			if (!response.ok) throw new Error(t('error'))
 			trackEvent('search', {
 				search_term: query,
 			})
@@ -69,13 +71,13 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 					<label
 						htmlFor='city-filter'
 						className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-						Miasto
+						{t('city')}
 					</label>
 					<input
 						id='city-filter'
 						type='text'
 						list='cities-list'
-						placeholder='np. Warszawa'
+						placeholder={t('input-placeholder')}
 						onChange={e => goToCity(e.target.value)}
 						onKeyDown={e => {
 							if (e.key === 'Enter') goToCity((e.target as HTMLInputElement).value)
@@ -85,18 +87,18 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 					<datalist id='cities-list'>
 						{cities.map(item => (
 							<option key={item.citySlug} value={item.city}>
-								{item.restaurantCount} restauracji
+								{item.restaurantCount} {t('restaurants-count')}
 							</option>
 						))}
 					</datalist>
-					<p className='text-[9px] text-stone-400 font-mono'>Wybór miasta przenosi na jego stronę.</p>
+					<p className='text-[9px] text-stone-400 font-mono'>{t('city-description')}</p>
 				</div>
 
 				<div className='space-y-1.5'>
 					<label
 						htmlFor='search-filter'
 						className='text-[10px] uppercase tracking-wider font-mono font-bold text-stone-600 block'>
-						Nazwa restauracji
+						{t('restaurant-name')}
 					</label>
 					<div className='relative'>
 						<Search className='w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2' />
@@ -105,11 +107,11 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 							type='text'
 							value={search}
 							onChange={e => setSearch(e.target.value)}
-							placeholder='np. Pizza House'
+							placeholder={t('input-placeholder2')}
 							className='w-full pl-9 pr-3 py-2 border border-stone-200 focus:outline-none focus:border-black text-xs font-sans bg-white'
 						/>
 					</div>
-					<p className='text-[9px] text-stone-400 font-mono'>Filtruje listę poniżej.</p>
+					<p className='text-[9px] text-stone-400 font-mono'>{t('filter-list')}</p>
 				</div>
 			</div>
 
@@ -125,15 +127,15 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 					</div>
 				) : restaurants.length === 0 ? (
 					<div className='border border-dashed border-stone-200 bg-stone-50 p-10 text-center'>
-						<h2 className='text-lg font-bold font-serif text-stone-900'>Nie znaleziono restauracji</h2>
+						<h2 className='text-lg font-bold font-serif text-stone-900'>{t('no-restaurants-found')}</h2>
 						<p className='mt-2 text-stone-500 text-sm'>
-							{search ? 'Spróbuj innej nazwy lub wybierz miasto powyżej.' : 'Baza restauracji jest jeszcze pusta.'}
+							{search ? t('try-another-name') : t('empty-database')}
 						</p>
 					</div>
 				) : (
 					<>
 						<p className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-6'>
-							Znaleziono: {restaurants.length}
+							{t('found')} {restaurants.length}
 						</p>
 
 						<div className='grid gap-6 sm:grid-cols-1 lg:grid-cols-2'>

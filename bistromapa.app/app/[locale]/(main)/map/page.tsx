@@ -15,6 +15,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 const DEFAULT_CENTER: Coords = { lat: 52.237049, lng: 21.017532 } // Warsaw city center
 
 export default function MapPage() {
+	const t = useTranslations('MapPage')
 	const [restaurants, setRestaurants] = useState<RestaurantWithCoords[]>([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
@@ -37,7 +38,7 @@ export default function MapPage() {
 			try {
 				setLoading(true)
 				const response = await fetch(`${API_URL}/restaurants?city=${encodeURIComponent(city || '')}`)
-				if (!response.ok) throw new Error('Nie udało się pobrać restauracji')
+				if (!response.ok) throw new Error(t('fetch-error'))
 				const data: Restaurant[] = await response.json()
 
 				// Filter for approved, active restaurants
@@ -68,7 +69,7 @@ export default function MapPage() {
 				setRestaurants(withCoords)
 			} catch (err) {
 				console.error(err)
-				setError('Nie udało się połączyć z serwerem restauracji.')
+				setError(t('server-error'))
 			} finally {
 				setLoading(false)
 			}
@@ -106,7 +107,7 @@ export default function MapPage() {
 					},
 					err => {
 						console.warn('Geolocation error:', err)
-						setError('Nie udało się pobrać Twojej dokładnej lokalizacji. Wyświetlanie domyślnej mapy.')
+						setError(t('geolocation-error'))
 					},
 					{ timeout: 8000 },
 				)
@@ -131,7 +132,7 @@ export default function MapPage() {
 
 			for (let i = 0; i < unmapped.length; i++) {
 				const rest = unmapped[i]
-				setGeocodingProgress(`Mapowanie lokalizacji lokali: ${i + 1}/${unmapped.length}...`)
+				setGeocodingProgress(`${t('geocoding-progress')} ${i + 1}/${unmapped.length}...`)
 
 				const fullAddress = `${rest.address || ''}, ${rest.city}, Poland`
 
@@ -184,12 +185,12 @@ export default function MapPage() {
 					const location = results[0].geometry.location
 					setMapCenter({ lat: location.lat(), lng: location.lng() })
 				} else {
-					setError(`Nie znaleziono lokalizacji dla: "${searchQuery}"`)
+					setError(`${t('no-locations')} "${searchQuery}"`)
 				}
 				setIsSearching(false)
 			})
 		} catch (err) {
-			setError('Błąd podczas wyszukiwania lokalizacji.')
+			setError(t('no-locations'))
 			setIsSearching(false)
 		}
 	}
@@ -197,7 +198,7 @@ export default function MapPage() {
 	if (loadError) {
 		return (
 			<div className='flex-1 flex items-center justify-center bg-stone-50 font-mono text-xs text-red-500 p-4 text-center'>
-				Błąd ładowania Map Google. Spróbuj ponownie później.
+				{t('map-load-error')}
 			</div>
 		)
 	}
@@ -206,7 +207,7 @@ export default function MapPage() {
 		return (
 			<div className='flex-1 flex flex-col items-center justify-center bg-stone-50'>
 				<RefreshCw className='w-8 h-8 text-stone-300 animate-spin mb-2' />
-				<p className='font-mono text-xs text-stone-400 uppercase tracking-widest'>Ładowanie mapy...</p>
+				<p className='font-mono text-xs text-stone-400 uppercase tracking-widest'>{t('loading')}</p>
 			</div>
 		)
 	}
@@ -217,13 +218,13 @@ export default function MapPage() {
 			<section className='w-full md:w-96 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-md flex-none overflow-hidden md:h-full'>
 				{/* Search header */}
 				<div className='p-4 border-b border-stone-100'>
-					<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-2'>Wyszukaj lokalizację</h2>
+					<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-2'>{t('search-header')}</h2>
 					<form onSubmit={handleSearch} className='relative'>
 						<input
 							type='text'
 							value={searchQuery}
 							onChange={e => setSearchQuery(e.target.value)}
-							placeholder='Wpisz miasto lub adres...'
+							placeholder={t('search-placeholder')}
 							className='w-full pl-3 pr-12 py-2 bg-stone-50 border border-stone-200 focus:outline-none focus:border-black text-sm font-mono transition-colors'
 						/>
 						<button
@@ -248,18 +249,18 @@ export default function MapPage() {
 				<div className='flex-grow overflow-y-auto divide-y divide-stone-100'>
 					<div className='p-4'>
 						<h3 className='font-mono text-xs uppercase tracking-wider font-semibold text-stone-700 mb-3'>
-							Lokale w pobliżu ({restaurants.filter(r => r.coords !== null).length})
+							{t('nearby-locations')} ({restaurants.filter(r => r.coords !== null).length})
 						</h3>
 					</div>
 
 					{loading ? (
 						<div className='p-8 text-center'>
 							<RefreshCw className='w-6 h-6 text-stone-300 animate-spin mx-auto mb-2' />
-							<p className='font-mono text-[10px] text-stone-400 uppercase tracking-widest'>Pobieranie lokali...</p>
+							<p className='font-mono text-[10px] text-stone-400 uppercase tracking-widest'>{t('loading-locals')}</p>
 						</div>
 					) : restaurants.length === 0 ? (
 						<div className='p-8 text-center'>
-							<p className='font-mono text-xs text-stone-500'>Brak aktywnych restauracji w systemie.</p>
+							<p className='font-mono text-xs text-stone-500'>{t('no-restaurants-found')}</p>
 						</div>
 					) : (
 						restaurants.map(rest => (
@@ -313,7 +314,7 @@ export default function MapPage() {
 										href={`/restaurant/${rest.slug}`}
 										className='text-[11px] font-mono uppercase tracking-wider text-stone-600 hover:text-black flex items-center gap-1 font-bold group-hover:translate-x-0.5 transition-transform'
 										onClick={e => e.stopPropagation()}>
-										Zobacz dania <ArrowRight className='w-3 h-3' />
+										{t('view-dishes')} <ArrowRight className='w-3 h-3' />
 									</Link>
 								</div>
 							</div>
@@ -377,7 +378,8 @@ export default function MapPage() {
 										<Link
 											href={`/restaurant/${selectedRestaurant.slug}`}
 											className='text-[11px] font-mono uppercase tracking-wider text-black font-bold flex items-center gap-0.5 hover:underline'>
-											Oferty <ArrowRight className='w-3 h-3' />
+											{t('offers')}
+											<ArrowRight className='w-3 h-3' />
 										</Link>
 									</div>
 
@@ -392,7 +394,7 @@ export default function MapPage() {
 											})
 										}
 										className='w-full text-center py-1.5 border border-stone-200 hover:border-black text-[10px] font-mono uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-stone-50 transition-colors font-bold text-stone-700'>
-										<Navigation className='w-3 h-3' /> Pokaż w Google Maps
+										<Navigation className='w-3 h-3' /> {t('open-google-maps')}
 									</a>
 								</div>
 							</div>
