@@ -1,5 +1,5 @@
 import { Mail, Phone, Plus } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 
 import { LeadFilters } from '@/components/leads/LeadFilters'
 import { LeadStatusSelect } from '@/components/leads/LeadStatusSelect'
@@ -65,38 +65,37 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 		})}`
 
 	return (
-		<div className="p-6 md:p-8">
+		<div className='p-6 md:p-8'>
 			<PageHeader
-				title="Leady"
-				subtitle="Potencjalne restauracje do pozyskania"
+				title='Leady'
+				subtitle='Potencjalne restauracje do pozyskania'
 				action={
-					<Link href="/leads/new" className="btn-primary">
-						<Plus className="h-3.5 w-3.5" aria-hidden />
+					<Link href='/leads/new' className='btn-primary'>
+						<Plus className='h-3.5 w-3.5' aria-hidden />
 						Dodaj leada
 					</Link>
 				}
 			/>
 
-			<div className="mt-6">
+			<div className='mt-6'>
 				<LeadFilters values={filters} />
 			</div>
 
-			<div className="mt-2 overflow-x-auto">
-				<table className="w-full min-w-[900px] border-collapse text-sm">
+			<div className='mt-2 overflow-x-auto'>
+				<table className='w-full min-w-[900px] border-collapse text-sm'>
 					<thead>
-						<tr className="border-b border-stone-200">
-							{COLUMNS.map((column) => (
-								<th key={column.key} className="px-3 py-3 text-left">
+						<tr className='border-b border-stone-200'>
+							{COLUMNS.map(column => (
+								<th key={column.key} className='px-3 py-3 text-left'>
 									{column.sortable ? (
 										<Link
 											href={sortHref(column.key)}
-											className="font-mono text-[10px] uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
-										>
+											className='font-mono text-[10px] uppercase tracking-widest text-stone-400 transition hover:text-stone-900'>
 											{column.label}
 											{filters.sortBy === column.key && (filters.sortDir === 'asc' ? ' ↑' : ' ↓')}
 										</Link>
 									) : (
-										<span className="font-mono text-[10px] uppercase tracking-widest text-stone-400">
+										<span className='font-mono text-[10px] uppercase tracking-widest text-stone-400'>
 											{column.label}
 										</span>
 									)}
@@ -107,58 +106,63 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 					<tbody>
 						{data.items.length === 0 && (
 							<tr>
-								<td colSpan={COLUMNS.length} className="px-3 py-10 text-center text-sm text-stone-400">
+								<td colSpan={COLUMNS.length} className='px-3 py-10 text-center text-sm text-stone-400'>
 									Brak leadów dla wybranych filtrów.
 								</td>
 							</tr>
 						)}
 
-						{data.items.map((lead) => (
-							<tr key={lead.id} className="border-b border-stone-100 align-top hover:bg-stone-50">
-								<td className="px-3 py-3">
-									<Link href={`/leads/${lead.id}`} className="font-bold hover:underline">
+						{data.items.map(lead => (
+							<tr key={lead.id} className='border-b border-stone-100 align-top hover:bg-stone-50'>
+								<td className='px-3 py-3'>
+									<Link href={`/leads/${lead.id}`} className='font-bold hover:underline'>
 										{lead.name}
 									</Link>
 									{lead.contactPerson && (
-										<p className="font-mono text-[10px] uppercase tracking-wider text-stone-400">
+										<p className='font-mono text-[10px] uppercase tracking-wider text-stone-400'>
 											{lead.contactPerson}
 										</p>
 									)}
 								</td>
-								<td className="px-3 py-3 text-stone-600">{lead.city}</td>
-								<td className="px-3 py-3">
-									<div className="flex flex-col gap-1">
+								<td className='px-3 py-3 text-stone-600'>{lead.city}</td>
+								<td className='px-3 py-3'>
+									<div className='flex flex-col gap-1'>
 										{lead.phone ? (
-											<a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-stone-700 hover:underline">
-												<Phone className="h-3 w-3 text-stone-400" aria-hidden />
+											<a
+												href={`tel:${lead.phone}`}
+												className='inline-flex items-center gap-1 text-stone-700 hover:underline'>
+												<Phone className='h-3 w-3 text-stone-400' aria-hidden />
 												{lead.phone}
 											</a>
 										) : (
-											<span className="text-stone-300">—</span>
+											<span className='text-stone-300'>—</span>
 										)}
 										{lead.email ? (
-											<a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 text-stone-700 hover:underline">
-												<Mail className="h-3 w-3 text-stone-400" aria-hidden />
+											<a
+												href={`mailto:${lead.email}`}
+												className='inline-flex items-center gap-1 text-stone-700 hover:underline'>
+												<Mail className='h-3 w-3 text-stone-400' aria-hidden />
 												{lead.email}
 											</a>
 										) : (
-											<span className="text-stone-300">—</span>
+											<span className='text-stone-300'>—</span>
 										)}
 									</div>
 								</td>
-								<td className="px-3 py-3 text-stone-600">{lead.category ?? '—'}</td>
-								<td className="px-3 py-3 font-mono text-[10px] uppercase tracking-wider text-stone-500">{lead.source}</td>
-								<td className="px-3 py-3">
+								<td className='px-3 py-3 text-stone-600'>{lead.category ?? '—'}</td>
+								<td className='px-3 py-3 font-mono text-[10px] uppercase tracking-wider text-stone-500'>
+									{lead.source}
+								</td>
+								<td className='px-3 py-3'>
 									<LeadStatusSelect leadId={lead.id} status={lead.status} />
 								</td>
-								<td className="px-3 py-3 whitespace-nowrap font-mono text-[10px] uppercase tracking-wider text-stone-500">
+								<td className='px-3 py-3 whitespace-nowrap font-mono text-[10px] uppercase tracking-wider text-stone-500'>
 									{formatDateTime(lead.lastContactAt)}
 								</td>
 								<td
 									className={`px-3 py-3 whitespace-nowrap font-mono text-[10px] uppercase tracking-wider ${
 										isOverdue(lead.nextFollowUpAt) ? 'text-red-600' : 'text-stone-500'
-									}`}
-								>
+									}`}>
 									{formatDateTime(lead.nextFollowUpAt)}
 								</td>
 							</tr>

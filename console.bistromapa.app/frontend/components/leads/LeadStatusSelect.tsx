@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 
 import { LEAD_STATUSES } from '@/lib/constants'
 import { STATUS_LABEL } from '@/lib/format'
@@ -38,19 +38,18 @@ export function LeadStatusSelect({ leadId, status }: { leadId: string; status: L
 	return (
 		<div>
 			<select
-				aria-label="Zmień status"
+				aria-label='Zmień status'
 				value={value}
 				disabled={pending}
-				onChange={(event) => void change(event.target.value as LeadStatus)}
-				className="border border-stone-200 bg-white px-2 py-1 font-mono text-[10px] uppercase tracking-wider disabled:opacity-50"
-			>
-				{LEAD_STATUSES.map((option) => (
+				onChange={event => void change(event.target.value as LeadStatus)}
+				className='border border-stone-200 bg-white px-2 py-1 font-mono text-[10px] uppercase tracking-wider disabled:opacity-50'>
+				{LEAD_STATUSES.map(option => (
 					<option key={option} value={option}>
 						{STATUS_LABEL[option]}
 					</option>
 				))}
 			</select>
-			{error && <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-red-600">{error}</p>}
+			{error && <p className='mt-1 font-mono text-[10px] uppercase tracking-wider text-red-600'>{error}</p>}
 		</div>
 	)
 }

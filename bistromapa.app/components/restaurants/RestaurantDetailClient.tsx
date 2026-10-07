@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, type FormEvent } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import {

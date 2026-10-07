@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import RestaurantCard from './RestaurantCard'
 import { Restaurant, RestaurantCatalogProps } from '@/lib/types'
 import { API_URL } from '@/lib/api'
@@ -104,9 +104,7 @@ export default function RestaurantCatalog({ citySlug, cuisine }: RestaurantCatal
 				</nav>
 			)}
 
-			<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>
-				Znaleziono: {restaurants.length}
-			</p>
+			<p className='font-mono text-xs uppercase tracking-widest text-stone-400'>Znaleziono: {restaurants.length}</p>
 
 			<div className='grid gap-6 sm:grid-cols-1 lg:grid-cols-2'>
 				{restaurants.map(restaurant => (

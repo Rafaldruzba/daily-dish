@@ -3,12 +3,12 @@
 import { useTranslations } from 'next-intl'
 
 import React, { useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import { useLocale } from 'next-intl'
 
 import { Lock, Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
@@ -231,7 +231,7 @@ export default function LoginPage() {
 						<div className='text-center mt-8 pt-6 border-t border-stone-100'>
 							<p className='text-stone-500 text-xs'>
 								Nie masz konta?{' '}
-								<Link href={`/${locale}/register`} className='text-black font-mono font-bold hover:underline'>
+								<Link href='/register' className='text-black font-mono font-bold hover:underline'>
 									Utwórz konto
 								</Link>
 							</p>

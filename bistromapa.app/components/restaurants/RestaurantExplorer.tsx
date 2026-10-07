@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 import { Search } from 'lucide-react'
 import RestaurantCard from './RestaurantCard'
 import { Restaurant } from '@/lib/types'
@@ -128,9 +128,7 @@ export default function RestaurantExplorer({ cities }: { cities: CityOption[] })
 				) : restaurants.length === 0 ? (
 					<div className='border border-dashed border-stone-200 bg-stone-50 p-10 text-center'>
 						<h2 className='text-lg font-bold font-serif text-stone-900'>{t('no-restaurants-found')}</h2>
-						<p className='mt-2 text-stone-500 text-sm'>
-							{search ? t('try-another-name') : t('empty-database')}
-						</p>
+						<p className='mt-2 text-stone-500 text-sm'>{search ? t('try-another-name') : t('empty-database')}</p>
 					</div>
 				) : (
 					<>

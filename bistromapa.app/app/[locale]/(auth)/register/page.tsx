@@ -3,11 +3,11 @@
 import { useTranslations } from 'next-intl'
 
 import { useState, type FormEvent } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 
 import { Lock, Mail, User, ArrowRight, Building, Phone, FileText, MapPin } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 
 export default function RegisterPage() {
 	const { register, verifyRegister } = useAuth()

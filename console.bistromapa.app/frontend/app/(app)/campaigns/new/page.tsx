@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 
 import { CampaignForm } from '@/components/campaigns/CampaignForm'
 import { PageHeader } from '@/components/ui'
@@ -9,12 +9,12 @@ export default async function NewCampaignPage() {
 	const provider = await fetchOrLogin<{ source: string; configured: boolean }>('/campaigns/provider')
 
 	return (
-		<div className="p-6 md:p-8">
+		<div className='p-6 md:p-8'>
 			<PageHeader
-				title="Nowa kampania"
+				title='Nowa kampania'
 				subtitle={`Źródło leadów: ${provider.source}${provider.configured ? '' : ' (nieskonfigurowane)'}`}
 				action={
-					<Link href="/campaigns" className="btn-secondary">
+					<Link href='/campaigns' className='btn-secondary'>
 						← Kampanie
 					</Link>
 				}

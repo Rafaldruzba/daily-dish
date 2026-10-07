@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import { useParams, useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowRight, CheckCircle, Loader2, Lock } from 'lucide-react'
 
@@ -170,7 +170,9 @@ export default function ActivateAccountPage() {
 
 				{status === 'ready' && (
 					<form onSubmit={handleSubmit} className='space-y-6 text-left'>
-						{error && <div className='p-4 bg-red-50 border-l-2 border-red-500 text-xs font-mono text-red-700'>{error}</div>}
+						{error && (
+							<div className='p-4 bg-red-50 border-l-2 border-red-500 text-xs font-mono text-red-700'>{error}</div>
+						)}
 
 						<div className='space-y-2'>
 							<label className='text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block'>

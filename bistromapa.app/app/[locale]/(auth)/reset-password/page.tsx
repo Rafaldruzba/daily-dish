@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 
 import React, { Suspense, useState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 
 import { Lock, ArrowRight, CheckCircle, AlertTriangle } from 'lucide-react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -158,4 +158,15 @@ function ResetPasswordContent() {
 		</main>
 	)
 }
-export default function ResetPasswordPage() { return <Suspense fallback={<main className='min-h-screen flex items-center justify-center'><p className='font-mono text-xs'>Ładowanie...</p></main>}><ResetPasswordContent /></Suspense> }
+export default function ResetPasswordPage() {
+	return (
+		<Suspense
+			fallback={
+				<main className='min-h-screen flex items-center justify-center'>
+					<p className='font-mono text-xs'>Ładowanie...</p>
+				</main>
+			}>
+			<ResetPasswordContent />
+		</Suspense>
+	)
+}

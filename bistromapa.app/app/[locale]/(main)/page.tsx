@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback, Suspense } from 'react'
 import { Heart, RefreshCw, ExternalLink, Phone, Info, Star, Award, TrendingUp } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
+
+import { useRouter } from '@/lib/navigation'
+import { useSearchParams } from 'next/navigation'
+
 import type { DailyDish, Restaurant } from '@/lib/types'
 import { useLocation } from '@/context/LocationContext'
 import { useAuth } from '@/context/AuthContext'

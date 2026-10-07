@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import RestaurantExplorer from '@/components/restaurants/RestaurantExplorer'
 import { getTranslations } from 'next-intl/server'
 

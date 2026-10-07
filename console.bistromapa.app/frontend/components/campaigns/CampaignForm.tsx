@@ -1,8 +1,8 @@
 'use client'
 
 import { Loader2, Play } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Link } from '@/lib/navigation'
+import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { ApiSaveError, sendJson } from '@/lib/api-client'
@@ -37,7 +37,7 @@ export function CampaignForm() {
 					limitPerJob,
 					cities: cities
 						.split('\n')
-						.map((city) => city.trim())
+						.map(city => city.trim())
 						.filter(Boolean),
 				}),
 			})
@@ -63,97 +63,123 @@ export function CampaignForm() {
 	}
 
 	return (
-		<form onSubmit={submit} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-			<div className="card space-y-4 lg:col-span-2">
-				<h2 className="label-mono">Zakres kampanii</h2>
+		<form onSubmit={submit} className='mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3'>
+			<div className='card space-y-4 lg:col-span-2'>
+				<h2 className='label-mono'>Zakres kampanii</h2>
 
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
 					<div>
-						<label htmlFor="name" className="label-mono">
+						<label htmlFor='name' className='label-mono'>
 							Nazwa kampanii *
 						</label>
-						<input id="name" required value={name} onChange={(event) => setName(event.target.value)} className="field mt-1" placeholder="Pizzerie — Mazowieckie" />
+						<input
+							id='name'
+							required
+							value={name}
+							onChange={event => setName(event.target.value)}
+							className='field mt-1'
+							placeholder='Pizzerie — Mazowieckie'
+						/>
 					</div>
 					<div>
-						<label htmlFor="region" className="label-mono">
+						<label htmlFor='region' className='label-mono'>
 							Region
 						</label>
-						<input id="region" value={region} onChange={(event) => setRegion(event.target.value)} className="field mt-1" placeholder="Mazowieckie" />
+						<input
+							id='region'
+							value={region}
+							onChange={event => setRegion(event.target.value)}
+							className='field mt-1'
+							placeholder='Mazowieckie'
+						/>
 					</div>
 					<div>
-						<label htmlFor="category" className="label-mono">
+						<label htmlFor='category' className='label-mono'>
 							Kategoria
 						</label>
-						<input id="category" value={category} onChange={(event) => setCategory(event.target.value)} className="field mt-1" placeholder="pizzeria" />
+						<input
+							id='category'
+							value={category}
+							onChange={event => setCategory(event.target.value)}
+							className='field mt-1'
+							placeholder='pizzeria'
+						/>
 					</div>
 					<div>
-						<label htmlFor="search" className="label-mono">
+						<label htmlFor='search' className='label-mono'>
 							Fraza (opcjonalnie)
 						</label>
-						<input id="search" value={search} onChange={(event) => setSearch(event.target.value)} className="field mt-1" placeholder="pizza na wynos" />
+						<input
+							id='search'
+							value={search}
+							onChange={event => setSearch(event.target.value)}
+							className='field mt-1'
+							placeholder='pizza na wynos'
+						/>
 					</div>
 					<div>
-						<label htmlFor="limit" className="label-mono">
+						<label htmlFor='limit' className='label-mono'>
 							Limit na zadanie
 						</label>
 						<input
-							id="limit"
-							type="number"
+							id='limit'
+							type='number'
 							min={1}
 							max={200}
 							value={limitPerJob}
-							onChange={(event) => setLimitPerJob(Number(event.target.value))}
-							className="field mt-1"
+							onChange={event => setLimitPerJob(Number(event.target.value))}
+							className='field mt-1'
 						/>
 					</div>
 				</div>
 
 				<div>
-					<label htmlFor="cities" className="label-mono">
+					<label htmlFor='cities' className='label-mono'>
 						Miasta — jedno na linię *
 					</label>
 					<textarea
-						id="cities"
+						id='cities'
 						required
 						rows={8}
 						value={cities}
-						onChange={(event) => setCities(event.target.value)}
-						className="field mt-1"
+						onChange={event => setCities(event.target.value)}
+						className='field mt-1'
 						placeholder={'Warszawa\nPiaseczno\nPruszków'}
 					/>
-					<p className="mt-2 text-sm text-stone-500">
-						Każde miasto to osobne zadanie — kampanię można wznowić po błędzie, bez powtarzania całej pracy.
-						Dla „całej Polski” wklej listę miast do oblecenia.
+					<p className='mt-2 text-sm text-stone-500'>
+						Każde miasto to osobne zadanie — kampanię można wznowić po błędzie, bez powtarzania całej pracy. Dla „całej
+						Polski” wklej listę miast do oblecenia.
 					</p>
 				</div>
 			</div>
 
-			<div className="space-y-4">
-				<div className="card">
-					<h2 className="label-mono">Start</h2>
-					<p className="mt-2 text-sm text-stone-500">
+			<div className='space-y-4'>
+				<div className='card'>
+					<h2 className='label-mono'>Start</h2>
+					<p className='mt-2 text-sm text-stone-500'>
 						Kampania powstaje w statusie RUNNING. Uruchomienie zadań robisz z jej szczegółów.
 					</p>
 
 					{error && (
 						<p
 							className={`mt-3 border px-3 py-2 font-mono text-[10px] uppercase tracking-wider ${
-								uncertain
-									? 'border-amber-300 bg-amber-50 text-amber-800'
-									: 'border-red-200 bg-red-50 text-red-700'
-							}`}
-						>
+								uncertain ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-700'
+							}`}>
 							{error}
 						</p>
 					)}
 
 					{uncertain ? (
-						<Link href="/campaigns" className="btn-primary mt-4 w-full justify-center">
+						<Link href='/campaigns' className='btn-primary mt-4 w-full justify-center'>
 							Sprawdź listę kampanii
 						</Link>
 					) : (
-						<button type="submit" disabled={busy} className="btn-primary mt-4 w-full justify-center">
-							{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+						<button type='submit' disabled={busy} className='btn-primary mt-4 w-full justify-center'>
+							{busy ? (
+								<Loader2 className='h-3.5 w-3.5 animate-spin' aria-hidden />
+							) : (
+								<Play className='h-3.5 w-3.5' aria-hidden />
+							)}
 							Utwórz kampanię
 						</button>
 					)}

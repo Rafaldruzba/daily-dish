@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 
 import { useState, useEffect, Suspense, type FormEvent } from 'react'
-import Link from 'next/link'
+import { Link } from '@/lib/navigation'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 import {

@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Play, RotateCcw } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import type { CampaignJobStatus } from '@/types'
@@ -31,22 +31,36 @@ export function JobActions({ jobId, status }: { jobId: string; status: CampaignJ
 	}
 
 	return (
-		<div className="flex flex-col gap-1">
-			<div className="flex gap-2">
+		<div className='flex flex-col gap-1'>
+			<div className='flex gap-2'>
 				{(status === 'PENDING' || status === 'ERROR') && (
-					<button type="button" disabled={busy} onClick={() => void run(`/api/campaign-jobs/${jobId}/${status === 'ERROR' ? 'retry' : 'run'}`)} className="btn-secondary px-2 py-1">
-						{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : status === 'ERROR' ? <RotateCcw className="h-3.5 w-3.5" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+					<button
+						type='button'
+						disabled={busy}
+						onClick={() => void run(`/api/campaign-jobs/${jobId}/${status === 'ERROR' ? 'retry' : 'run'}`)}
+						className='btn-secondary px-2 py-1'>
+						{busy ? (
+							<Loader2 className='h-3.5 w-3.5 animate-spin' aria-hidden />
+						) : status === 'ERROR' ? (
+							<RotateCcw className='h-3.5 w-3.5' aria-hidden />
+						) : (
+							<Play className='h-3.5 w-3.5' aria-hidden />
+						)}
 						{status === 'ERROR' ? 'Ponów' : 'Uruchom'}
 					</button>
 				)}
 				{status === 'COMPLETED' && (
-					<button type="button" disabled={busy} onClick={() => void run(`/api/campaign-jobs/${jobId}/retry`)} className="btn-secondary px-2 py-1">
-						<RotateCcw className="h-3.5 w-3.5" aria-hidden />
+					<button
+						type='button'
+						disabled={busy}
+						onClick={() => void run(`/api/campaign-jobs/${jobId}/retry`)}
+						className='btn-secondary px-2 py-1'>
+						<RotateCcw className='h-3.5 w-3.5' aria-hidden />
 						Powtórz
 					</button>
 				)}
 			</div>
-			{error && <p className="font-mono text-[10px] uppercase tracking-wider text-red-600">{error}</p>}
+			{error && <p className='font-mono text-[10px] uppercase tracking-wider text-red-600'>{error}</p>}
 		</div>
 	)
 }
@@ -77,11 +91,15 @@ export function RunCampaignButton({ campaignId }: { campaignId: string }) {
 
 	return (
 		<div>
-			<button type="button" disabled={busy} onClick={() => void run()} className="btn-primary">
-				{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+			<button type='button' disabled={busy} onClick={() => void run()} className='btn-primary'>
+				{busy ? (
+					<Loader2 className='h-3.5 w-3.5 animate-spin' aria-hidden />
+				) : (
+					<Play className='h-3.5 w-3.5' aria-hidden />
+				)}
 				Uruchom oczekujące zadania
 			</button>
-			{error && <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-red-600">{error}</p>}
+			{error && <p className='mt-2 font-mono text-[10px] uppercase tracking-wider text-red-600'>{error}</p>}
 		</div>
 	)
 }

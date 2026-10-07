@@ -13,8 +13,8 @@ import {
 	Scale,
 	Star,
 } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { Link } from '@/lib/navigation'
+import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { CONSENT_STATUSES, INTERACTION_TYPES, LEAD_STATUSES } from '@/lib/constants'

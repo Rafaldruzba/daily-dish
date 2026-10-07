@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { Link, usePathname, useRouter } from '@/lib/navigation'
 import { Utensils, Store, LogIn, LogOut, User, Menu, X, Building, Map, MapPin } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocation } from '@/context/LocationContext'
@@ -24,20 +23,7 @@ export function Navbar() {
 
 	const handleLanguageChange = (lang: 'pl' | 'en') => {
 		setLanguage(lang)
-
-		// pathname np. /restaurants/lodz
-		// usuwamy obecny locale i dokładamy nowy
-		const segments = pathname.split('/').filter(Boolean)
-
-		if (segments[0] === 'pl' || segments[0] === 'en') {
-			segments[0] = lang
-		} else {
-			segments.unshift(lang)
-		}
-
-		const newPath = '/' + segments.join('/')
-
-		router.push(newPath)
+		router.replace(pathname, { locale: lang })
 		setIsOpen(false)
 	}
 
@@ -69,30 +55,28 @@ export function Navbar() {
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
-				<Link href={`/${language}`} className={navLinkClass(pathname === `/${language}`)}>
+				<Link href={``} className={navLinkClass(pathname === `/`)}>
 					<span className='flex items-center gap-1.5'>
 						<Utensils className='w-3.5 h-3.5' />
 						{t('home')}
 					</span>
 				</Link>
 
-				<Link href={`/${language}/restaurants`} className={navLinkClass(pathname === `/${language}/restaurants`)}>
+				<Link href={`/restaurants`} className={navLinkClass(pathname === `/restaurants`)}>
 					<span className='flex items-center gap-1.5'>
 						<Store className='w-3.5 h-3.5' />
 						{t('catalog')}
 					</span>
 				</Link>
 
-				<Link href={`/${language}/map`} className={navLinkClass(pathname === `/${language}/map`)}>
+				<Link href={`/map`} className={navLinkClass(pathname === `/map`)}>
 					<span className='flex items-center gap-1.5'>
 						<Map className='w-3.5 h-3.5' />
 						{t('map')}
 					</span>
 				</Link>
 
-				<Link
-					href={`/${language}/for-restaurants`}
-					className={navLinkClass(pathname === `/${language}/for-restaurants`)}>
+				<Link href={`/for-restaurants`} className={navLinkClass(pathname === `/for-restaurants`)}>
 					<span className='flex items-center gap-1.5'>
 						<Building className='w-3.5 h-3.5' />
 						{user ? t('profile') : t('for-restaurants')}
@@ -145,14 +129,14 @@ export function Navbar() {
 				) : (
 					<div className='flex items-center gap-2'>
 						<Link
-							href={`/${language}/login`}
+							href={`/login`}
 							className='px-3 py-1.5 text-stone-700 hover:text-black transition-colors flex items-center gap-1.5'>
 							<LogIn className='w-3.5 h-3.5' />
 							{t('login')}
 						</Link>
 
 						<Link
-							href={`/${language}/register`}
+							href={`/register`}
 							className='px-3 py-1.5 bg-black text-white hover:bg-stone-900 transition-colors flex items-center gap-1.5'>
 							{t('register')}
 						</Link>
@@ -172,40 +156,38 @@ export function Navbar() {
 
 					<div className='flex flex-col gap-3'>
 						<Link
-							href={`/${language}`}
+							href={``}
 							onClick={() => setIsOpen(false)}
-							className={`py-2 flex items-center gap-2 ${
-								pathname === `/${language}` ? 'text-black font-bold' : 'text-stone-500'
-							}`}>
+							className={`py-2 flex items-center gap-2 ${pathname === `` ? 'text-black font-bold' : 'text-stone-500'}`}>
 							<Utensils className='w-4 h-4' />
 							{t('home')}
 						</Link>
 
 						<Link
-							href={`/${language}/restaurants`}
+							href={`/restaurants`}
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${
-								pathname === `/${language}/restaurants` ? 'text-black font-bold' : 'text-stone-500'
+								pathname === `/restaurants` ? 'text-black font-bold' : 'text-stone-500'
 							}`}>
 							<Store className='w-4 h-4' />
 							{t('catalog')}
 						</Link>
 
 						<Link
-							href={`/${language}/map`}
+							href={`/map`}
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${
-								pathname === `/${language}/map` ? 'text-black font-bold' : 'text-stone-500'
+								pathname === `/map` ? 'text-black font-bold' : 'text-stone-500'
 							}`}>
 							<Map className='w-4 h-4' />
 							{t('map')}
 						</Link>
 
 						<Link
-							href={`/${language}/for-restaurants`}
+							href={`/for-restaurants`}
 							onClick={() => setIsOpen(false)}
 							className={`py-2 flex items-center gap-2 ${
-								pathname === `/${language}/for-restaurants` ? 'text-black font-bold' : 'text-stone-500'
+								pathname === `/for-restaurants` ? 'text-black font-bold' : 'text-stone-500'
 							}`}>
 							<Building className='w-4 h-4' />
 							{user ? t('profile') : t('for-restaurants')}
@@ -269,7 +251,7 @@ export function Navbar() {
 					) : (
 						<div className='flex flex-col gap-2'>
 							<Link
-								href={`/${language}/login`}
+								href={`/login`}
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 border border-stone-200 text-stone-700 hover:border-black hover:text-black transition-colors flex items-center justify-center gap-1.5'>
 								<LogIn className='w-3.5 h-3.5' />
@@ -277,7 +259,7 @@ export function Navbar() {
 							</Link>
 
 							<Link
-								href={`/${language}/register`}
+								href={`/register`}
 								onClick={() => setIsOpen(false)}
 								className='w-full py-2 bg-black text-white hover:bg-stone-900 transition-colors flex items-center justify-center gap-1.5 text-center'>
 								{t('register')}

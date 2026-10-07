@@ -2,8 +2,8 @@
 
 import { Navbar } from '@/components/ui/Navbar'
 import { Footer } from '@/components/ui/Footer'
-import { usePathname } from 'next/navigation'
-import Link from 'next/link'
+import { usePathname } from '@/lib/navigation'
+import { Link } from '@/lib/navigation'
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname()
@@ -27,6 +27,5 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 			{!isMapPage && <Footer />}
 		</div>
-
 	)
 }

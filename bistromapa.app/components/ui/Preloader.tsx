@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useLocation } from '@/context/LocationContext'
 import { MapPin } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/navigation'
 
 export function Preloader() {
 	const router = useRouter()
@@ -14,7 +14,7 @@ export function Preloader() {
 
 	const pickLang = (lang: 'pl' | 'en') => {
 		setLanguage(lang)
-		router.replace(`/${lang}`)
+		router.replace('/', { locale: lang })
 	}
 
 	const handleStart = () => {
