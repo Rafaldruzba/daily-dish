@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import RestaurantExplorer from '@/components/restaurants/RestaurantExplorer'
+import { getTranslations } from 'next-intl'
 
 const API_URL =
 	process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
@@ -32,6 +33,7 @@ async function getCities(): Promise<CityOption[]> {
 }
 
 export default async function RestaurantsPage() {
+	const t = await getTranslations('Catalog')
 	const cities = await getCities()
 
 	return (
@@ -39,11 +41,11 @@ export default async function RestaurantsPage() {
 			<section className='mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8'>
 				<div className='mb-10'>
 					<h1 className='text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl'>
-						Restauracje w Polsce
+						{t('restaurants-in-city')}
 					</h1>
 
 					<p className='mt-3 max-w-2xl text-stone-600'>
-						Znajdź restauracje po mieście i rodzaju kuchni. Sprawdź menu dnia, zdjęcia i opinie.
+						{t('search-restaurants')}
 					</p>
 				</div>
 
@@ -51,7 +53,7 @@ export default async function RestaurantsPage() {
 				{cities.length > 0 && (
 					<nav className='mb-10'>
 						<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-4'>
-							Przeglądaj miasta
+							{t('search-city')}
 						</h2>
 						<div className='flex flex-wrap gap-2'>
 							{cities.map(item => (

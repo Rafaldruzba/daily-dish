@@ -16,6 +16,14 @@ const nextConfig = {
 				source: '/crm-api/:path*',
 				destination: `${process.env.CRM_API_URL || 'http://localhost:3002'}/api/:path*`,
 			},
+			{
+				source: '/restaurant/:path*',
+				destination: '/pl/restaurant/:path*',
+			},
+			{
+				source: '/restaurants/:path*',
+				destination: '/pl/restaurants/:path*',
+			}
 		]
 	},
 	images: {
@@ -24,6 +32,8 @@ const nextConfig = {
 				protocol: 'https',
 				hostname: '*.amazonaws.com',
 			},
+
+
 		],
 	},
 	experimental: {
