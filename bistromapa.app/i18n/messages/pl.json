@@ -534,5 +534,178 @@
 	},
 	"Restaurant-slug": {
 		"profile": "Ładowanie profilu..."
+	},
+	"Reset-pass": {
+		"errors": {
+			"error": "Brak prawidłowego tokenu resetującego w adresie URL.",
+			"field": "Wszystkie pola są wymagane.",
+			"pass": "Hasło musi mieć co najmniej 6 znaków.",
+			"same": "Hasła nie są identyczne.",
+			"link": "Nie udało się zmienić hasła. Link mógł wygasnąć.",
+			"server": "Wystąpił nieoczekiwany błąd serwera."
+		},
+		"succes": {
+			"pass": "Hasło zostało pomyślnie zmienione."
+		},
+		"text": {
+			"header": "Odzyskiwanie konta",
+			"headerSubtitle": "Ustaw nowe hasło",
+			"headerDesc": "Wprowadź nowe, silne hasło, aby zabezpieczyć swoje konto.",
+			"error": "Nieprawidłowe lub uszkodzone łącze resetujące hasło.",
+			"back": "Wróć do logowania",
+			"pass": "Hasło zostało zmienione",
+			"3sec": "Przekierowanie do logowania za 3 sekundy...",
+			"loginNow": "Zaloguj się teraz",
+			"newPass": "Nowe hasło",
+			"newPassPlaceHolder": "Co najmniej 6 znaków",
+			"repeatPass": "Powtórz nowe hasło",
+			"saving": "Zapisywanie...",
+			"btn": "Zmień hasło"
+		}
+	},
+	"Register": {
+		"errors": {
+			"emailPasswordRequired": "E-mail i hasło są wymagane.",
+			"passwordMinLength": "Hasło musi mieć co najmniej 6 znaków.",
+			"passwordMismatch": "Hasła nie są identyczne.",
+			"ownerPhoneRequired": "Numer telefonu jest wymagany dla konta restauracji.",
+			"ownerRepresentationRequired": "Musisz potwierdzić, że jesteś właścicielem lub posiadasz uprawnienia do reprezentacji lokalu.",
+			"termsRequired": "Musisz zaakceptować regulamin serwisu.",
+			"registrationFailed": "Nie udało się zarejestrować konta.",
+			"unexpectedError": "Wystąpił nieoczekiwany błąd.",
+			"verificationCodeLength": "Kod weryfikacyjny musi składać się z 6 cyfr.",
+			"invalidVerificationCode": "Nieprawidłowy kod weryfikacyjny."
+		},
+		"verification": {
+			"badge": "Weryfikacja",
+			"title": "Potwierdź e-mail",
+			"description": "Wysłaliśmy 6-cyfrowy kod weryfikacyjny na adres:",
+			"codeLabel": "Kod weryfikacyjny (6 cyfr)",
+			"codePlaceholder": "123456",
+			"submitting": "Weryfikacja...",
+			"submit": "Zatwierdź i zarejestruj",
+			"back": "← Wróć do formularza rejestracji"
+		},
+		"page": {
+			"badge": "Rejestracja",
+			"title": "Stwórz konto",
+			"description": "Wybierz cel swojego konta, aby kontynuować."
+		},
+		"accountType": {
+			"user": "Szukam Jedzenia",
+			"owner": "Dla Restauracji"
+		},
+		"fields": {
+			"name": {
+				"label": "Twoje imię / Nazwa",
+				"placeholder": "np. Jan Kowalski"
+			},
+			"city": {
+				"label": "Miejscowość (Miasto)",
+				"placeholder": "np. Warszawa"
+			},
+			"email": {
+				"label": "Adres e-mail",
+				"placeholder": "twoj@email.com"
+			},
+			"ownerPhone": {
+				"label": "Telefon kontaktowy",
+				"placeholder": "np. +48 123 456 789"
+			},
+			"nip": {
+				"label": "NIP firmy",
+				"placeholder": "np. 1234567890"
+			},
+			"password": {
+				"label": "Hasło",
+				"minLength": "(min. 6 znaków)"
+			},
+			"confirmPassword": {
+				"label": "Potwierdź hasło"
+			}
+		},
+		"ownerVerification": {
+			"title": "Dane Weryfikacji Lokalu",
+			"representation": "Oświadczam, że jestem właścicielem lub posiadam uprawnienia do reprezentowania rejestrowanego lokalu."
+		},
+		"optional": "(opcjonalny)",
+		"terms": {
+			"accept": "Akceptuję",
+			"regulations": "Regulamin",
+			"and": "oraz",
+			"privacy": "Politykę Prywatności",
+			"service": "serwisu BistroMapa.pl."
+		},
+		"submit": {
+			"submitting": "Tworzenie konta...",
+			"button": "Utwórz konto"
+		},
+		"loginPrompt": {
+			"text": "Masz już konto?",
+			"link": "Zaloguj się"
+		}
+	},
+	"Login": {
+		"errors": {
+			"field": "Wszystkie pola są wymagane.",
+			"incorrectData": "Niepoprawny e-mail lub hasło.",
+			"server": "Wystąpił nieoczekiwany błąd.",
+			"server2": "Wystąpił nieoczekiwany błąd serwera.",
+			"email": "Adres e-mail jest wymagany.",
+			"forgot": "Błąd podczas wysyłania prośby."
+		},
+		"success": {
+			"link": "Wysłano link resetujący hasło."
+		},
+		"text": {
+			"header": "Odzyskiwanie hasła",
+			"desc": "Wpisz swój adres e-mail, a wyślemy Ci link do ustawienia nowego hasła.",
+			"emailSent": "E-mail został wysłany",
+			"back": "Powrót do logowania",
+			"email": "Adres e-mail *",
+			"emailPlaceHolder": "twoj@email.com",
+			"sending": "Wysyłanie...",
+			"resetLink": "Wyślij link resetujący",
+			"cancel": "Anuluj",
+			"login": "Logowanie",
+			"welcomeBack": "Witaj ponownie",
+			"welcomeBackDesc": "Zaloguj się na swoje konto, aby zarządzać ulubionymi i restauracjami.",
+			"addressEmail": "Adres e-mail",
+			"password": "Hasło",
+			"passwordForgot": "Zapomniałem hasła",
+			"loginDots": "Logowanie...",
+			"loginBtn": "Zaloguj się",
+			"QAccount": "Nie masz konta?",
+			"AAcconut": "Utwórz konto"
+		}
+	},
+	"Activate": {
+		"errors": {
+			"token": "Brak tokenu aktywacyjnego w adresie.",
+			"link": "Link aktywacyjny jest nieprawidłowy lub wygasł.",
+			"server": "Nie udało się połączyć z serwerem. Spróbuj ponownie później.",
+			"server2": "Wystąpił nieoczekiwany błąd serwera.",
+			"pass": "Hasło musi mieć co najmniej 12 znaków.",
+			"passIden": "Hasła nie są identyczne.",
+			"activateAcc": "Nie udało się aktywować konta."
+		},
+		"text": {
+			"header": "Aktywacja konta",
+			"setPass": "Ustaw hasło",
+			"accfor": "Konto dla",
+			"accfordone": "jest gotowe.",
+			"check": "Sprawdzanie linku...",
+			"back": "Wróć do logowania",
+			"accActivated": "Konto aktywowane",
+			"accActivatedDesc": "Możesz teraz zalogować się swoim adresem e-mail i ustawionym hasłem.",
+			"redirect": "Przekierowanie do logowania za 3 sekundy...",
+			"loginNow": "Zaloguj się teraz",
+			"newPass": "Nowe hasło",
+			"newPassPlaceholder": "Co najmniej 12 znaków",
+			"newPassRepeat": "Powtórz hasło",
+			"newPassRepeatPlaceholder": "Powtórz nowe hasło",
+			"activating": "Aktywacja...",
+			"activateBtn": "Aktywuj konto"
+		}
 	}
 }

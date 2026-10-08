@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from '@/lib/navigation'
 import { useParams, useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowRight, CheckCircle, Loader2, Lock } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface ActivationInfo {
 	restaurantName: string
@@ -21,6 +22,7 @@ interface CrmResponse<T> {
 type Status = 'checking' | 'ready' | 'invalid' | 'done'
 
 export default function ActivateAccountPage() {
+	const t = useTranslations('Activate')
 	const params = useParams<{ token: string }>()
 	const router = useRouter()
 	const token = params?.token
@@ -36,7 +38,7 @@ export default function ActivateAccountPage() {
 	useEffect(() => {
 		if (!token) {
 			setStatus('invalid')
-			setError('Brak tokenu aktywacyjnego w adresie.')
+			setError(t('errors.token'))
 			return
 		}
 
@@ -53,7 +55,7 @@ export default function ActivateAccountPage() {
 
 				if (!res.ok || !body.success || !body.data) {
 					setStatus('invalid')
-					setError(body.error?.message || 'Link aktywacyjny jest nieprawidłowy lub wygasł.')
+					setError(body.error?.message || t('errors.link'))
 					return
 				}
 
@@ -62,7 +64,7 @@ export default function ActivateAccountPage() {
 			} catch {
 				if (!cancelled) {
 					setStatus('invalid')
-					setError('Nie udało się połączyć z serwerem. Spróbuj ponownie później.')
+					setError(t('errors.server'))
 				}
 			}
 		}
@@ -79,12 +81,12 @@ export default function ActivateAccountPage() {
 		setError('')
 
 		if (password.length < 12) {
-			setError('Hasło musi mieć co najmniej 12 znaków.')
+			setError(t('errors.pass'))
 			return
 		}
 
 		if (password !== confirmPassword) {
-			setError('Hasła nie są identyczne.')
+			setError(t('errors.passIden'))
 			return
 		}
 
@@ -99,14 +101,14 @@ export default function ActivateAccountPage() {
 			const body = (await res.json()) as CrmResponse<{ activated: true }>
 
 			if (!res.ok || !body.success) {
-				setError(body.error?.message || 'Nie udało się aktywować konta.')
+				setError(body.error?.message || t('errors.activateAcc'))
 				return
 			}
 
 			setStatus('done')
 			setTimeout(() => router.push('/login'), 3000)
 		} catch {
-			setError('Wystąpił nieoczekiwany błąd serwera.')
+			setError(t('errors.server2'))
 		} finally {
 			setSubmitting(false)
 		}
@@ -116,11 +118,12 @@ export default function ActivateAccountPage() {
 		<main className='min-h-[80vh] flex items-center justify-center px-4 py-12 bg-[#fafafa] animate-fade-in'>
 			<div className='w-full max-w-md bg-white border border-stone-200 rounded-none p-8 md:p-10 shadow-sm'>
 				<div className='text-center mb-8'>
-					<span className='text-xs uppercase tracking-widest font-mono text-stone-400'>Aktywacja konta</span>
-					<h1 className='text-3xl font-bold tracking-tight font-serif text-stone-900 mt-1'>Ustaw hasło</h1>
+					<span className='text-xs uppercase tracking-widest font-mono text-stone-400'>{t('text.header')}</span>
+					<h1 className='text-3xl font-bold tracking-tight font-serif text-stone-900 mt-1'>{t('text.setPass')}</h1>
 					{status === 'ready' && info && (
 						<p className='text-stone-500 text-sm mt-2'>
-							Konto dla <span className='font-medium text-stone-700'>{info.restaurantName}</span> jest gotowe.
+							{t('text.accfor')} <span className='font-medium text-stone-700'>{info.restaurantName}</span>{' '}
+							{t('text.accfordone')}
 							<br />
 							<span className='font-mono text-xs text-stone-400'>{info.email}</span>
 						</p>
@@ -130,7 +133,7 @@ export default function ActivateAccountPage() {
 				{status === 'checking' && (
 					<div className='flex items-center justify-center gap-2 py-10 text-stone-400'>
 						<Loader2 className='w-4 h-4 animate-spin' />
-						<span className='font-mono text-xs uppercase tracking-wider'>Sprawdzanie linku...</span>
+						<span className='font-mono text-xs uppercase tracking-wider'>{t('text.check')}</span>
 					</div>
 				)}
 
@@ -143,7 +146,7 @@ export default function ActivateAccountPage() {
 						<Link
 							href='/login'
 							className='inline-block w-full bg-black text-white hover:bg-stone-900 transition-colors py-3 font-mono text-xs uppercase tracking-widest text-center cursor-pointer'>
-							Wróć do logowania
+							{t('text.back')}
 						</Link>
 					</div>
 				)}
@@ -152,18 +155,14 @@ export default function ActivateAccountPage() {
 					<div className='space-y-6 text-center animate-scale-up'>
 						<div className='p-6 bg-green-50 border border-green-200 rounded-none text-center space-y-3'>
 							<CheckCircle className='w-12 h-12 text-green-600 mx-auto' />
-							<h3 className='font-serif font-bold text-stone-900 text-base'>Konto aktywowane</h3>
-							<p className='text-stone-600 text-xs leading-relaxed font-sans'>
-								Możesz teraz zalogować się swoim adresem e-mail i ustawionym hasłem.
-							</p>
-							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider pt-2'>
-								Przekierowanie do logowania za 3 sekundy...
-							</p>
+							<h3 className='font-serif font-bold text-stone-900 text-base'>{t('text.accActivated')}</h3>
+							<p className='text-stone-600 text-xs leading-relaxed font-sans'>{t('text.accActivatedDesc')}</p>
+							<p className='text-stone-400 text-[10px] font-mono uppercase tracking-wider pt-2'>{t('text.redirect')}</p>
 						</div>
 						<Link
 							href='/login'
 							className='inline-block w-full bg-black text-white hover:bg-stone-900 transition-colors py-3 font-mono text-xs uppercase tracking-widest text-center cursor-pointer'>
-							Zaloguj się teraz
+							{t('text.loginNow')}
 						</Link>
 					</div>
 				)}
@@ -176,7 +175,7 @@ export default function ActivateAccountPage() {
 
 						<div className='space-y-2'>
 							<label className='text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block'>
-								Nowe hasło
+								{t('text.newPass')}
 							</label>
 							<div className='relative'>
 								<Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400' />
@@ -184,7 +183,7 @@ export default function ActivateAccountPage() {
 									type='password'
 									value={password}
 									onChange={e => setPassword(e.target.value)}
-									placeholder='Co najmniej 12 znaków'
+									placeholder={t('text.newPassPlaceholder')}
 									minLength={12}
 									className='w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-none focus:outline-none focus:border-black text-sm text-stone-900 font-mono transition-colors'
 									required
@@ -194,7 +193,7 @@ export default function ActivateAccountPage() {
 
 						<div className='space-y-2'>
 							<label className='text-xs uppercase tracking-wider font-mono font-medium text-stone-600 block'>
-								Powtórz hasło
+								{t('text.newPassRepeat')}
 							</label>
 							<div className='relative'>
 								<Lock className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400' />
@@ -202,7 +201,7 @@ export default function ActivateAccountPage() {
 									type='password'
 									value={confirmPassword}
 									onChange={e => setConfirmPassword(e.target.value)}
-									placeholder='Powtórz nowe hasło'
+									placeholder={t('text.newPassRepeatPlaceholder')}
 									minLength={12}
 									className='w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-none focus:outline-none focus:border-black text-sm text-stone-900 font-mono transition-colors'
 									required
@@ -214,7 +213,7 @@ export default function ActivateAccountPage() {
 							type='submit'
 							disabled={submitting}
 							className='w-full bg-black text-white hover:bg-stone-900 transition-colors py-3 font-mono text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer'>
-							{submitting ? 'Aktywacja...' : 'Aktywuj konto'}
+							{submitting ? t('text.activating') : t('text.activateBtn')}
 							<ArrowRight className='w-4 h-4' />
 						</button>
 					</form>
