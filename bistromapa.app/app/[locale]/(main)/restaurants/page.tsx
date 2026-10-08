@@ -20,6 +20,10 @@ interface CityOption {
 	restaurantCount: number
 }
 
+type Props = {
+	params: Promise<{ locale: string }>
+}
+
 async function getCities(): Promise<CityOption[]> {
 	try {
 		const response = await fetch(`${API_URL}/seo/cities`, { next: { revalidate: 3600 } })
@@ -31,8 +35,10 @@ async function getCities(): Promise<CityOption[]> {
 	}
 }
 
-export default async function RestaurantsPage() {
-	const t = await getTranslations('RestaurantsPage')
+export default async function RestaurantsPage({ params }: Props) {
+	const { locale } = await params
+
+	const t = await getTranslations({ locale, namespace: 'RestaurantsPage' })
 	const cities = await getCities()
 
 	return (
@@ -44,7 +50,6 @@ export default async function RestaurantsPage() {
 					<p className='mt-3 max-w-2xl text-stone-600'>{t('search-restaurants')}</p>
 				</div>
 
-				{/* Linkowanie wewnętrzne renderowane po stronie serwera — bez tego strony miast są osierocone */}
 				{cities.length > 0 && (
 					<nav className='mb-10'>
 						<h2 className='font-mono text-xs uppercase tracking-widest text-stone-400 mb-4'>{t('search-city')}</h2>

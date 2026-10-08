@@ -55,7 +55,7 @@ export function Navbar() {
 
 				<div className='h-4 w-px bg-stone-200 mx-2'></div>
 
-				<Link href={``} className={navLinkClass(pathname === `/`)}>
+				<Link href={`/`} className={navLinkClass(pathname === `/`)}>
 					<span className='flex items-center gap-1.5'>
 						<Utensils className='w-3.5 h-3.5' />
 						{t('home')}

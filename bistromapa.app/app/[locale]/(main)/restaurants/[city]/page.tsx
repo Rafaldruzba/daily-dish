@@ -12,6 +12,7 @@ const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL |
 interface CityPageProps {
 	params: Promise<{
 		city: string
+		locale: string
 	}>
 }
 
@@ -30,10 +31,6 @@ interface CitySeoData {
 	cuisines: CityCuisine[]
 }
 
-/**
- * null      -> miasto nie istnieje -> 404
- * undefined -> błąd backendu -> nie robimy fałszywego 404
- */
 async function getCityData(citySlug: string): Promise<CitySeoData | null | undefined> {
 	try {
 		const response = await fetch(`${API_URL}/seo/cities/${encodeURIComponent(citySlug)}`, {
@@ -72,7 +69,7 @@ async function getCityData(citySlug: string): Promise<CitySeoData | null | undef
 }
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
-	const { city } = await params
+	const { city, locale } = await params
 
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const data = await getCityData(citySlug)
@@ -96,7 +93,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 			? `Znajdź restauracje w ${cityName}. Przeglądaj ${data.restaurantCount} lokali, sprawdź menu, zdjęcia, opinie i rodzaje kuchni w BistroMapa.`
 			: `Znajdź restauracje w ${cityName}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
 
-	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}`
+	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}`
 	const imageUrl = `${BASE_URL}/logo.png`
 
 	return {
@@ -114,7 +111,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 		openGraph: {
 			type: 'website',
-			locale: 'pl_PL',
+			locale: locale === 'pl' ? 'pl_PL' : 'en_US',
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
 			title,
@@ -139,9 +136,8 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 }
 
 export default async function CityRestaurantsPage({ params }: CityPageProps) {
-	const { city } = await params
-	const t = await getTranslations('Restaurant-City')
-
+	const { city, locale } = await params
+	const t = await getTranslations({ locale, namespace: 'Restaurant-City' })
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const data = await getCityData(citySlug)
 
@@ -153,7 +149,7 @@ export default async function CityRestaurantsPage({ params }: CityPageProps) {
 
 	const seoLinks = data?.cuisines.filter(cuisine => cuisine.seoEnabled && cuisine.count > 0) ?? []
 
-	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}`
+	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}`
 
 	const breadcrumbJsonLd = {
 		'@context': 'https://schema.org',
@@ -163,7 +159,7 @@ export default async function CityRestaurantsPage({ params }: CityPageProps) {
 				'@type': 'ListItem',
 				position: 1,
 				name: 'Restauracje',
-				item: `${BASE_URL}/restaurants`,
+				item: `${BASE_URL}/${locale}/restaurants`,
 			},
 			{
 				'@type': 'ListItem',

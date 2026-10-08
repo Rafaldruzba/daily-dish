@@ -456,7 +456,7 @@ function HomePageContent() {
 							</p>
 						</div>
 					) : (
-						<div className='space-y-4 max-w-3xl'>
+						<div className='space-y-4 max-w-3xl cursor-pointer'>
 							{rankingRestaurants.map((rest, index) => (
 								<div
 									key={rest.id}

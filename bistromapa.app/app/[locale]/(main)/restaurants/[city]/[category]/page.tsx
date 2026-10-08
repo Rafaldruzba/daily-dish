@@ -3,7 +3,7 @@ import { Link } from '@/lib/navigation'
 import { notFound } from 'next/navigation'
 
 import RestaurantCatalog from '@/components/restaurants/RestaurantCatalog'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -13,6 +13,7 @@ interface CategoryPageProps {
 	params: Promise<{
 		city: string
 		category: string
+		locale: string
 	}>
 }
 
@@ -31,10 +32,6 @@ interface CitySeoData {
 	cuisines: CityCuisine[]
 }
 
-/**
- * null      -> miasto nie istnieje -> 404
- * undefined -> błąd backendu -> nie robimy fałszywego 404
- */
 async function getCityData(citySlug: string): Promise<CitySeoData | null | undefined> {
 	try {
 		const response = await fetch(`${API_URL}/seo/cities/${encodeURIComponent(citySlug)}`, {
@@ -73,14 +70,13 @@ async function getCityData(citySlug: string): Promise<CitySeoData | null | undef
 }
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
-	const { city, category } = await params
+	const { city, category, locale } = await params
 
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const cuisineSlug = decodeURIComponent(category).toLowerCase()
 
 	const data = await getCityData(citySlug)
 
-	// Miasto nie istnieje
 	if (data === null) {
 		return {
 			title: 'Strona nie znaleziona | BistroMapa',
@@ -92,13 +88,10 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 	}
 
 	const cityName = data?.city ?? decodeURIComponent(city)
-
 	const cuisine = data?.cuisines.find(item => item.slug === cuisineSlug)
-
 	const cuisineName = cuisine?.name ?? decodeURIComponent(category)
 
-	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}/${cuisineSlug}`
-
+	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}/${cuisineSlug}`
 	const title = `${cuisineName} w ${cityName} — restauracje`
 
 	const description =
@@ -123,7 +116,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 		openGraph: {
 			type: 'website',
-			locale: 'pl_PL',
+			locale: locale === 'pl' ? 'pl_PL' : 'en_US',
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
 			title,
@@ -148,25 +141,21 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 }
 
 export default async function CategoryRestaurantsPage({ params }: CategoryPageProps) {
-	const t = useTranslations('CategoryPage')
-	const { city, category } = await params
+	const { city, category, locale } = await params
+	const t = await getTranslations({ locale, namespace: 'CategoryPage' })
 
 	const citySlug = decodeURIComponent(city).toLowerCase()
 	const cuisineSlug = decodeURIComponent(category).toLowerCase()
 
 	const data = await getCityData(citySlug)
 
-	// Prawdziwe 404 tylko gdy miasto faktycznie nie istnieje.
 	if (data === null) {
 		notFound()
 	}
 
 	const cityName = data?.city ?? decodeURIComponent(city)
-
 	const cuisine = data?.cuisines.find(item => item.slug === cuisineSlug)
 
-	// Jeżeli backend odpowiedział poprawnie i kuchni nie ma,
-	// URL nie reprezentuje istniejącej strony.
 	if (data && !cuisine) {
 		notFound()
 	}
@@ -176,7 +165,7 @@ export default async function CategoryRestaurantsPage({ params }: CategoryPagePr
 	const otherCuisines =
 		data?.cuisines.filter(item => item.seoEnabled && item.count > 0 && item.slug !== cuisineSlug) ?? []
 
-	const canonicalUrl = `${BASE_URL}/restaurants/${citySlug}/${cuisineSlug}`
+	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}/${cuisineSlug}`
 
 	const breadcrumbJsonLd = {
 		'@context': 'https://schema.org',
@@ -186,13 +175,13 @@ export default async function CategoryRestaurantsPage({ params }: CategoryPagePr
 				'@type': 'ListItem',
 				position: 1,
 				name: 'Restauracje',
-				item: `${BASE_URL}/restaurants`,
+				item: `${BASE_URL}/${locale}/restaurants`,
 			},
 			{
 				'@type': 'ListItem',
 				position: 2,
 				name: cityName,
-				item: `${BASE_URL}/restaurants/${citySlug}`,
+				item: `${BASE_URL}/${locale}/restaurants/${citySlug}`,
 			},
 			{
 				'@type': 'ListItem',

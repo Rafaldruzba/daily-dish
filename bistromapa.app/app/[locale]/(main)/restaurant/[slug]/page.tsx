@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import RestaurantDetailClient from '@/components/restaurants/RestaurantDetailClient'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -147,7 +147,7 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 }
 
 export default async function RestaurantPage({ params }: RestaurantPageProps) {
-	const t = useTranslations('Restaurant-slug')
+	const t = await getTranslations('Restaurant-slug')
 	const { slug } = await params
 	const restaurant = await getRestaurant(slug)
 
