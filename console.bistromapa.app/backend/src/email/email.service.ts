@@ -70,7 +70,7 @@ export function bodyToHtml(body: string): string {
 		</div>
 	</div>
 </div>
-	`
+	`.trim()
 }
 
 @Injectable()
