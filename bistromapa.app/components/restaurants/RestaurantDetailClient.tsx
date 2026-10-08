@@ -201,11 +201,12 @@ export default function RestaurantDetailClient() {
 
 	// Tab Navigator State
 	const searchParams = useSearchParams()
+	const tabParam = searchParams.get('tab')
+
 	const [activeTab, setActiveTab] = useState<'dishes' | 'about' | 'menu' | 'opinions'>(() => {
-		const tab = new URLSearchParams(window.location.search).get('tab')
-		if (tab === 'opinions') return 'opinions'
-		if (tab === 'about-us') return 'about'
-		if (tab === 'menu') return 'menu'
+		if (tabParam === 'opinions') return 'opinions'
+		if (tabParam === 'about-us') return 'about'
+		if (tabParam === 'menu') return 'menu'
 		return 'dishes'
 	})
 
@@ -1053,7 +1054,7 @@ export default function RestaurantDetailClient() {
 													<div className='relative w-16 h-16 bg-stone-50 border border-stone-100 shadow-xs shrink-0 group'>
 														<img
 															src={editForm.staticOfferImg}
-															alt={t('offers.impreviewage')}
+															alt={t('offers.preview')}
 															className='w-full h-full object-cover'
 														/>
 														<button
