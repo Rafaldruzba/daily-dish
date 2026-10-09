@@ -1,161 +1,249 @@
-import { chromium } from 'playwright'
+import { ApifyClient } from 'apify-client'
+import { MENU_KEYWORDS } from '../data/words.js'
+import { stripDiacritics, warsawDay } from '../lib/text.js'
+import { parseMenu, type ParsedMenu } from './menu-parser.service.js'
 
-export interface ScrapeResult {
+/** Tyle lokali wchodzi do jednego runu Apify. */
+export const MAX_RESTAURANTS_PER_RUN = 25
+
+const ACTOR_ID = process.env.APIFY_ACTOR || 'apify/facebook-posts-scraper'
+const POSTS_PER_PAGE = 2
+const MAX_POST_AGE_DAYS = 7
+const DEBUG = ['1', 'true'].includes(process.env.APIFY_DEBUG ?? '')
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN })
+
+type Item = Record<string, any>
+
+/* ---------- typy ---------- */
+
+export interface RestaurantInput {
+	id: string
 	name: string
-	description?: string
-	price?: number
-	imageUrl?: string
+	facebookUrl: string
+}
+
+export interface PostResult {
+	sourcePostId: string
 	sourceUrl?: string
-	sourcePostId?: string
-	publishedAt?: Date
+	imageUrl?: string
+	publishedAt: string // ISO
+	menu: ParsedMenu
 }
 
-/**
- * Konwertuje link na lżejszą, mobilną wersję Facebooka m.facebook.com
- */
-export function getMobileUrl(url: string): string {
-	let cleanUrl = url.trim()
-	if (cleanUrl.includes('www.facebook.com')) {
-		return cleanUrl.replace('www.facebook.com', 'm.facebook.com')
-	}
-	if (!cleanUrl.includes('m.facebook.com') && cleanUrl.includes('facebook.com')) {
-		return cleanUrl.replace('facebook.com', 'm.facebook.com')
-	}
-	return cleanUrl
+export interface RestaurantResult {
+	id: string
+	status: 'ok' | 'no_post' | 'not_menu' | 'error'
+	message?: string
+	post?: PostResult
 }
 
-/**
- * Główna funkcja skrapująca fanpage restauracji za pomocą Playwright
- */
-export async function scrapeFacebookPage(restaurantName: string, facebookUrl: string): Promise<ScrapeResult | null> {
-	console.log(`🔎 [Playwright Scraper] Rozpoczynam skrapowanie dla: ${restaurantName} (URL: ${facebookUrl})`)
+/* ---------- słowa kluczowe ---------- */
 
-	const mobileUrl = getMobileUrl(facebookUrl)
-	const browser = await chromium.launch({
-		headless: true,
-		args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gl-drawing-for-tests', '--disable-gpu'],
-	})
+const KEYWORDS = MENU_KEYWORDS.map(stripDiacritics)
 
+const hasMenuKeywords = (text: string) => {
+	const normalized = stripDiacritics(text)
+	return KEYWORDS.some(k => normalized.includes(k))
+}
+
+/* ---------- adresy stron ---------- */
+
+export function normalizeFacebookUrl(url: string): string {
+	const clean = url.trim()
+	let parsed: URL
 	try {
-		const context = await browser.newContext({
-			userAgent:
-				'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-			viewport: { width: 390, height: 844 },
-			deviceScaleFactor: 3,
-			isMobile: true,
-			hasTouch: true,
-		})
+		parsed = new URL(clean)
+	} catch {
+		throw new Error(`Nieprawidłowy adres Facebooka: ${clean}`)
+	}
+	if (!/^https?:$/.test(parsed.protocol)) throw new Error('Nieobsługiwany protokół URL')
+	if (!/(^|\.)facebook\.com$/.test(parsed.hostname)) throw new Error(`To nie jest adres Facebooka: ${clean}`)
 
-		const page = await context.newPage()
+	parsed.hostname = 'www.facebook.com'
 
-		// Agresywna optymalizacja: blokujemy ciężkie zasoby i skrypty reklamowe
-		await page.route('**/*', route => {
-			const type = route.request().resourceType()
-			if (['image', 'stylesheet', 'font', 'media', 'websocket'].includes(type)) {
-				route.abort()
-			} else {
-				route.continue()
-			}
-		})
+	// profile.php?id=123 wymaga parametru id, pozostałe parametry usuwamy
+	const id = parsed.pathname.includes('profile.php') ? parsed.searchParams.get('id') : null
+	parsed.search = id ? `?id=${id}` : ''
+	parsed.hash = ''
+	return parsed.toString()
+}
 
-		// Udajemy się na mobilną wersję profilu
-		await page.goto(mobileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+/** Klucze, po których dopasowujemy posty zwrócone przez aktora do naszych lokali. */
+function pageKeys(url: unknown): string[] {
+	if (typeof url !== 'string') return []
+	try {
+		const u = new URL(url)
+		const keys = new Set<string>()
+		const first = u.pathname.split('/').filter(Boolean)[0]?.toLowerCase()
 
-		console.log('🌐 Final URL:', page.url())
-		console.log('📄 Title:', await page.title())
+		if (first && !['people', 'pages', 'p', 'profile.php', 'permalink.php', 'groups'].includes(first)) keys.add(first)
 
-		const bodyText = await page.locator('body').innerText()
+		const id = u.searchParams.get('id')
+		if (id) keys.add(id)
+		for (const m of u.pathname.matchAll(/\d{8,}/g)) keys.add(m[0])
 
-		console.log('📄 BODY:', bodyText.substring(0, 1000))
+		return [...keys]
+	} catch {
+		return []
+	}
+}
 
-		// Próbujemy zamknąć ewentualne banery cookie lub logowania, jeśli się pojawią
-		try {
-			const closeCookieBtn = page
-				.locator('button:has-text("Zgadzam się"), button:has-text("Zaakceptuj"), button:has-text("OK")')
-				.first()
-			if (await closeCookieBtn.isVisible()) {
-				await closeCookieBtn.click()
-			}
-		} catch (e) {
-			// Ignorujemy błędy zamknięcia banera cookies
-		}
+function itemKeys(item: Item): string[] {
+	const keys = new Set<string>([...pageKeys(item.facebookUrl), ...pageKeys(item.url)])
+	if (item.pageName) keys.add(String(item.pageName).toLowerCase())
+	if (item.user?.id) keys.add(String(item.user.id))
+	return [...keys]
+}
 
-		// Delikatne przewinięcie, aby załadować pierwsze posty
-		await page.evaluate(() => {
-			const w = globalThis as typeof globalThis & { scrollBy?: (x: number, y: number) => void }
-			w.scrollBy?.(0, 400)
-		})
-		await page.waitForTimeout(1500)
+/* ---------- pola z aktora ---------- */
 
-		// Pobieramy teksty postów
-		// Na m.facebook.com posty są najczęściej umieszczane w tagach article lub div[data-story-key]
-		const postsLocator = page.locator('article, div[data-story-key], div._5rgt, div._5pat').first()
-		if ((await postsLocator.count()) === 0) {
-			console.warn(`⚠️ [Playwright Scraper] Nie znaleziono kontenerów postów na stronie dla: ${restaurantName}`)
-			await browser.close()
-			return null
-		}
+const pickText = (i: Item): string => String(i.text ?? i.post_text ?? i.message ?? '').trim()
 
-		// Pobieramy pierwszy post i wyciągamy z niego tekst
-		// Na wersji mobilnej treść posta jest najczęściej w kontenerze z klasą _5rgt lub _5g-3
-		const postElement = postsLocator.first()
-		const postText = await postElement.innerText()
+const pickUrl = (i: Item): string | undefined => {
+	const u = i.postUrl ?? i.post_url ?? i.url
+	return typeof u === 'string' && u.startsWith('http') ? u : undefined
+}
 
-		if (!postText || postText.trim().length < 5) {
-			console.warn(`⚠️ [Playwright Scraper] Pusty lub zbyt krótki tekst posta dla: ${restaurantName}`)
-			await browser.close()
-			return null
-		}
+const pickId = (i: Item): string | undefined => {
+	const id = i.postId ?? i.post_id ?? i.id
+	return id != null ? String(id) : undefined
+}
 
-		console.log(`🤖 [Playwright Scraper] Wykryto treść najnowszego posta:\n"${postText.substring(0, 100)}..."`)
+function pickDate(i: Item): Date | null {
+	const raw = i.time ?? i.timestamp ?? i.publishedAt ?? i.created_time ?? i.date
+	if (raw == null) return null
+	const d = typeof raw === 'number' ? new Date(raw < 1e12 ? raw * 1000 : raw) : new Date(raw)
+	return Number.isNaN(d.getTime()) ? null : d
+}
 
-		// Sprawdzamy czy post zawiera wymagane słowa kluczowe (np. "Danie dnia!", "Dziś polecamy")
-		const lowerText = postText.toLowerCase()
-		const hasKeywords = ['danie dnia', 'lunch', 'zestaw', 'menu', 'dzisiaj', 'dziś', 'dzis', 'polecamy', 'obiad'].some(
-			keyword => lowerText.includes(keyword),
+/** Jedno zdjęcie posta (pierwsze sensowne). */
+function pickImage(i: Item): string | undefined {
+	const media: unknown[] = Array.isArray(i.media) ? i.media : []
+
+	for (const m of media) {
+		const candidates: unknown[] =
+			typeof m === 'string'
+				? [m]
+				: [
+						(m as Item)?.photo_image?.uri,
+						(m as Item)?.image?.uri,
+						(m as Item)?.url,
+						(m as Item)?.uri,
+						(m as Item)?.thumbnail,
+					]
+
+		for (const c of candidates) if (typeof c === 'string' && c.startsWith('https://')) return c
+	}
+
+	const single = i.imageUrl ?? i.image ?? i.thumbnail
+	return typeof single === 'string' && single.startsWith('https://') ? single : undefined
+}
+
+const isFresh = (d: Date | null) => !d || (Date.now() - d.getTime()) / 864e5 <= MAX_POST_AGE_DAYS
+
+/* ---------- Apify ---------- */
+
+/** Jeden run aktora dla wszystkich podanych stron. */
+async function runApify(urls: string[]): Promise<Item[]> {
+	const since = warsawDay(new Date(Date.now() - MAX_POST_AGE_DAYS * 864e5))
+	const timeoutSecs = 60 + urls.length * 6
+
+	const run = await client
+		.actor(ACTOR_ID)
+		.call(
+			{ startUrls: urls.map(url => ({ url })), resultsLimit: POSTS_PER_PAGE, onlyPostsNewerThan: since },
+			{ waitSecs: timeoutSecs, timeout: timeoutSecs },
 		)
 
-		if (!hasKeywords) {
-			console.log(`ℹ️ [Playwright Scraper] Post nie zawiera słów kluczowych dania dnia. Pomijam.`)
-			await browser.close()
-			return null
-		}
+	if (run.status !== 'SUCCEEDED') throw new Error(`Run Apify ${run.id} zakończył się statusem ${run.status}`)
 
-		// Wyciągamy ID posta z linków lub atrybutów jeśli są dostępne
-		let postId = `post_${Date.now()}`
-		try {
-			const storyKey = await postElement.getAttribute('data-story-key')
-			if (storyKey) postId = storyKey
-		} catch (e) {
-			// Ignorujemy błędy pobierania ID
-		}
+	const { items } = await client.dataset(run.defaultDatasetId).listItems({ limit: urls.length * POSTS_PER_PAGE * 3 })
+	console.log(`[Scraper] Run ${run.id}: ${urls.length} stron -> ${items.length} postów`)
 
-		// Pobieramy obrazek (jeśli jest dostępny)
-		let imageUrl: string | undefined = undefined
-		try {
-			// Szukamy tagu img wewnątrz elementu posta
-			const imgLocator = postElement.locator('img').first()
-			if ((await imgLocator.count()) > 0) {
-				const src = await imgLocator.getAttribute('src')
-				if (src && src.startsWith('http')) imageUrl = src
-			}
-		} catch (e) {
-			// Ignorujemy błędy obrazka
-		}
+	if (DEBUG && items[0]) console.log('[Scraper][DEBUG] Pierwszy element:', JSON.stringify(items[0]).slice(0, 1500))
+	return items as Item[]
+}
 
-		await browser.close()
+/* ---------- jeden lokal ---------- */
+
+function extractMenu(r: RestaurantInput, items: Item[]): RestaurantResult {
+	const posts = items
+		.map(item => ({ item, date: pickDate(item), text: pickText(item) }))
+		.filter(p => p.text.length >= 10 && isFresh(p.date))
+		.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
+		.slice(0, POSTS_PER_PAGE)
+
+	if (posts.length === 0) return { id: r.id, status: 'no_post', message: 'Brak świeżych postów' }
+
+	for (const p of posts) {
+		if (!hasMenuKeywords(p.text)) continue
+
+		const menu = parseMenu(p.text, p.date)
+		if (!menu.appliesToday || menu.dishes.length === 0) continue
+
+		const imageUrl = pickImage(p.item)
+		console.log(`✅ [Scraper] ${r.name}: ${menu.dishes.length} dań | zdjęcie: ${imageUrl ? 'tak' : 'BRAK'}`)
 
 		return {
-			name: postText.substring(0, 80).replace(/\n/g, ' ') + '...', // Nazwa jako fragment posta
-			description: postText,
-			imageUrl,
-			sourceUrl: facebookUrl,
-			sourcePostId: postId,
-			publishedAt: new Date(),
+			id: r.id,
+			status: 'ok',
+			post: {
+				sourcePostId: pickId(p.item) ?? `hash_${stripDiacritics(p.text).length}_${p.date?.getTime() ?? 0}`,
+				sourceUrl: pickUrl(p.item),
+				imageUrl,
+				publishedAt: (p.date ?? new Date()).toISOString(),
+				menu,
+			},
 		}
-	} catch (err: any) {
-		console.error(`❌ [Playwright Scraper] Wyjątek podczas skrapowania ${restaurantName}:`, err.message || err)
-		await browser.close()
-		return null
 	}
+
+	console.log(`[Scraper] ${r.name}: brak dzisiejszego menu w ${posts.length} ostatnich postach`)
+	return { id: r.id, status: 'not_menu', message: 'Brak dzisiejszego menu dnia w ostatnich postach' }
+}
+
+/* ---------- główna funkcja ---------- */
+
+/** Scrapuje do 25 lokali jednym runem Apify. */
+export async function scrapeBatch(restaurants: RestaurantInput[]): Promise<RestaurantResult[]> {
+	const results = new Map<string, RestaurantResult>()
+	const valid: Array<RestaurantInput & { pageUrl: string }> = []
+
+	for (const r of restaurants) {
+		try {
+			valid.push({ ...r, pageUrl: normalizeFacebookUrl(r.facebookUrl) })
+		} catch (e) {
+			results.set(r.id, { id: r.id, status: 'error', message: (e as Error).message })
+		}
+	}
+
+	if (valid.length > 0) {
+		try {
+			const items = await runApify([...new Set(valid.map(r => r.pageUrl))])
+
+			// posty pogrupowane po kluczach strony
+			const byKey = new Map<string, Item[]>()
+			for (const item of items) {
+				for (const key of itemKeys(item)) {
+					if (!byKey.has(key)) byKey.set(key, [])
+					byKey.get(key)!.push(item)
+				}
+			}
+
+			for (const r of valid) {
+				const unique = new Map<string, Item>()
+				for (const key of pageKeys(r.pageUrl)) {
+					for (const item of byKey.get(key) ?? []) {
+						unique.set(pickId(item) ?? pickUrl(item) ?? JSON.stringify(item).slice(0, 80), item)
+					}
+				}
+				results.set(r.id, extractMenu(r, [...unique.values()]))
+			}
+		} catch (e) {
+			console.error('❌ [Scraper] Błąd runu Apify:', (e as Error).message)
+			for (const r of valid) results.set(r.id, { id: r.id, status: 'error', message: 'Błąd pobierania z Apify' })
+		}
+	}
+
+	return restaurants.map(r => results.get(r.id) ?? { id: r.id, status: 'error' as const, message: 'Brak wyniku' })
 }

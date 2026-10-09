@@ -1,4 +1,4 @@
-export const GREETING_PATTERNS = [
+export const MENU_KEYWORDS = [
 	'dzień dobry',
 	'witajcie',
 	'cześć',
@@ -20,4 +20,13 @@ export const GREETING_PATTERNS = [
 	'Menu dnia',
 	'MENU DNIA',
 	'MENU',
+	'Poniedziałek',
+	'Wtorek',
+	'Środa',
+	'Sroda',
+	'Czwartek',
+	'Piątek',
+	'Piatek',
+	'Sobota',
+	'Niedziela',
 ]

@@ -1,54 +1,44 @@
 import express, { type Request, type Response } from 'express'
 import cors from 'cors'
 import 'dotenv/config'
-import { scrapeFacebookPage } from './services/scraper.service.js'
+import { MAX_RESTAURANTS_PER_RUN, scrapeBatch } from './services/scraper.service.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '1mb' }))
 
-// Health check endpoint
 app.get('/health', (_req, res) => {
 	res.json({ status: 'ok' })
 })
 
-// POST /api/scrape
-// Wywołuje Playwright do pobrania najnowszego dania dnia z fanpage
-app.post('/api/scrape', async (req: Request, res: Response) => {
+// POST /api/scrape-batch  { restaurants: [{ id, name, facebookUrl }, ...] }  (1-25 lokali = 1 run Apify)
+app.post('/api/scrape-batch', async (req: Request, res: Response) => {
 	try {
-		const { name, facebookUrl } = req.body
+		const { restaurants } = req.body ?? {}
 
-		if (!name || !facebookUrl) {
+		const valid =
+			Array.isArray(restaurants) &&
+			restaurants.length > 0 &&
+			restaurants.length <= MAX_RESTAURANTS_PER_RUN &&
+			restaurants.every(
+				(r: any) => typeof r?.id === 'string' && typeof r?.name === 'string' && typeof r?.facebookUrl === 'string',
+			)
+
+		if (!valid) {
 			return res.status(400).json({
 				success: false,
-				message: 'Nazwa restauracji oraz facebookUrl są wymagane.'
+				message: `Wymagana tablica restaurants (1-${MAX_RESTAURANTS_PER_RUN}) z polami id, name, facebookUrl.`,
 			})
 		}
 
-		const result = await scrapeFacebookPage(name, facebookUrl)
-		
-		if (!result) {
-			return res.json({
-				success: false,
-				message: 'Nie znaleziono dzisiejszego menu dnia na profilu lokalu (brak pasujących postów).'
-			})
-		}
-
-		res.json({
-			success: true,
-			dish: result
-		})
+		const results = await scrapeBatch(restaurants)
+		res.json({ success: true, results })
 	} catch (error: any) {
-		console.error('❌ Błąd kontrolera skrapowania:', error)
-		res.status(500).json({
-			success: false,
-			message: error.message || 'Wystąpił wewnętrzny błąd mikrousługi skrapującej.'
-		})
+		console.error('❌ Błąd batcha:', error)
+		res.status(500).json({ success: false, message: error.message || 'Wewnętrzny błąd mikrousługi.' })
 	}
 })
 
-app.listen(PORT, () => {
-	console.log(`🚀 [Scraper Service] Działa na porcie ${PORT}`)
-})
+app.listen(PORT, () => console.log(`🚀 [Scraper Service] Działa na porcie ${PORT}`))

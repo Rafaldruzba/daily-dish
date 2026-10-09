@@ -1,0 +1,7 @@
+curl -X POST http://localhost:4003/api/scrape-batch \
+  -H "Content-Type: application/json" \
+  -d '{"restaurants":[
+    {"id":"1","name":"Hustawka","facebookUrl":"https://www.facebook.com/Hustawkaa"},
+    {"id":"2","name":"Borowianka","facebookUrl":"https://www.facebook.com/profile.php?id=100063561281726"},
+    {"id":"3","name":"Łochowianka","facebookUrl":"https://www.facebook.com/lochowiankabar"}
+  ]}'

@@ -1,53 +1,45 @@
 import axios from 'axios'
 import logger from './logger.service.js'
-import type { FacebookDishResult } from '../lib/dto/types.js'
 
 const SCRAPPER_URL = process.env.SCRAPPER_URL || 'http://localhost:3001'
 
-/**
- * Deleguje zadanie pobrania menu dnia dla restauracji do zewnętrznego microserwisu skrapującego.
- */
-export async function fetchRestaurantDish(restaurant: {
+export interface ScrapedDish {
+	name: string
+	category: 'zupa' | 'przystawka' | 'salatka' | 'danie_glowne' | 'deser' | 'napoj' | 'inne'
+	price?: number
+}
+
+export interface ScrapeInput {
 	id: string
 	name: string
-	facebookUrl: string | null
-}): Promise<FacebookDishResult | null> {
-	if (!restaurant.facebookUrl) {
-		console.log(`⚠️ ${restaurant.name}: brak adresu Facebook`)
-		return null
-	}
+	facebookUrl: string
+}
 
-	console.log(`🔎 [Main Backend] Delegowanie skrapowania dla: ${restaurant.name} do mikrousługi scrapper...`)
+export interface ScrapeOutput {
+	id: string
+	status: 'ok' | 'no_post' | 'not_menu' | 'error'
+	message?: string
+	post?: {
+		sourcePostId: string
+		sourceUrl?: string
+		imageUrl?: string
+		publishedAt: string
+		menu: { dishes: ScrapedDish[]; setPrice?: number }
+	}
+}
+
+/**
+ * Wysyła do scrapera paczkę lokali (max 25 = jeden run Apify).
+ * Przy błędzie sieci zwraca status "error" dla każdego lokalu zamiast rzucać wyjątek.
+ */
+export async function fetchRestaurantMenus(restaurants: ScrapeInput[]): Promise<ScrapeOutput[]> {
+	if (restaurants.length === 0) return []
 
 	try {
-		const response = await axios.post(
-			`${SCRAPPER_URL}/api/scrape`,
-			{
-				name: restaurant.name,
-				facebookUrl: restaurant.facebookUrl,
-			},
-			{ timeout: 45000 },
-		) // 45 sekund timeoutu ze względu na czas uruchamiania przeglądarki
-
-		if (response.data && response.data.success) {
-			const { dish } = response.data
-			await logger.info(`Pomyślnie pobrano i zapisano danie dnia dla ${restaurant.name} z mikrousługi scrapper.`)
-			return {
-				name: dish.name,
-				description: dish.description,
-				imageUrl: dish.imageUrl,
-				sourceUrl: dish.sourceUrl,
-				sourcePostId: dish.sourcePostId,
-				publishedAt: dish.publishedAt ? new Date(dish.publishedAt) : new Date(),
-			}
-		} else {
-			console.warn(
-				`⚠️ Mikrousługa scrapper nie znalazła dań dla ${restaurant.name}: ${response.data.message || 'Brak dopasowania'}`,
-			)
-			return null
-		}
+		const { data } = await axios.post(`${SCRAPPER_URL}/api/scrape-batch`, { restaurants }, { timeout: 4 * 60_000 })
+		return data.results as ScrapeOutput[]
 	} catch (error: any) {
-		await logger.error(`Błąd delegacji skrapowania dla ${restaurant.name} do mikrousługi:`, error.message || error)
-		return null
+		await logger.error('Błąd wywołania scrapera:', error.message || error)
+		return restaurants.map(r => ({ id: r.id, status: 'error' as const, message: 'Scraper niedostępny' }))
 	}
 }
