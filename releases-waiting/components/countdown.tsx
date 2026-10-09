@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 // ── TUTAJ USTAW SWOJĄ STATYCZNĄ DATĘ ──────────────────────────────────────────
-const DEFAULT_TARGET_DATE = '2027-1-01T12:00:00' // Format: RRRR-MM-DDTHH:mm:ss
+const DEFAULT_TARGET_DATE = '2027-01-01T12:00:00' // Format: RRRR-MM-DDTHH:mm:ss
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DAY_MS = 86_400_000
