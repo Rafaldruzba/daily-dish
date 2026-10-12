@@ -1,5 +1,6 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
+import { VISIBLE_RESTAURANT_STATUSES } from '../lib/restaurant-visibility.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import Stripe from 'stripe'
 import redisClient from '../lib/redis.js'
@@ -177,11 +178,16 @@ const syncRestaurantActiveState = async (restaurantId: string): Promise<void> =>
 		},
 	})
 
-	await prisma.restaurant.update({
-		where: { id: restaurantId },
-		data: {
-			isActive: Boolean(activeBase),
+	// Zawężenie po statusie jest tu istotne: webhook nie może ruszyć lokalu w stanie
+	// moderacji (PENDING / REJECTED) ani usuwanego (REMOVAL) — inaczej opłata lub jej brak
+	// „wskrzeszałby" odrzucony lokal. Przestawiamy wyłącznie cykl życia za niepłacenie
+	// (ACTIVE / APPROVED / PAUSE), żeby lokal opłacony wychodził z PAUSE z powrotem do ACTIVE.
+	await prisma.restaurant.updateMany({
+		where: {
+			id: restaurantId,
+			status: { in: [...VISIBLE_RESTAURANT_STATUSES, 'PAUSE'] },
 		},
+		data: activeBase ? { status: 'ACTIVE', isActive: true } : { status: 'PAUSE', isActive: false },
 	})
 
 	await invalidateRestaurantCache(restaurantId)

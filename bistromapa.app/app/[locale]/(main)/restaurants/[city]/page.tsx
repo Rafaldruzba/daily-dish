@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 
 import RestaurantCatalog from '@/components/restaurants/RestaurantCatalog'
 import { getTranslations } from 'next-intl/server'
+import { alternatesFor, ogLocale } from '@/lib/seo'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -94,15 +95,12 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 			: `Znajdź restauracje w ${cityName}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
 
 	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}`
-	const imageUrl = `${BASE_URL}/logo.png`
 
 	return {
 		title,
 		description,
 
-		alternates: {
-			canonical: canonicalUrl,
-		},
+		alternates: alternatesFor(`/restaurants/${citySlug}`, locale),
 
 		robots: {
 			index: data?.seoEnabled !== false,
@@ -111,26 +109,17 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 		openGraph: {
 			type: 'website',
-			locale: locale === 'pl' ? 'pl_PL' : 'en_US',
+			locale: ogLocale(locale),
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
 			title,
 			description,
-			images: [
-				{
-					url: imageUrl,
-					width: 1200,
-					height: 630,
-					alt: `Restauracje w ${cityName} — BistroMapa`,
-				},
-			],
 		},
 
 		twitter: {
 			card: 'summary_large_image',
 			title,
 			description,
-			images: [imageUrl],
 		},
 	}
 }

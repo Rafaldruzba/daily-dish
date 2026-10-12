@@ -1,4 +1,6 @@
+import { Prisma } from '@prisma/client'
 import prisma from '../lib/prisma.js'
+import { VISIBLE_RESTAURANT_STATUSES, visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 import { geocodeCity } from './geolocation.service.js'
 
 /**
@@ -31,8 +33,8 @@ export async function getRestaurantIdsInRadius(
 		const now = new Date()
 		const result = await prisma.$queryRaw<Array<{ id: string }>>`
 			SELECT r.id FROM "Restaurant" r
-			WHERE r."isActive" = true 
-			  AND r.status IN ('APPROVED', 'ACTIVE') 
+			WHERE r."isActive" = true
+			  AND r.status IN (${Prisma.join(VISIBLE_RESTAURANT_STATUSES)})
 			  AND r.latitude IS NOT NULL 
 			  AND r.longitude IS NOT NULL 
 			  AND (
@@ -72,8 +74,7 @@ export async function getRestaurantIdsForCity(city: string, radiusInMeters: numb
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
 				city: { equals: city, mode: 'insensitive' },
-				isActive: true,
-				status: { in: ['APPROVED', 'ACTIVE'] },
+				...visibleRestaurantWhere,
 				subscriptions: {
 					some: {
 						status: 'ACTIVE',
@@ -98,8 +99,7 @@ export async function getAllActiveRestaurantIds(): Promise<string[]> {
 		const now = new Date()
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
-				isActive: true,
-				status: { in: ['APPROVED', 'ACTIVE'] },
+				...visibleRestaurantWhere,
 				subscriptions: {
 					some: {
 						status: 'ACTIVE',

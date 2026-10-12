@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq'
 import prisma from '../lib/prisma.js'
+import { visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 import logger from './logger.service.js'
 import { sendAdminScrapingAlert } from './email.service.js'
 import { syncRestaurantMenus } from './menu-sync.service.js'
@@ -16,7 +17,7 @@ export const scraperQueue = new Queue('scraper-queue', { connection })
 
 const getActiveRestaurantIds = async () => {
 	const rows = await prisma.restaurant.findMany({
-		where: { isActive: true, status: 'ACTIVE' },
+		where: { ...visibleRestaurantWhere },
 		select: { id: true },
 		orderBy: { id: 'asc' },
 	})

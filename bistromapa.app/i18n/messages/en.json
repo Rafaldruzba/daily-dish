@@ -1,4 +1,9 @@
 {
+	"Metadata": {
+		"siteName": "BistroMapa",
+		"homeTitle": "BistroMapa — restaurants, daily menus and reviews",
+		"homeDescription": "Find restaurants near you: daily menus, photos, reviews and contact details."
+	},
 	"Preloader": {
 		"title": "Welcome to BistroMapa!",
 		"subtitle": "Before we begin, tell us where you are looking for food.",

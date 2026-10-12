@@ -1,3 +1,14 @@
+import type { Metadata } from 'next'
+
+// Strony logowania/rejestracji/aktywacji nie mają czego szukać w indeksie.
+// Sam wpis w robots.txt tego nie załatwia — potrzebny jest też noindex.
+export const metadata: Metadata = {
+	robots: {
+		index: false,
+		follow: false,
+	},
+}
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<div className='min-h-screen flex flex-col items-center justify-center bg-stone-50'>

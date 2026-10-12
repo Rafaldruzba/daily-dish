@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 
 import RestaurantDetailClient from '@/components/restaurants/RestaurantDetailClient'
 import { getTranslations } from 'next-intl/server'
+import { alternatesFor, ogLocale } from '@/lib/seo'
 
 const BASE_URL = 'https://bistromapa.app'
 
@@ -35,6 +36,7 @@ interface RestaurantSeoData {
 interface RestaurantPageProps {
 	params: Promise<{
 		slug: string
+		locale: string
 	}>
 }
 
@@ -80,7 +82,7 @@ async function getRestaurant(slug: string): Promise<RestaurantSeoData | null> {
  * Dynamiczne SEO dla konkretnej restauracji.
  */
 export async function generateMetadata({ params }: RestaurantPageProps): Promise<Metadata> {
-	const { slug } = await params
+	const { slug, locale } = await params
 
 	const restaurant = await getRestaurant(slug)
 
@@ -101,18 +103,14 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 		restaurant.description?.trim().slice(0, 155) ||
 		`${restaurant.name} — restauracja w ${restaurant.city}. Sprawdź menu, zdjęcia, opinie i informacje o lokalu w BistroMapa.`
 
-	const canonicalUrl = `${BASE_URL}/restaurant/${restaurant.slug}`
-
-	const imageUrl = restaurant.backgroundImageUrl || `${BASE_URL}/logo.png`
+	const canonicalUrl = `${BASE_URL}/${locale}/restaurant/${restaurant.slug}`
 
 	return {
 		title,
 
 		description,
 
-		alternates: {
-			canonical: canonicalUrl,
-		},
+		alternates: alternatesFor(`/restaurant/${restaurant.slug}`, locale),
 
 		robots: {
 			index: true,
@@ -121,34 +119,26 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 
 		openGraph: {
 			type: 'website',
-			locale: 'pl_PL',
+			locale: ogLocale(locale),
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
 			title,
 			description,
-
-			images: [
-				{
-					url: imageUrl,
-					width: 1200,
-					height: 630,
-					alt: restaurant.name,
-				},
-			],
+			// Bez obrazu lokalowego: backgroundImageUrl to presigned URL ważny 24h,
+			// więc po dobie OG prowadziłby do 403. Zdjęcie bierze się z app/opengraph-image.tsx.
 		},
 
 		twitter: {
 			card: 'summary_large_image',
 			title,
 			description,
-			images: [imageUrl],
 		},
 	}
 }
 
 export default async function RestaurantPage({ params }: RestaurantPageProps) {
 	const t = await getTranslations('Restaurant-slug')
-	const { slug } = await params
+	const { slug, locale } = await params
 	const restaurant = await getRestaurant(slug)
 
 	/**
@@ -158,9 +148,9 @@ export default async function RestaurantPage({ params }: RestaurantPageProps) {
 		notFound()
 	}
 
-	const restaurantUrl = `${BASE_URL}/restaurant/${restaurant.slug}`
-	const cityUrl = `${BASE_URL}/restaurants/${restaurant.citySlug}`
-	const restaurantsUrl = `${BASE_URL}/restaurants`
+	const restaurantUrl = `${BASE_URL}/${locale}/restaurant/${restaurant.slug}`
+	const cityUrl = `${BASE_URL}/${locale}/restaurants/${restaurant.citySlug}`
+	const restaurantsUrl = `${BASE_URL}/${locale}/restaurants`
 
 	/**
 	 * Schema.org — Restaurant

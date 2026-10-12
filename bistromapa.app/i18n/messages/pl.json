@@ -1,4 +1,9 @@
 {
+	"Metadata": {
+		"siteName": "BistroMapa",
+		"homeTitle": "BistroMapa — restauracje, menu dnia i opinie",
+		"homeDescription": "Wyszukiwarka restauracji w Twojej okolicy: menu dnia, zdjęcia, opinie i dane kontaktowe lokali."
+	},
 	"Preloader": {
 		"title": "Witaj w BistroMapa!",
 		"subtitle": "Zanim zaczniemy, powiedz nam, gdzie szukasz jedzenia.",

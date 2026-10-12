@@ -2,16 +2,29 @@ import type { Metadata } from 'next'
 import { Link } from '@/lib/navigation'
 import RestaurantExplorer from '@/components/restaurants/RestaurantExplorer'
 import { getTranslations } from 'next-intl/server'
+import { alternatesFor, ogLocale } from '@/lib/seo'
 
 const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
-export const metadata: Metadata = {
-	title: 'Restauracje — katalog lokali i kuchni',
-	description:
-		'Przeglądaj restauracje w Polsce. Filtruj po mieście i rodzaju kuchni, sprawdź menu, zdjęcia i opinie w BistroMapa.',
-	alternates: {
-		canonical: 'https://bistromapa.app/restaurants',
-	},
+const CATALOG_TITLE = 'Restauracje — katalog lokali i kuchni'
+const CATALOG_DESCRIPTION =
+	'Przeglądaj restauracje w Polsce. Filtruj po mieście i rodzaju kuchni, sprawdź menu, zdjęcia i opinie w BistroMapa.'
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+	const { locale } = await params
+
+	return {
+		title: CATALOG_TITLE,
+		description: CATALOG_DESCRIPTION,
+		alternates: alternatesFor('/restaurants', locale),
+		// openGraph trzeba podać jawnie: gdy strona go zadeklaruje, Next podmienia cały
+		// obiekt z layoutu, więc bez tego og:title zostałby tytułem strony głównej.
+		openGraph: {
+			locale: ogLocale(locale),
+			title: CATALOG_TITLE,
+			description: CATALOG_DESCRIPTION,
+		},
+	}
 }
 
 interface CityOption {

@@ -3,7 +3,12 @@ import { GoogleAnalytics } from '@next/third-parties/google'
 import { Providers } from './providers'
 import './globals.css'
 
+// Pobieraj adres z zmiennych środowiskowych lub użyj produkcyjnego adresu domyślnie
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bistromapa.app'
+
 export const metadata: Metadata = {
+	// Bez metadataBase względne adresy OG/ikonek nie mają poprawnego hosta
+	metadataBase: new URL(baseUrl),
 	title: {
 		default: 'BistroMapa — Znajdź restaurację, sprawdź menu i opinie',
 		template: '%s | BistroMapa',
@@ -14,6 +19,15 @@ export const metadata: Metadata = {
 	authors: [{ name: 'BistroMapa' }],
 	creator: 'BistroMapa',
 	publisher: 'BistroMapa',
+	applicationName: 'BistroMapa',
+	alternates: {
+		canonical: '/pl',
+		languages: {
+			pl: '/pl',
+			en: '/en',
+			'x-default': '/pl',
+		},
+	},
 	robots: {
 		index: true,
 		follow: true,
@@ -28,32 +42,25 @@ export const metadata: Metadata = {
 	openGraph: {
 		type: 'website',
 		locale: 'pl_PL',
-		url: 'https://bistromapa.app',
+		alternateLocale: ['en_US'],
+		url: baseUrl,
 		siteName: 'BistroMapa',
 		title: 'BistroMapa — Znajdź restaurację, sprawdź menu i opinie',
 		description:
 			'Znajdź najlepsze restauracje w Twojej okolicy. Sprawdź menu dnia, zdjęcia, opinie i informacje o lokalach.',
-		images: [
-			{
-				url: '/og-image.jpg',
-				width: 1200,
-				height: 630,
-				alt: 'BistroMapa — Znajdź restaurację',
-			},
-		],
+		// Obraz OG pochodzi z app/opengraph-image.tsx (konwencja plikowa Next)
 	},
 	twitter: {
 		card: 'summary_large_image',
 		title: 'BistroMapa — Znajdź restaurację',
 		description: 'Sprawdź menu, zdjęcia i opinie o restauracjach w Twojej okolicy.',
-		images: ['/og-image.jpg'],
 	},
 	icons: {
 		icon: '/favicon.svg',
 		shortcut: '/favicon.svg',
-		apple: '/apple-touch-icon.png',
+		// apple-touch-icon generuje app/apple-icon.tsx
 	},
-	manifest: '/site.webmanifest',
+	// manifest podłącza się automatycznie z app/manifest.ts (/manifest.webmanifest)
 }
 
 export const viewport: Viewport = {
@@ -67,14 +74,14 @@ const organizationJsonLd = {
 	'@context': 'https://schema.org',
 	'@type': 'Organization',
 	name: 'BistroMapa',
-	url: 'https://bistromapa.app',
-	logo: 'https://bistromapa.app/bistro-logo.png',
+	url: baseUrl,
+	logo: `${baseUrl}/bistro-logo.png`,
 	sameAs: ['https://github.com/Rafaldruzba/daily-dish'],
 	contactPoint: {
 		'@type': 'ContactPoint',
 		telephone: '+48-791-445-104',
 		contactType: 'customer service',
-		availableLanguage: ['Polish'],
+		availableLanguage: ['Polish', 'English'],
 	},
 }
 
@@ -82,12 +89,12 @@ const webSiteJsonLd = {
 	'@context': 'https://schema.org',
 	'@type': 'WebSite',
 	name: 'BistroMapa',
-	url: 'https://bistromapa.app',
+	url: baseUrl,
 	potentialAction: {
 		'@type': 'SearchAction',
 		target: {
 			'@type': 'EntryPoint',
-			urlTemplate: 'https://bistromapa.app/restaurants?q={search_term_string}',
+			urlTemplate: `${baseUrl}/pl/restaurants?search={search_term_string}`,
 		},
 		'query-input': 'required name=search_term_string',
 	},

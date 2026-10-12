@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
 import { slugify } from '../lib/slug.js'
+import { visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 import { geocodeCity } from '../services/geolocation.service.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 import multer from 'multer'
@@ -116,8 +117,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 		// Filtr po slugu miasta / kuchni jest liczony bezpośrednio w bazie (fundament SEO)
 		const where: Record<string, unknown> = {
-			isActive: true,
-			status: { in: ['APPROVED', 'ACTIVE'] },
+			...visibleRestaurantWhere,
 		}
 
 		if (citySlug) {
@@ -523,6 +523,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 router.put('/admin/:id/status', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
 	try {
 		const { id } = req.params
+		// UI przysyła APPROVED, ale w bazie zapisujemy ACTIVE — „zatwierdzony i żywy".
+		// Oba warianty są widoczne publicznie (patrz lib/restaurant-visibility.ts), więc ta
+		// różnica nazw nie może już rozjeżdżać katalogu z sitemapą ani kolejką scrapera.
 		const { status } = req.body // APPROVED, REJECTED
 
 		if (!id || typeof id !== 'string' || !['APPROVED', 'REJECTED'].includes(status)) {

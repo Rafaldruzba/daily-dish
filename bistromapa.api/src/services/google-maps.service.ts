@@ -1,5 +1,6 @@
 import axios from 'axios'
 import prisma from '../lib/prisma.js'
+import { visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 import logger from './logger.service.js'
 
 /**
@@ -75,8 +76,7 @@ export async function syncAllRestaurantsGoogleDetails(): Promise<void> {
 	try {
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
-				isActive: true,
-				status: { in: ['APPROVED', 'ACTIVE'] },
+				...visibleRestaurantWhere,
 			},
 		})
 

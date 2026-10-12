@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js'
 import { fetchTodayDishes, queueTodayScraping } from '../services/daily-dish.service.js'
 import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth.js'
 import { getRestaurantIdsForCity, getAllActiveRestaurantIds } from '../services/restaurant-location.service.js'
+import { visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 import redisClient, { invalidateRestaurantCache } from '../lib/redis.js'
 import { getPresignedDownloadUrl } from '../services/storage.service.js'
 import logger from '../services/logger.service.js'
@@ -90,8 +91,7 @@ router.get('/today', async (req: Request, res: Response) => {
 		const activeRestaurants = await prisma.restaurant.findMany({
 			where: {
 				id: { in: restaurantIds },
-				isActive: true,
-				status: { in: ['APPROVED', 'ACTIVE'] },
+				...visibleRestaurantWhere,
 			},
 			include: {
 				standardOffers: true,

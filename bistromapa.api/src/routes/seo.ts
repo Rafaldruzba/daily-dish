@@ -1,6 +1,7 @@
 import { Router, type Response, type Request } from 'express'
 import prisma from '../lib/prisma.js'
 import { slugify } from '../lib/slug.js'
+import { visibleRestaurantWhere } from '../lib/restaurant-visibility.js'
 
 const MIN_CITY_RESTAURANTS = 3
 const MIN_CUISINE_RESTAURANTS = 3
@@ -13,8 +14,7 @@ router.get('/cities', async (_req: Request, res: Response) => {
 	try {
 		const cities = await prisma.restaurant.findMany({
 			where: {
-				isActive: true,
-				status: 'ACTIVE',
+				...visibleRestaurantWhere,
 			},
 			select: {
 				city: true,
@@ -63,8 +63,7 @@ router.get('/cities/:citySlug', async (req: Request, res: Response) => {
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
 				citySlug: { equals: citySlug, mode: 'insensitive' },
-				isActive: true,
-				status: 'ACTIVE',
+				...visibleRestaurantWhere,
 			},
 			select: {
 				id: true,
@@ -120,8 +119,7 @@ router.get('/cuisines', async (_req: Request, res: Response) => {
 	try {
 		const restaurants = await prisma.restaurant.findMany({
 			where: {
-				isActive: true,
-				status: 'ACTIVE',
+				...visibleRestaurantWhere,
 			},
 			select: {
 				cuisines: true,
@@ -157,12 +155,12 @@ router.get('/sitemap', async (_req: Request, res: Response) => {
 	try {
 		const [restaurants, cities] = await Promise.all([
 			prisma.restaurant.findMany({
-				where: { isActive: true, status: 'ACTIVE' },
+				where: { ...visibleRestaurantWhere },
 				select: { slug: true, updatedAt: true },
 				orderBy: { updatedAt: 'desc' },
 			}),
 			prisma.restaurant.findMany({
-				where: { isActive: true, status: 'ACTIVE' },
+				where: { ...visibleRestaurantWhere },
 				select: { city: true, citySlug: true, cuisines: true },
 			}),
 		])

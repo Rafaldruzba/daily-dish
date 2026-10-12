@@ -26,7 +26,9 @@ model Restaurant {
   googlePlaceId      String?
   userRatingsTotal   Int?        @default(0)
 
-  status             String      @default("PENDING") // PENDING, APPROVED, REJECTED
+  // Moderacja: PENDING | APPROVED | REJECTED. Cykl życia (subskrypcja): ACTIVE | PAUSE | REMOVAL.
+  // Zbiór wartości widocznych publicznie: src/lib/restaurant-visibility.ts
+  status             String      @default("PENDING")
   views              Int         @default(0)         // Licznik odwiedzin profilu/dań
 
   backgroundImageUrl String?  // URL zdjęcia tła z storage (fallback gdy FB nie dostarczy obrazka)
