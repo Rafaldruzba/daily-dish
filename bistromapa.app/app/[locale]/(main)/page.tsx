@@ -112,6 +112,14 @@ function HomePageContent() {
 		}
 	}
 
+	const handleOpenRestaurant = useCallback(
+		(restaurant: Restaurant) => {
+			trackEvent('click_website', { restaurant_id: restaurant.id, restaurant_name: restaurant.name })
+			router.push(`/restaurant/${restaurant.slug}`)
+		},
+		[router],
+	)
+
 	// Memoizacja listy dań zależnie od filtra ulubionych
 	const displayedDishes = useMemo(() => {
 		return filterFavorites ? dishes.filter(dish => dish.restaurant && isFavorite(dish.restaurant.id)) : dishes
@@ -456,11 +464,20 @@ function HomePageContent() {
 							</p>
 						</div>
 					) : (
-						<div className='space-y-4 max-w-3xl cursor-pointer'>
+						<div className='space-y-4 max-w-3xl'>
 							{rankingRestaurants.map((rest, index) => (
 								<div
 									key={rest.id}
-									className='border border-stone-200 p-6 bg-white flex items-center justify-between gap-6 hover:border-black transition-colors'>
+									role='button'
+									tabIndex={0}
+									onClick={() => handleOpenRestaurant(rest)}
+									onKeyDown={e => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault()
+											handleOpenRestaurant(rest)
+										}
+									}}
+									className='border border-stone-200 p-6 bg-white flex items-center justify-between gap-6 hover:border-black transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-black'>
 									<div className='flex items-center gap-4'>
 										<div className='w-10 h-10 bg-black text-white flex items-center justify-center font-mono font-black text-sm shrink-0'>
 											#{index + 1}

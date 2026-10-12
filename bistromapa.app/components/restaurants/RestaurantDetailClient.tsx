@@ -961,6 +961,17 @@ export default function RestaurantDetailClient() {
 														{dish.description}
 													</p>
 												)}
+
+												{dish.imageUrl && (
+													<div className='mt-4 w-full max-h-[360px] overflow-hidden border border-stone-200 bg-stone-50 shadow-xs'>
+														<img
+															src={dish.imageUrl}
+															alt={dish.name}
+															loading='lazy'
+															className='w-full h-auto object-cover max-h-[360px]'
+														/>
+													</div>
+												)}
 											</div>
 
 											{/* Publish date */}

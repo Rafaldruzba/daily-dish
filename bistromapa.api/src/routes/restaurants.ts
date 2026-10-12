@@ -266,13 +266,21 @@ router.get('/:id', async (req, res) => {
 		const { id } = req.params
 		if (!id) return res.status(400).json({ success: false, message: 'Nieprawidłowe ID' })
 
+		// Profil pokazuje wyłącznie dania z dzisiejszej doby — historia nie może wisieć jako aktualna oferta.
+		// Ten sam zakres dnia co w GET /dishes/today, żeby strona główna i profil nie rozjechały się.
+		const startOfDay = new Date()
+		startOfDay.setHours(0, 0, 0, 0)
+
+		const endOfDay = new Date()
+		endOfDay.setHours(23, 59, 59, 999)
+
 		let restaurant = null
 
 		// Próba wyszukania po unikalnym ID
 		restaurant = await prisma.restaurant.findUnique({
 			where: { id: id as string },
 			include: {
-				dishes: { orderBy: { date: 'desc' } },
+				dishes: { where: { date: { gte: startOfDay, lte: endOfDay } }, orderBy: { date: 'desc' } },
 				menuItems: { orderBy: { order: 'asc' } },
 				standardOffers: true,
 				subscriptions: true,
@@ -284,7 +292,7 @@ router.get('/:id', async (req, res) => {
 			restaurant = await prisma.restaurant.findUnique({
 				where: { slug: id },
 				include: {
-					dishes: { orderBy: { date: 'desc' } },
+					dishes: { where: { date: { gte: startOfDay, lte: endOfDay } }, orderBy: { date: 'desc' } },
 					menuItems: { orderBy: { order: 'asc' } },
 					standardOffers: true,
 					subscriptions: true,

@@ -986,7 +986,9 @@ function ForRestaurantsContent() {
 												className='border border-stone-200 p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 text-left shadow-sm text-xs'>
 												<div className='space-y-2 flex-grow'>
 													<h3 className='text-base font-bold font-serif text-stone-900'>
-														{r.name} ({r.city})
+														<Link href={`/restaurant/${r.slug}`} className='hover:underline'>
+															{r.name} ({r.city})
+														</Link>
 													</h3>
 													<p className='text-stone-500'>
 														{t('owner')}{' '}
