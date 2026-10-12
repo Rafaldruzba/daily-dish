@@ -36,7 +36,7 @@ export async function uploadImageFromUrl(imageUrl: string, folder: string = 'scr
 	}
 
 	try {
-		console.log(`📡 [Storage Service] Pobieranie obrazka do uploadu S3: ${imageUrl.substring(0, 80)}...`)
+		console.log(`📡 [Storage Service] Pobieranie obrazka do uploadu S3: ${imageUrl?.substring(0, 120)}...`)
 		const response = await fetch(imageUrl, {
 			headers: {
 				'User-Agent':
@@ -90,8 +90,12 @@ export async function uploadImageFromUrl(imageUrl: string, folder: string = 'scr
 		console.log(`✅ [Storage Service] Zdjęcie przesłane pomyślnie. Nowy URL: ${publicUrl}`)
 		return publicUrl
 	} catch (error: any) {
-		console.error('❌ [Storage Service] Błąd podczas uploadu zdjęcia na S3:', error.message || error)
-		return null
+		console.error(`❌ [Storage Service] Błąd podczas uploadu zdjęcia na S3 (url=${imageUrl?.substring(0, 120)}): ${error.message || error}`)
+		console.error(`❌ [Storage Service] Pełny URL (sprawdź czy FB zwraca 400 — brak sesji/postUrl): ${imageUrl}`)
+		// Fallback: zamiast pustego imageUrl przechowujemy oryginalny URL z FB.
+		// Pozwala to wyświetlić zdjęcie przez FB (przekierowanie / proxy), gdy S3
+		// nie działa (np. brak konfiguracji, url wymaga sesji, 400 z FB).
+		return imageUrl ?? null
 	}
 }
 

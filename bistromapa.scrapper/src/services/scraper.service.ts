@@ -121,7 +121,9 @@ function pickDate(i: Item): Date | null {
 function pickImage(i: Item): string | undefined {
 	const media: unknown[] = Array.isArray(i.media) ? i.media : []
 
+	console.log(`[Scraper] ${i.name || 'unknown'} media=${media.length} url=${(i as any)?.postUrl || 'N/A'}`)
 	for (const m of media) {
+		console.log(`[Scraper] media item type=${typeof m}${typeof m === 'object' ? ' keys=' + Object.keys(m || {}).slice(0,5).join(',') : ''}`)
 		const candidates: unknown[] =
 			typeof m === 'string'
 				? [m]
@@ -183,7 +185,7 @@ function extractMenu(r: RestaurantInput, items: Item[]): RestaurantResult {
 		if (!menu.appliesToday || menu.dishes.length === 0) continue
 
 		const imageUrl = pickImage(p.item)
-		console.log(`✅ [Scraper] ${r.name}: ${menu.dishes.length} dań | zdjęcie: ${imageUrl ? 'tak' : 'BRAK'}`)
+		console.log(`[Scraper] ${r.name}: ${menu.dishes.length} dań | zdjęcie: ${imageUrl ? 'tak (' + imageUrl.substring(0, 60) + '...)' : 'BRAK'} | item_keys=${Object.keys(p.item || {}).slice(0,4).join(',')}`)
 
 		return {
 			id: r.id,
