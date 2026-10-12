@@ -76,8 +76,9 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 	const data = await getCityData(citySlug)
 
 	if (data === null) {
+		const t = await getTranslations('Metadata')
 		return {
-			title: 'Miasto nie znalezione | BistroMapa',
+			title: t('notFoundTitle') + ' | BistroMapa',
 			robots: {
 				index: false,
 				follow: true,
@@ -87,7 +88,9 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 	const cityName = data?.city ?? decodeURIComponent(city)
 
-	const title = `Restauracje w ${cityName} — lokale, menu i opinie`
+	const t = await getTranslations('Metadata')
+
+	const title = t('cityTitle', { city: cityName })
 
 	const description =
 		data && data.restaurantCount > 0
@@ -96,9 +99,11 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}`
 
+	const t = await getTranslations('Metadata')
+
 	return {
-		title,
-		description,
+		title: t('cityTitle', { city: cityName }),
+		description: t('cityDescription', { city: cityName }),
 
 		alternates: alternatesFor(`/restaurants/${citySlug}`, locale),
 
@@ -112,14 +117,14 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 			locale: ogLocale(locale),
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
-			title,
-			description,
+			title: t('cityTitle', { city: cityName }),
+			description: t('cityDescription', { city: cityName }),
 		},
 
 		twitter: {
 			card: 'summary_large_image',
-			title,
-			description,
+			title: t('cityTitle', { city: cityName }),
+			description: t('cityDescription', { city: cityName }),
 		},
 	}
 }

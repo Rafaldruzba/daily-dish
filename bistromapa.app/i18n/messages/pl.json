@@ -2,7 +2,20 @@
 	"Metadata": {
 		"siteName": "BistroMapa",
 		"homeTitle": "BistroMapa — restauracje, menu dnia i opinie",
-		"homeDescription": "Wyszukiwarka restauracji w Twojej okolicy: menu dnia, zdjęcia, opinie i dane kontaktowe lokali."
+		"homeDescription": "Wyszukiwarka restauracji w Twojej okolicy: menu dnia, zdjęcia, opinie i dane kontaktowe lokali.",
+		"catalogTitle": "Restauracje — katalog lokali i kuchni",
+		"catalogDescription": "Przeglądaj restauracje w Polsce. Filtruj po mieście i rodzaju kuchni, sprawdź menu, zdjęcia i opinie w BistroMapa.",
+		"cityTitle": "Restauracje w {city} — lokale, menu i opinie",
+		"cityDescription": "Znajdź restauracje w {city}. Sprawdź menu, zdjęcia, opinie i rodzaje kuchni w BistroMapa.",
+		"categoryTitle": "{cuisine} w {city} — restauracje",
+		"categoryDescription": "Restauracje {cuisine} w {city}. Sprawdź menu, zdjęcia i opinie w BistroMapa.",
+		"restaurantTitle": "{name} — restauracja w {city}",
+		"restaurantDescription": "{name} — restauracja w {city}. Sprawdź menu, zdjęcia, opinie i informacje o lokalu w BistroMapa.",
+		"mapTitle": "Mapa restauracji",
+		"mapDescription": "Przeglądaj restauracje na mapie — sprawdź, co jest w pobliżu, i przejdź do menu, zdjęć i opinii w BistroMapa.",
+		"panelTitle": "Panel",
+		"accountTitle": "Konto",
+		"notFoundTitle": "Nie znaleziono"
 	},
 	"Preloader": {
 		"title": "Witaj w BistroMapa!",

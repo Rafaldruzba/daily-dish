@@ -79,8 +79,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 	const data = await getCityData(citySlug)
 
 	if (data === null) {
+		const t404 = await getTranslations('Metadata')
 		return {
-			title: 'Strona nie znaleziona | BistroMapa',
+			title: t404('notFoundTitle') + ' | BistroMapa',
 			robots: {
 				index: false,
 				follow: true,
@@ -102,9 +103,11 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 	const shouldIndex = Boolean(cuisine) && Boolean(cuisine?.seoEnabled) && (cuisine?.count ?? 0) > 0
 
+	const t = await getTranslations('Metadata')
+
 	return {
-		title,
-		description,
+		title: t('categoryTitle', { cuisine: cuisineName, city: cityName }),
+		description: t('categoryDescription', { cuisine: cuisineName.toLowerCase(), city: cityName }),
 
 		alternates: alternatesFor(`/restaurants/${citySlug}/${cuisineSlug}`, locale),
 
@@ -118,14 +121,14 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 			locale: ogLocale(locale),
 			url: canonicalUrl,
 			siteName: 'BistroMapa',
-			title,
-			description,
+			title: t('categoryTitle', { cuisine: cuisineName, city: cityName }),
+			description: t('categoryDescription', { cuisine: cuisineName.toLowerCase(), city: cityName }),
 		},
 
 		twitter: {
 			card: 'summary_large_image',
-			title,
-			description,
+			title: t('categoryTitle', { cuisine: cuisineName, city: cityName }),
+			description: t('categoryDescription', { cuisine: cuisineName.toLowerCase(), city: cityName }),
 		},
 	}
 }

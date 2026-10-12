@@ -2,7 +2,20 @@
 	"Metadata": {
 		"siteName": "BistroMapa",
 		"homeTitle": "BistroMapa — restaurants, daily menus and reviews",
-		"homeDescription": "Find restaurants near you: daily menus, photos, reviews and contact details."
+		"homeDescription": "Find restaurants near you: daily menus, photos, reviews and contact details.",
+		"catalogTitle": "Restaurants — browse places and cuisines",
+		"catalogDescription": "Browse restaurants in Poland. Filter by city and cuisine, check menus, photos and reviews on BistroMapa.",
+		"cityTitle": "Restaurants in {city} — places, menus and reviews",
+		"cityDescription": "Find restaurants in {city}. Check menus, photos, reviews and cuisines on BistroMapa.",
+		"categoryTitle": "{cuisine} in {city} — restaurants",
+		"categoryDescription": "{cuisine} restaurants in {city}. Check menus, photos and reviews on BistroMapa.",
+		"restaurantTitle": "{name} — restaurant in {city}",
+		"restaurantDescription": "{name} — restaurant in {city}. Check the menu, photos, reviews and contact details on BistroMapa.",
+		"mapTitle": "Restaurant map",
+		"mapDescription": "Browse restaurants on the map — see what is nearby and jump into menus, photos and reviews on BistroMapa.",
+		"panelTitle": "Dashboard",
+		"accountTitle": "Account",
+		"notFoundTitle": "Not found"
 	},
 	"Preloader": {
 		"title": "Welcome to BistroMapa!",

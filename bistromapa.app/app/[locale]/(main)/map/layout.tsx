@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { alternatesFor } from '@/lib/seo'
 
 /**
@@ -7,10 +8,11 @@ import { alternatesFor } from '@/lib/seo'
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
 	const { locale } = await params
 
+	const t = await getTranslations('Metadata')
+
 	return {
-		title: 'Mapa restauracji',
-		description:
-			'Przeglądaj restauracje na mapie — sprawdź, co jest w pobliżu, i przejdź do menu, zdjęć i opinii w BistroMapa.',
+		title: t('mapTitle'),
+		description: t('mapDescription'),
 		alternates: alternatesFor('/map', locale),
 	}
 }

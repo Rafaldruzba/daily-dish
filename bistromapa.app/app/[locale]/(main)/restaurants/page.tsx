@@ -13,16 +13,16 @@ const CATALOG_DESCRIPTION =
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { locale } = await params
 
+	const t = await getTranslations('Metadata')
+
 	return {
-		title: CATALOG_TITLE,
-		description: CATALOG_DESCRIPTION,
+		title: t('catalogTitle'),
+		description: t('catalogDescription'),
 		alternates: alternatesFor('/restaurants', locale),
-		// openGraph trzeba podać jawnie: gdy strona go zadeklaruje, Next podmienia cały
-		// obiekt z layoutu, więc bez tego og:title zostałby tytułem strony głównej.
 		openGraph: {
 			locale: ogLocale(locale),
-			title: CATALOG_TITLE,
-			description: CATALOG_DESCRIPTION,
+			title: t('catalogTitle'),
+			description: t('catalogDescription'),
 		},
 	}
 }

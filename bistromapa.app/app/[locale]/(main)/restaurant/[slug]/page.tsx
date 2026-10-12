@@ -88,8 +88,8 @@ export async function generateMetadata({ params }: RestaurantPageProps): Promise
 
 	if (!restaurant) {
 		return {
-			title: 'Restauracja nie znaleziona | BistroMapa',
-			description: 'Nie znaleziono restauracji o podanym adresie.',
+			title: locale === 'pl' ? 'Restauracja nie znaleziona | BistroMapa' : 'Restaurant not found | BistroMapa',
+			description: locale === 'pl' ? 'Nie znaleziono restauracji o podanym adresie.' : 'No restaurant was found at this address.',
 			robots: {
 				index: false,
 				follow: true,
