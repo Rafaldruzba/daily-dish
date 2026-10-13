@@ -1,8 +1,6 @@
 # Grafana for Railway
 FROM grafana/grafana:11.2.0
 
-ENV GF_SECURITY_ADMIN_USER=admin
-ENV GF_SECURITY_ADMIN_PASSWORD=admin
 ENV GF_USERS_ALLOW_SIGN_UP=false
 ENV GF_SERVER_ROOT_URL=/
 ENV GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/app-overview.json
@@ -11,13 +9,11 @@ ENV GF_PATHS_DATA=/tmp/grafana
 ENV GF_PATHS_PLUGINS=/tmp/grafana/plugins
 ENV GF_PATHS_PROVISIONING=/etc/grafana/provisioning
 
-RUN mkdir -p /tmp/grafana /tmp/grafana/plugins /etc/grafana/provisioning /var/lib/grafana/dashboards \
-  && chown -R 472:472 /tmp/grafana /var/lib/grafana /etc/grafana/provisioning \
-  && chmod -R 755 /tmp/grafana /etc/grafana/provisioning
+RUN mkdir -p /tmp/grafana/plugins /etc/grafana/provisioning /var/lib/grafana/dashboards
 
-USER 472
+USER root
 
-# Grafana runs as 472; data in /tmp/grafana writable
+# Grafana runs as root in Railway (512 permission safe); data in /tmp/grafana writable
 EXPOSE 3000
 
 # Copy provisioning/dashboards BEFORE chown so 472 owns them
