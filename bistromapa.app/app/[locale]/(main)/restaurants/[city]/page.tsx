@@ -94,12 +94,10 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 	const description =
 		data && data.restaurantCount > 0
-			? `Znajdź restauracje w ${cityName}. Przeglądaj ${data.restaurantCount} lokali, sprawdź menu, zdjęcia, opinie i rodzaje kuchni w BistroMapa.`
-			: `Znajdź restauracje w ${cityName}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
+			? `Znajdź restauracje w ${title}. Przeglądaj ${data.restaurantCount} lokali, sprawdź menu, zdjęcia, opinie i rodzaje kuchni w BistroMapa.`
+			: `Znajdź restauracje w ${title}. Sprawdź lokale, menu, zdjęcia i opinie w BistroMapa.`
 
 	const canonicalUrl = `${BASE_URL}/${locale}/restaurants/${citySlug}`
-
-	const t = await getTranslations('Metadata')
 
 	return {
 		title: t('cityTitle', { city: cityName }),
