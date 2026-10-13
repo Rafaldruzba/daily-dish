@@ -23,24 +23,27 @@ scrape_configs:
   # Aby zabezpieczyć /metrics, ustaw METRICS_TOKEN w .env i odkomentuj 'authorization' poniżej
   - job_name: backend
     metrics_path: /metrics
+    scheme: http
     authorization:
       credentials: 'a11c5b9505b1640e97b12ac35a92f4d6c231ae4f3ce4505e1a89b78729c8d9f8'
     static_configs:
-      - targets: ['https://daily-dish.railway.internal:4001']
+      - targets: ['http://daily-dish.railway.internal:4001']
 
   - job_name: scraper
     metrics_path: /metrics
+    scheme: http
     authorization:
       credentials: 'b6b6d1735b7e7844bd4ec899442313107b21f699e176ceb871b4416384bfa4de'
     static_configs:
-      - targets: ['https://scrapper.railway.app:4003']
+      - targets: ['http://scrapper.railway.internal:4003']
 
   - job_name: backend-console
     metrics_path: /api/metrics
+    scheme: http
     authorization:
       credentials: '045b86c20f59e4983d6ce64cf1b989eb4e808809170f98a25d74133ce70c82ff'
     static_configs:
-      - targets: ['https://console.bistromapa.app:4002']
+      - targets: ['http://console-backend.railway.internal:4002']
 
   # ---------- Frontendy: tylko probe dostępności ----------
   - job_name: blackbox-frontend
@@ -62,11 +65,11 @@ scrape_configs:
   # ---------- Infrastruktura ----------
   - job_name: postgres
     static_configs:
-      - targets: ['postgres-exporter.railway.app:9187']
+      - targets: ['postgres-exporter.railway.internal:9187']
 
   - job_name: redis
     static_configs:
-      - targets: ['redis-exporter.railway.app:9121']
+      - targets: ['redis-exporter.railway.internal:9121']
 
   - job_name: cadvisor
     static_configs:
