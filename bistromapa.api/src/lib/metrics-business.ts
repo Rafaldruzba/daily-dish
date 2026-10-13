@@ -30,7 +30,7 @@ export const dishesToday = new client.Gauge({
 		try {
 			const today = new Date()
 			today.setHours(0, 0, 0, 0)
-			const count = await prisma.dish.count({
+			const count = await prisma.dailyDish.count({
 				where: { date: { gte: today } },
 			})
 			this.set(count)
@@ -48,10 +48,10 @@ export const subscriptionsActive = new client.Gauge({
 	async collect() {
 		try {
 			const base = await prisma.subscription.count({
-				where: { status: 'ACTIVE', tier: 'BASE' },
+				where: { status: 'ACTIVE', type: 'BASE' },
 			})
 			const promotion = await prisma.subscription.count({
-				where: { status: 'ACTIVE', tier: 'PROMOTION' },
+				where: { status: 'ACTIVE', type: 'PROMOTION' },
 			})
 			this.set({ tier: 'base' }, base)
 			this.set({ tier: 'promotion' }, promotion)
