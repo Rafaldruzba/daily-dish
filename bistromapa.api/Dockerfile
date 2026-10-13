@@ -39,8 +39,9 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 3000
+EXPOSE 4001
 
 # Tutaj atrapa nie istnieje. Railway podstawia prawdziwy DATABASE_URL,
 # migracja czyta konfigurację z prisma.config.ts i rusza.
+ENV PORT 4001
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
