@@ -45,4 +45,3 @@ EXPOSE 4002
 #    (istniejącego admina nie nadpisuje — hasło mogło zostać zmienione w panelu)
 # 3. start
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main.js"]
-ENV PORT 4002

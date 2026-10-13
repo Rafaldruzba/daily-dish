@@ -6,6 +6,7 @@ import './http.test.js'
 
 async function main(): Promise<void> {
 	await runAll()
+	process.exit(0)
 }
 
 main().catch((error: unknown) => {

@@ -2,15 +2,14 @@ import { createClient } from 'redis';
 
 // Get connection config from environment variables
 const redisUrl = process.env.REDIS_URL;
-const host = process.env.REDIS_HOST || 'localhost';
+const host = process.env.REDIS_HOST;
 const port = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379;
 const password = process.env.REDIS_PASSWORD || undefined;
 
 if (redisUrl) {
-  // Obfuscate password in connection URL for safe logging
   const safeUrl = redisUrl.replace(/:([^:@]+)@/, ':****@');
   console.log(`[Redis] Attempting to connect using URL: ${safeUrl}...`);
-} else {
+} else if (host) {
   console.log(`[Redis] Attempting to connect to ${host}:${port}...`);
 }
 
@@ -19,7 +18,7 @@ export const redisClient = redisUrl
   : createClient({
       password: password,
       socket: {
-        host: host,
+        host: host || 'localhost',
         port: port,
       },
     });
@@ -27,8 +26,7 @@ export const redisClient = redisUrl
 redisClient.on('ready', () => console.log('[Redis] Connected successfully and ready to use.'));
 redisClient.on('error', (err) => console.error('[Redis] Client Error', err));
 
-// Connect
-redisClient.connect().catch(console.error);
+redisClient.connect().catch((e) => console.error('[Redis] Connection failed', e));
 
 export async function invalidateRestaurantCache(city: string) {
 	if (!redisClient.isOpen) return

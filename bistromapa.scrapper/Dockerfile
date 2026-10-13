@@ -31,9 +31,9 @@ COPY test ./test
 RUN npx playwright install --with-deps chromium
 
 # Testy przed uruchomieniem (opcjonalnie — usuń jeśli nie potrzebujesz w produkcji)
-RUN if [ -d test ]; then npm test || true; fi
+RUN if [ -d test ]; then npm run test || true; fi
 
 EXPOSE 4003
 
+ENV PORT=4003
 CMD ["node", "dist/server.js"]
-ENV PORT 4003

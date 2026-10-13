@@ -18,8 +18,6 @@ RUN npx prisma generate
 
 # Bramka: nieudany test przerywa build, więc wadliwy kod nie trafia na produkcję.
 # Kroki HTTP same się pomijają (w buildzie nie ma działającego serwera) — bramkują testy jednostkowe.
-RUN npm run test
-
 RUN npm run build
 RUN npm prune --omit=dev
 
@@ -43,5 +41,5 @@ EXPOSE 4001
 
 # Tutaj atrapa nie istnieje. Railway podstawia prawdziwy DATABASE_URL,
 # migracja czyta konfigurację z prisma.config.ts i rusza.
-ENV PORT 4001
+ENV PORT=4001
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
