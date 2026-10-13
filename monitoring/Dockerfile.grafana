@@ -1,19 +1,27 @@
 # Grafana for Railway
 FROM grafana/grafana:11.2.0
 
-# Copy provisioning (datasources, dashboards loading)
-COPY grafana/provisioning/ /etc/grafana/provisioning/
-
-# Copy dashboards (loaded by provisioning or manually)
-COPY grafana/dashboards/ /var/lib/grafana/dashboards/
-
 ENV GF_SECURITY_ADMIN_USER=admin
 ENV GF_SECURITY_ADMIN_PASSWORD=admin
 ENV GF_USERS_ALLOW_SIGN_UP=false
 ENV GF_SERVER_ROOT_URL=/
 ENV GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/app-overview.json
 ENV GF_SERVER_PROTOCOL=http
+ENV GF_PATHS_DATA=/tmp/grafana
+ENV GF_PATHS_PLUGINS=/tmp/grafana/plugins
+ENV GF_PATHS_PROVISIONING=/etc/grafana/provisioning
 
+RUN mkdir -p /tmp/grafana /tmp/grafana/plugins /etc/grafana/provisioning /var/lib/grafana/dashboards \
+  && chown -R 472:472 /tmp/grafana /var/lib/grafana /etc/grafana/provisioning \
+  && chmod -R 755 /tmp/grafana /etc/grafana/provisioning
+
+USER 472
+
+# Grafana runs as 472; data in /tmp/grafana writable
 EXPOSE 3000
 
-# Grafana runs as default entrypoint (already configured)
+# Copy provisioning/dashboards BEFORE chown so 472 owns them
+COPY --chown=472:472 grafana/provisioning/ /etc/grafana/provisioning/
+COPY --chown=472:472 grafana/dashboards/ /var/lib/grafana/dashboards/
+
+CMD ["/run.sh"]
