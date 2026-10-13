@@ -1,0 +1,7 @@
+# Postgres Exporter — Railway
+FROM prom/prometheus:latest
+# Użyj oficjalnego obrazu postgres-exporter
+FROM quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+ENV DATA_SOURCE_NAME=postgresql://user:pass@postgres.railway.internal:5432/railway?sslmode=disable
+EXPOSE 9187
+CMD ["/bin/postgres_exporter", "--extend.query-path=/etc/postgres_exporter/queries"]

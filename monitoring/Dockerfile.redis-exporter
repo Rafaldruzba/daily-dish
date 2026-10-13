@@ -1,0 +1,7 @@
+# Redis Exporter — Railway
+FROM redis/redis_exporter:v1.55.0
+ENV REDIS_ADDR=redis.railway.internal:6379
+ENV REDIS_USER=
+ENV REDIS_PASSWORD=
+EXPOSE 9121
+CMD ["/bin/redis_exporter"]
