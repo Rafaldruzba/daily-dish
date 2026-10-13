@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, RotateCcw, Zap } from 'lucide-react'
-import { useRouter } from '@/lib/navigation'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export function RunCycleButton() {

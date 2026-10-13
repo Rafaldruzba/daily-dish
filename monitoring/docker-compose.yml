@@ -1,0 +1,117 @@
+name: daily-dish-monitoring
+
+# Dzięki temu kontenery widzą aplikacje odpalone w konsoli na hoście (też na Linuxie)
+x-host-gateway: &host-gateway
+  - 'host.docker.internal:host-gateway'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: dd_prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    extra_hosts: *host-gateway
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: dd_alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - '9093:9093'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: dd_grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/app-overview.json
+    ports:
+      - '3002:3000' # 3000 i 3001 zajęte przez frontendy
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  # Sprawdza dostępność frontendów (3000, 3001)
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: dd_blackbox
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    ports:
+      - '9115:9115'
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    extra_hosts: *host-gateway
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: dd_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@host.docker.internal:5432/${POSTGRES_DB:-daily_dish}?sslmode=disable
+    ports:
+      - '9187:9187'
+    extra_hosts: *host-gateway
+
+  postgres-exporter-crm:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: dd_postgres_exporter_crm
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${CRM_POSTGRES_USER:-postgres}:${CRM_POSTGRES_PASSWORD:-postgres}@host.docker.internal:5433/${CRM_POSTGRES_DB:-crm_console}?sslmode=disable
+    ports:
+      - '9188:9187'
+    extra_hosts: *host-gateway
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: dd_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://host.docker.internal:6379
+    ports:
+      - '9121:9121'
+    extra_hosts: *host-gateway
+
+  # Zasoby kontenerów (postgres, redis...). Na Docker Desktop (Mac/Win) bywa kapryśny - można usunąć.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: dd_cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - '8081:8080'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

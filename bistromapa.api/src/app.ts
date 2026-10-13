@@ -2,6 +2,9 @@ import express from 'express'
 import cors from 'cors'
 
 import { isOriginAllowed } from './lib/cors.js'
+import { metricsMiddleware, metricsHandler, unhandledErrors } from './lib/metrics.js'
+import './lib/metrics-users.js' // rejestruje gauge'y usersTotal i activeUsers
+import { requestIdMiddleware } from './middleware/request-id.js'
 import restaurantsRouter from './routes/restaurants.js'
 import dishesRouter from './routes/dishes.js'
 import authRouter from './routes/auth.js'
@@ -30,6 +33,10 @@ const corsOptions = {
 }
 
 app.use(cors(corsOptions))
+
+// Request Tracing - PRZED innymi middleware
+app.use(requestIdMiddleware)
+
 app.use(
 	express.json({
 		verify: (req: any, _res, buf) => {
@@ -37,6 +44,10 @@ app.use(
 		},
 	}),
 )
+
+// Metryki - PRZED routerami
+app.use(metricsMiddleware)
+app.get('/metrics', metricsHandler)
 
 app.get('/api/health', (_req, res) => {
 	res.json({
@@ -57,5 +68,12 @@ app.use('/api/reports', reportsRouter)
 app.use('/api/seo', seoRouter)
 // Integracja z CRM (console.bistromapa.app) — autoryzacja przez BISTRO_API_TOKEN
 app.use('/api/crm', crmRouter)
+
+// Globalny error handler - metryki błędów
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+	unhandledErrors.inc({ type: 'express' })
+	console.error('Unhandled error:', err)
+	res.status(500).json({ success: false, message: 'Internal server error' })
+})
 
 export default app

@@ -1,12 +1,12 @@
 'use client'
 
 import { AlertTriangle, Loader2, Search } from 'lucide-react'
-import { Link } from '@/lib/navigation'
-import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { LEAD_SOURCES } from '@/lib/constants'
 import type { DuplicateMatch } from '@/types'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface FormState {
 	name: string

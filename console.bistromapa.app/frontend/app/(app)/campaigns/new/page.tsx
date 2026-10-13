@@ -1,8 +1,8 @@
-import { Link } from '@/lib/navigation'
 
 import { CampaignForm } from '@/components/campaigns/CampaignForm'
 import { PageHeader } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
+import Link from 'next/link';
 
 export default async function NewCampaignPage() {
 	// Pokazujemy, jakie źródło danych jest aktywne — mock czy Google Places (§19).

@@ -1,13 +1,13 @@
 'use client'
 
 import { AlertTriangle, Check, Loader2, Mail, Send } from 'lucide-react'
-import { useRouter } from '@/lib/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ApiSaveError, sendJson } from '@/lib/api-client'
 import { apiFetch } from '@/lib/api'
 import { TEMPLATE_VARIABLE_HINT, fillTemplate, leadVariables } from '@/lib/template'
 import type { EmailTemplate, LeadDetail } from '@/types'
+import { useRouter } from 'next/navigation'
 
 type Message = { tone: 'ok' | 'warn' | 'error'; text: string } | null
 

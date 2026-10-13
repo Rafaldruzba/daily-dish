@@ -1,10 +1,9 @@
 import { Plus } from 'lucide-react'
-import { Link } from '@/lib/navigation'
-
 import { PageHeader } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import type { Campaign, Paginated } from '@/types'
+import Link from 'next/link'
 
 const STATUS_STYLE: Record<string, string> = {
 	RUNNING: 'text-sky-600',

@@ -6,6 +6,7 @@ import { authenticate, requireAdmin, type AuthRequest } from '../middleware/auth
 import redisClient from '../lib/redis.js'
 import { sendVerificationCode, sendPasswordResetEmail } from '../services/email.service.js'
 import { isValidNip } from '../lib/helper/isValidNip.js'
+import { registrations, logins } from '../lib/metrics-users.js'
 
 const router = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-daily-dish-key'
@@ -206,6 +207,9 @@ router.post('/register/verify', async (req, res) => {
 		// Usuwamy dane z Redis po udanej rejestracji
 		await redisClient.del(cacheKey)
 
+		// Metryka: nowa rejestracja
+		registrations.inc()
+
 		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
 
 		res.status(201).json({
@@ -244,6 +248,7 @@ router.post('/login', async (req, res) => {
 		})
 
 		if (!user) {
+			logins.inc({ result: 'failure' })
 			return res.status(401).json({
 				success: false,
 				message: 'Nieprawidłowy email lub hasło.',
@@ -253,6 +258,7 @@ router.post('/login', async (req, res) => {
 		const isPasswordValid = await bcrypt.compare(password, user.password)
 
 		if (!isPasswordValid) {
+			logins.inc({ result: 'failure' })
 			return res.status(401).json({
 				success: false,
 				message: 'Nieprawidłowy email lub hasło.',
@@ -265,6 +271,7 @@ router.post('/login', async (req, res) => {
 			})
 			const allInRemoval = ownedRestaurants.length > 0 && ownedRestaurants.every(r => r.status === 'REMOVAL')
 			if (allInRemoval) {
+				logins.inc({ result: 'failure' })
 				return res.status(403).json({
 					success: false,
 					message:
@@ -272,6 +279,9 @@ router.post('/login', async (req, res) => {
 				})
 			}
 		}
+
+		// Metryka: udane logowanie
+		logins.inc({ result: 'success' })
 
 		const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' })
 

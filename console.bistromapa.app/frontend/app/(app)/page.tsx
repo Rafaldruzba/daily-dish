@@ -1,10 +1,10 @@
 import { Phone } from 'lucide-react'
-import { Link } from '@/lib/navigation'
 
 import { PageHeader, SectionCard, StatCard, StatusBadge } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DashboardStats } from '@/types'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
 	const stats = await fetchOrLogin<DashboardStats>('/stats')

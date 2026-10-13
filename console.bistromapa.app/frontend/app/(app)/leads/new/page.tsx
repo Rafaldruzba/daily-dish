@@ -1,7 +1,6 @@
-import { Link } from '@/lib/navigation'
-
 import { LeadForm } from '@/components/leads/LeadForm'
 import { PageHeader } from '@/components/ui'
+import Link from 'next/link'
 
 export default function NewLeadPage() {
 	return (

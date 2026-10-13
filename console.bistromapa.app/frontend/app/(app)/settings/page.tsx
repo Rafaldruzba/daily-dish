@@ -1,11 +1,11 @@
 import { Mail } from 'lucide-react'
-import { Link } from '@/lib/navigation'
 
 import { PasswordForm } from '@/components/PasswordForm'
 import { PageHeader } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { CurrentUser } from '@/types'
+import Link from 'next/link'
 
 export default async function SettingsPage() {
 	const user = await fetchOrLogin<CurrentUser>('/auth/me')

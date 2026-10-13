@@ -1,10 +1,11 @@
-import { Link } from '@/lib/navigation'
+
 
 import { RetryLeadButton, RunCycleButton } from '@/components/automation/AutomationActions'
 import { PageHeader, StatCard } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { AutomationLogEntry, AutomationStatus, Paginated } from '@/types'
+import Link from 'next/link'
 
 export default async function AutomationPage() {
 	const [status, logs] = await Promise.all([

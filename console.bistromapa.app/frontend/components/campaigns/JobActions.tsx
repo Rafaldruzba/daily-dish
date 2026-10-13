@@ -1,10 +1,10 @@
 'use client'
 
 import { Loader2, Play, RotateCcw } from 'lucide-react'
-import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import type { CampaignJobStatus } from '@/types'
+import { useRouter } from 'next/navigation';
 
 export function JobActions({ jobId, status }: { jobId: string; status: CampaignJobStatus }) {
 	const router = useRouter()

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from '@/lib/navigation'
 
 import { LEAD_STATUSES } from '@/lib/constants'
 import { STATUS_LABEL } from '@/lib/format'
 import type { LeadStatus } from '@/types'
+import { useRouter } from 'next/navigation'
 
 /** Szybka zmiana statusu z listy (readme §12) — bez wchodzenia w szczegóły. */
 export function LeadStatusSelect({ leadId, status }: { leadId: string; status: LeadStatus }) {

@@ -2,6 +2,7 @@ import { ApifyClient } from 'apify-client'
 import { MENU_KEYWORDS } from '../data/words.js'
 import { stripDiacritics, warsawDay } from '../lib/text.js'
 import { parseMenu, type ParsedMenu } from './menu-parser.service.js'
+import { scraperJobs, scraperJobDuration, scraperItems } from '../lib/metrics-scraper.js'
 
 /** Tyle lokali wchodzi do jednego runu Apify. */
 export const MAX_RESTAURANTS_PER_RUN = 25
@@ -210,42 +211,70 @@ function extractMenu(r: RestaurantInput, items: Item[]): RestaurantResult {
 export async function scrapeBatch(restaurants: RestaurantInput[]): Promise<RestaurantResult[]> {
 	const results = new Map<string, RestaurantResult>()
 	const valid: Array<RestaurantInput & { pageUrl: string }> = []
+	const end = scraperJobDuration.startTimer()
+	let totalDishes = 0
 
-	for (const r of restaurants) {
-		try {
-			valid.push({ ...r, pageUrl: normalizeFacebookUrl(r.facebookUrl) })
-		} catch (e) {
-			results.set(r.id, { id: r.id, status: 'error', message: (e as Error).message })
-		}
-	}
-
-	if (valid.length > 0) {
-		try {
-			const items = await runApify([...new Set(valid.map(r => r.pageUrl))])
-
-			// posty pogrupowane po kluczach strony
-			const byKey = new Map<string, Item[]>()
-			for (const item of items) {
-				for (const key of itemKeys(item)) {
-					if (!byKey.has(key)) byKey.set(key, [])
-					byKey.get(key)!.push(item)
-				}
+	try {
+		for (const r of restaurants) {
+			try {
+				valid.push({ ...r, pageUrl: normalizeFacebookUrl(r.facebookUrl) })
+			} catch (e) {
+				results.set(r.id, { id: r.id, status: 'error', message: (e as Error).message })
 			}
+		}
 
-			for (const r of valid) {
-				const unique = new Map<string, Item>()
-				for (const key of pageKeys(r.pageUrl)) {
-					for (const item of byKey.get(key) ?? []) {
-						unique.set(pickId(item) ?? pickUrl(item) ?? JSON.stringify(item).slice(0, 80), item)
+		if (valid.length > 0) {
+			try {
+				const items = await runApify([...new Set(valid.map(r => r.pageUrl))])
+
+				// posty pogrupowane po kluczach strony
+				const byKey = new Map<string, Item[]>()
+				for (const item of items) {
+					for (const key of itemKeys(item)) {
+						if (!byKey.has(key)) byKey.set(key, [])
+						byKey.get(key)!.push(item)
 					}
 				}
-				results.set(r.id, extractMenu(r, [...unique.values()]))
-			}
-		} catch (e) {
-			console.error('❌ [Scraper] Błąd runu Apify:', (e as Error).message)
-			for (const r of valid) results.set(r.id, { id: r.id, status: 'error', message: 'Błąd pobierania z Apify' })
-		}
-	}
 
-	return restaurants.map(r => results.get(r.id) ?? { id: r.id, status: 'error' as const, message: 'Brak wyniku' })
+				for (const r of valid) {
+					const unique = new Map<string, Item>()
+					for (const key of pageKeys(r.pageUrl)) {
+						for (const item of byKey.get(key) ?? []) {
+							unique.set(pickId(item) ?? pickUrl(item) ?? JSON.stringify(item).slice(0, 80), item)
+						}
+					}
+					const result = extractMenu(r, [...unique.values()])
+					results.set(r.id, result)
+
+					// Zliczaj znalezione dania
+					if (result.status === 'ok' && result.post?.menu?.dishes) {
+						totalDishes += result.post.menu.dishes.length
+					}
+				}
+
+				// Metryka: udany job
+				scraperJobs.inc({ status: 'success' })
+				scraperItems.inc(totalDishes)
+			} catch (e) {
+				console.error('❌ [Scraper] Błąd runu Apify:', (e as Error).message)
+				for (const r of valid) results.set(r.id, { id: r.id, status: 'error', message: 'Błąd pobierania z Apify' })
+
+				// Metryka: nieudany job
+				scraperJobs.inc({ status: 'failure' })
+				throw e
+			}
+		} else {
+			// Brak validnych restauracji - sukces techniczny (nie wyszło nic do zescrapowania)
+			scraperJobs.inc({ status: 'success' })
+		}
+
+		return restaurants.map(r => results.get(r.id) ?? { id: r.id, status: 'error' as const, message: 'Brak wyniku' })
+	} catch (error) {
+		// Metryka: nieudany job (jeśli nie został już zliczony)
+		scraperJobs.inc({ status: 'failure' })
+		throw error
+	} finally {
+		// Timer kończy pomiar czasu
+		end()
+	}
 }

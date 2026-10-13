@@ -1,10 +1,9 @@
-import { Link } from '@/lib/navigation'
-
 import { TemplateEditor } from '@/components/emails/TemplateEditor'
 import { PageHeader } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { EmailLogEntry, EmailTemplate, Paginated } from '@/types'
+import Link from 'next/link'
 
 export default async function EmailSettingsPage() {
 	const [templates, logs] = await Promise.all([

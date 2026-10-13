@@ -2,12 +2,18 @@ import express, { type Request, type Response } from 'express'
 import cors from 'cors'
 import 'dotenv/config'
 import { MAX_RESTAURANTS_PER_RUN, scrapeBatch } from './services/scraper.service.js'
+import { metricsMiddleware, metricsHandler, unhandledErrors } from './lib/metrics.js'
+import './lib/metrics-scraper.js' // rejestruje metryki scrappera
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
 app.use(cors())
 app.use(express.json({ limit: '1mb' }))
+
+// Metryki - PRZED routerami
+app.use(metricsMiddleware)
+app.get('/metrics', metricsHandler)
 
 app.get('/health', (_req, res) => {
 	res.json({ status: 'ok' })
@@ -39,6 +45,13 @@ app.post('/api/scrape-batch', async (req: Request, res: Response) => {
 		console.error('❌ Błąd batcha:', error)
 		res.status(500).json({ success: false, message: error.message || 'Wewnętrzny błąd mikrousługi.' })
 	}
+})
+
+// Globalny error handler - metryki błędów
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+	unhandledErrors.inc({ type: 'express' })
+	console.error('Unhandled error:', err)
+	res.status(500).json({ success: false, message: 'Internal server error' })
 })
 
 app.listen(PORT, () => console.log(`🚀 [Scraper Service] Działa na porcie ${PORT}`))

@@ -1,11 +1,11 @@
 'use client'
 
 import { Loader2, Play } from 'lucide-react'
-import { Link } from '@/lib/navigation'
-import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { ApiSaveError, sendJson } from '@/lib/api-client'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export function CampaignForm() {
 	const router = useRouter()

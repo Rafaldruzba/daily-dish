@@ -1,5 +1,4 @@
 import { Mail, Phone, Plus } from 'lucide-react'
-import { Link } from '@/lib/navigation'
 
 import { LeadFilters } from '@/components/leads/LeadFilters'
 import { LeadStatusSelect } from '@/components/leads/LeadStatusSelect'
@@ -8,6 +7,7 @@ import { PageHeader } from '@/components/ui'
 import { fetchOrLogin } from '@/lib/api'
 import { formatDateTime, isOverdue } from '@/lib/format'
 import type { Lead, Paginated } from '@/types'
+import Link from 'next/link'
 
 type SearchParams = Record<string, string | string[] | undefined>
 

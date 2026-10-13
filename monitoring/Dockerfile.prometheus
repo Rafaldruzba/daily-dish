@@ -1,0 +1,12 @@
+# Prometheus for Railway
+FROM prom/prometheus:v2.54.1
+
+# Copy prometheus config and rules
+COPY prometheus/prometheus.yml /etc/prometheus/prometheus.yml
+COPY prometheus/rules/ /etc/prometheus/rules/
+
+# Expose Prometheus port
+EXPOSE 9090
+
+# Use Railway-appropriate config (target Railway services or just self)
+CMD ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=15d", "--web.enable-lifecycle"]

@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser'
 import { AppModule } from './app/app.module'
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor'
+import { metricsMiddleware } from './lib/metrics.js'
 
 async function bootstrap(): Promise<void> {
 	const app = await NestFactory.create(AppModule)
@@ -14,6 +15,11 @@ async function bootstrap(): Promise<void> {
 
 	// Ciasteczko z JWT leci tylko na frontend CRM (§28) — z credentials: true.
 	app.use(cookieParser())
+
+	// Metryki middleware - PRZED innymi middleware
+	// Rzutowanie typu dla kompatybilności z Express + NestJS
+	app.use(metricsMiddleware as any)
+
 	app.enableCors({
 		origin: config.getOrThrow<string>('FRONTEND_URL'),
 		credentials: true,

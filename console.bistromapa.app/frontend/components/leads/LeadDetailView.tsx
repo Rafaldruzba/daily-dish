@@ -13,8 +13,6 @@ import {
 	Scale,
 	Star,
 } from 'lucide-react'
-import { Link } from '@/lib/navigation'
-import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { CONSENT_STATUSES, INTERACTION_TYPES, LEAD_STATUSES } from '@/lib/constants'
@@ -28,6 +26,8 @@ import {
 } from '@/lib/format'
 import { SendEmailPanel } from './SendEmailPanel'
 import type { DuplicateMatch, Interaction, InteractionType, LeadDetail, LeadStatus, OnboardingStatus } from '@/types'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const ONBOARDING_STEPS: OnboardingStatus[] = [
 	'NOT_STARTED',

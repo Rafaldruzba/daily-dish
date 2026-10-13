@@ -1,8 +1,8 @@
 import { Search } from 'lucide-react'
-import { Link } from '@/lib/navigation'
 
 import { LEAD_SOURCES, LEAD_STATUSES } from '@/lib/constants'
 import { STATUS_LABEL } from '@/lib/format'
+import Link from 'next/link'
 
 export interface LeadFilterValues {
 	search?: string

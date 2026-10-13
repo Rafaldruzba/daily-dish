@@ -18,6 +18,7 @@ import { FollowUpsModule } from '../follow-ups/follow-ups.module'
 import { ImportModule } from '../import/import.module'
 import { InteractionsModule } from '../interactions/interactions.module'
 import { LeadsModule } from '../leads/leads.module'
+import { MetricsModule } from '../metrics/metrics.module'
 
 @Module({
 	imports: [
@@ -37,6 +38,7 @@ import { LeadsModule } from '../leads/leads.module'
 		CampaignsModule,
 		EmailModule,
 		AutomationModule,
+		MetricsModule, // Endpoint /metrics dla Prometheus
 	],
 	providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { BarChart3, Building2, Import, LogOut, Mail, Megaphone, Settings, Zap } from 'lucide-react'
-import { Link } from '@/lib/navigation'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [

@@ -1,4 +1,4 @@
-import { Link } from '@/lib/navigation'
+
 import { notFound } from 'next/navigation'
 
 import { JobActions, RunCampaignButton } from '@/components/campaigns/JobActions'
@@ -6,6 +6,7 @@ import { PageHeader, StatCard } from '@/components/ui'
 import { ApiError, fetchOrLogin } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { Campaign } from '@/types'
+import Link from 'next/link'
 
 const JOB_STATUS_STYLE: Record<string, string> = {
 	PENDING: 'text-stone-500',

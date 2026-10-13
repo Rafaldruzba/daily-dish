@@ -1,12 +1,12 @@
 'use client'
 
 import { AlertTriangle, Check, FileUp, Loader2 } from 'lucide-react'
-import { Link } from '@/lib/navigation'
-import { useRouter } from '@/lib/navigation'
 import { useState } from 'react'
 
 import { LEAD_SOURCES } from '@/lib/constants'
 import type { ImportPreview, ImportTargetField } from '@/types'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const FIELD_LABELS: Record<ImportTargetField, string> = {
 	name: 'Nazwa restauracji',

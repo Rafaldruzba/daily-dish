@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { trackActiveUser } from '../lib/metrics-users.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-daily-dish-key'
 
@@ -30,6 +31,10 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 			role: string
 		}
 		req.user = decoded
+
+		// Śledź aktywnego użytkownika (metryki)
+		trackActiveUser(decoded.id)
+
 		next()
 	} catch (error) {
 		return res.status(401).json({
