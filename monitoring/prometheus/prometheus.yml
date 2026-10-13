@@ -23,22 +23,22 @@ scrape_configs:
   # Aby zabezpieczyć /metrics, ustaw METRICS_TOKEN w .env i odkomentuj 'authorization' poniżej
   - job_name: backend
     metrics_path: /metrics
-    # authorization:
-    #   credentials: 'twoj-tajny-token-tutaj'
+    authorization:
+      credentials: 'a11c5b9505b1640e97b12ac35a92f4d6c231ae4f3ce4505e1a89b78729c8d9f8'
     static_configs:
       - targets: ['host.docker.internal:4001']
 
   - job_name: scraper
     metrics_path: /metrics
-    # authorization:
-    #   credentials: 'twoj-tajny-token-tutaj'
+    authorization:
+      credentials: 'b6b6d1735b7e7844bd4ec899442313107b21f699e176ceb871b4416384bfa4de'
     static_configs:
       - targets: ['host.docker.internal:4003']
 
   - job_name: backend-console
     metrics_path: /api/metrics
-    # authorization:
-    #   credentials: 'twoj-tajny-token-tutaj'
+    authorization:
+      credentials: '045b86c20f59e4983d6ce64cf1b989eb4e808809170f98a25d74133ce70c82ff'
     static_configs:
       - targets: ['host.docker.internal:4002']
 

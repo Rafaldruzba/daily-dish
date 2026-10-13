@@ -8,9 +8,6 @@ export const register = new client.Registry()
 // CPU, RAM, heap, event loop lag, GC, open fds...
 client.collectDefaultMetrics({ register })
 
-// Import metryk biznesowych (automatycznie rejestruje gauge'y)
-import './metrics-business.js'
-
 // Nazwa i labele muszą zgadzać się z dashboardami Grafany
 export const httpDuration = new client.Histogram({
 	name: 'http_request_duration_seconds',

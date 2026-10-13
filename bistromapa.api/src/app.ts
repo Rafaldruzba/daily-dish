@@ -4,6 +4,7 @@ import cors from 'cors'
 import { isOriginAllowed } from './lib/cors.js'
 import { metricsMiddleware, metricsHandler, unhandledErrors } from './lib/metrics.js'
 import './lib/metrics-users.js' // rejestruje gauge'y usersTotal i activeUsers
+import './lib/metrics-business.js' // rejestruje gauge'y biznesowe (restauracje, dania, subskrypcje)
 import { requestIdMiddleware } from './middleware/request-id.js'
 import restaurantsRouter from './routes/restaurants.js'
 import dishesRouter from './routes/dishes.js'
