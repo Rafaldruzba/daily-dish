@@ -4,6 +4,9 @@ FROM grafana/grafana:11.2.0
 ENV GF_USERS_ALLOW_SIGN_UP=false
 ENV GF_SERVER_ROOT_URL=/
 ENV GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/app-overview.json
+ENV GF_LOG_MODE=error
+ENV GF_LOG_FILTERS=rendering:critical
+ENV GF_SERVER_HTTP_PORT=3000
 ENV GF_SERVER_PROTOCOL=http
 ENV GF_PATHS_DATA=/tmp/grafana
 ENV GF_PATHS_PLUGINS=/tmp/grafana/plugins
@@ -18,6 +21,6 @@ EXPOSE 3000
 
 # Copy provisioning/dashboards BEFORE chown so 472 owns them
 COPY --chown=472:472 grafana/provisioning/ /etc/grafana/provisioning/
-COPY --chown=472:472 grafana/dashboards/ /var/lib/grafana/dashboards/
+COPY --chown=472:472 grafana/dashboards/ /tmp/grafana/dashboards/
 
 CMD ["/run.sh"]
