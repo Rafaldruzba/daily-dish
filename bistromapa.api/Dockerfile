@@ -18,7 +18,7 @@ RUN npx prisma generate
 
 # Bramka: nieudany test przerywa build, więc wadliwy kod nie trafia na produkcję.
 # Kroki HTTP same się pomijają (w buildzie nie ma działającego serwera) — bramkują testy jednostkowe.
-RUN npm test
+RUN npm run test
 
 RUN npm run build
 RUN npm prune --omit=dev

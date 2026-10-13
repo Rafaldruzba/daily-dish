@@ -1,6 +1,6 @@
 // Metryki biznesowe - specyficzne dla BistroMapa
 import client from 'prom-client'
-import { register } from './metrics.js'
+const register = new client.Registry(); // własny - unika circular dependency
 import prisma from './prisma.js'
 
 export const restaurantsTotal = new client.Gauge({
