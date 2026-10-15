@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: console-frontend
+  labels:
+    app.kubernetes.io/name: console-frontend
+    app.kubernetes.io/part-of: daily-dish
+spec:
+  type: {{ .Values.consoleFrontend.service.type }}
+  selector:
+    app.kubernetes.io/name: console-frontend
+  ports:
+    - name: http
+      port: {{ .Values.consoleFrontend.service.port }}
+      targetPort: http

@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+**/secrets.env
+**/secrets.env.*
+!**/secrets.env.example
+node_modules/
+dist/
+.git/
+*.log
+*.pid
+*.pem
+*.key
+*.p12
+*.pfx

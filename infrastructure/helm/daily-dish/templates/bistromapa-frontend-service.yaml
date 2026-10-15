@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bistromapa-frontend
+  labels:
+    app.kubernetes.io/name: bistromapa-frontend
+    app.kubernetes.io/part-of: daily-dish
+spec:
+  type: {{ .Values.bistromapaFrontend.service.type }}
+  selector:
+    app.kubernetes.io/name: bistromapa-frontend
+  ports:
+    - name: http
+      port: {{ .Values.bistromapaFrontend.service.port }}
+      targetPort: http

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-crm
+  labels:
+    app.kubernetes.io/name: postgres-crm
+    app.kubernetes.io/part-of: daily-dish
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres-crm
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bistromapa-frontend
+  labels:
+    app.kubernetes.io/name: bistromapa-frontend
+    app.kubernetes.io/part-of: daily-dish
+spec:
+  replicas: {{ .Values.bistromapaFrontend.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bistromapa-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bistromapa-frontend
+        app.kubernetes.io/part-of: daily-dish
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.bistromapaFrontend.image | quote }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.bistromapaFrontend.port }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi

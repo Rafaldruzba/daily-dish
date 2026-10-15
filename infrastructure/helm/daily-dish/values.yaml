@@ -1,0 +1,67 @@
+imagePullPolicy: IfNotPresent
+
+api:
+  image: daily-dish-api:local
+  replicas: 1
+  port: 4001
+  config:
+    NODE_ENV: production
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    SCRAPPER_URL: http://scrapper:4003
+    FRONTEND_URL: http://localhost:3001,http://localhost:3000
+
+scrapper:
+  image: daily-dish-scraper:local
+  replicas: 1
+  port: 4003
+
+consoleBackend:
+  image: daily-dish-console-backend:local
+  replicas: 1
+  port: 4002
+  config:
+    NODE_ENV: production
+    FRONTEND_URL: http://localhost:3000
+    BISTRO_APP_URL: http://localhost:3001
+    BISTRO_API_URL: http://daily-dish-api:4001/api
+    LEAD_SOURCE_PROVIDER: mock
+    EMAIL_FROM: "BistroMapa local <local@example.invalid>"
+
+bistromapaFrontend:
+  image: bistromapa-frontend:local
+  replicas: 1
+  port: 3000
+  service:
+    type: LoadBalancer
+    port: 80
+
+consoleFrontend:
+  image: console-frontend:local
+  replicas: 1
+  port: 3000
+  service:
+    type: ClusterIP
+    port: 3000
+
+postgres:
+  image: postgis/postgis:16-3.4
+  storage: 5Gi
+
+postgresCrm:
+  image: postgres:16-alpine
+  storage: 5Gi
+
+redis:
+  image: redis:7-alpine
+  storage: 1Gi
+
+alertmanager:
+  image: prom/alertmanager:v0.27.0
+  replicas: 1
+  port: 9093
+  # Nadpisz adresem webhooka osiągalnym z poda, jeśli host.docker.internal nie działa.
+  webhookUrl: http://host.docker.internal:9095/alert
+
+secrets:
+  name: daily-dish-secrets

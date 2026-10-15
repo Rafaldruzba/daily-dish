@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: console-backend-config
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/part-of: daily-dish
+data:
+{{- toYaml .Values.consoleBackend.config | nindent 2 }}
+  PORT: {{ .Values.consoleBackend.port | quote }}

@@ -1,0 +1,80 @@
+# Alerty widać w Prometheusie (http://localhost:9090/alerts).
+# Powiadomienia (Slack/mail) wymagają dodania Alertmanagera albo Grafana Alerting.
+groups:
+  - name: apps
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.job }} nie odpowiada'
+          description: 'Target {{ $labels.instance }} jest DOWN od ponad minuty.'
+
+      - alert: HighErrorRate
+        expr: |
+          sum by (job) (rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+            / sum by (job) (rate(http_request_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Error rate 5xx > 5% w {{ $labels.job }}'
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'p95 latency > 1s w {{ $labels.job }}'
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1e9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.job }} używa > 1 GB RAM'
+
+      - alert: EventLoopLag
+        expr: nodejs_eventloop_lag_p99_seconds > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Event loop lag p99 > 500ms w {{ $labels.job }}'
+
+      - alert: FrontendDown
+        expr: probe_success{job="blackbox-frontend"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Frontend {{ $labels.app }} nie odpowiada'
+
+  - name: infra
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Postgres ({{ $labels.job }}) niedostępny'
+
+      - alert: PostgresManyConnections
+        expr: sum by (job) (pg_stat_database_numbackends) > 80
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Dużo połączeń do {{ $labels.job }} (> 80)'
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Redis niedostępny'
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_max_bytes > 0 and redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Redis używa > 90% pamięci'

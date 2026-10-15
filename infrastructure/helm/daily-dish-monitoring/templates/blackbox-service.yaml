@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: blackbox
+  labels:
+    app.kubernetes.io/name: blackbox
+    app.kubernetes.io/part-of: daily-dish-monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: blackbox
+  ports:
+    - name: http
+      port: {{ .Values.blackbox.port }}
+      targetPort: http

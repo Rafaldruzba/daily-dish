@@ -2,6 +2,8 @@
 .env
 .env.*
 .env.production
+infrastructure/helm/daily-dish/secrets.env
+**/secrets.env
 ENV.md
 !.env.example
 orgmri-dev-keys.json
@@ -17,6 +19,10 @@ keys/
 *.pem
 *.key
 *.pub
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # Pliki budowania (builds / dist)
 dist/
@@ -26,6 +32,7 @@ out/
 
 # Logi i pliki tymczasowe
 *.log
+*.pid
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

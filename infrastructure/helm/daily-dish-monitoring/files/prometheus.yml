@@ -1,0 +1,67 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    env: local
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: backend
+    metrics_path: /metrics
+    bearer_token_file: /etc/prometheus/secrets/API_METRICS_TOKEN
+    static_configs:
+      - targets: ['daily-dish-api:4001']
+
+  - job_name: scraper
+    metrics_path: /metrics
+    bearer_token_file: /etc/prometheus/secrets/SCRAPPER_METRICS_TOKEN
+    static_configs:
+      - targets: ['scrapper:4003']
+
+  - job_name: backend-console
+    metrics_path: /api/metrics
+    bearer_token_file: /etc/prometheus/secrets/CRM_METRICS_TOKEN
+    static_configs:
+      - targets: ['console-backend:4002']
+
+  - job_name: blackbox-frontend
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ['http://bistromapa-frontend']
+        labels:
+          app: bistromapa-frontend
+      - targets: ['http://console-frontend:3000']
+        labels:
+          app: console-frontend
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: postgres-crm
+    static_configs:
+      - targets: ['postgres-crm-exporter:9187']
+
+  - job_name: redis
+    static_configs:
+      - targets: ['redis-exporter:9121']

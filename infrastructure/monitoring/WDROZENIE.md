@@ -192,7 +192,7 @@ Gdy będziesz wdrażać na Railway:
      ```
 
 3. **Prometheus i Grafana jako osobne serwisy**:
-   - Stwórz Dockerfile dla Prometheus z `prometheus.yml`
+   - Dockerfile Prometheusa znajduje się w `infrastructure/docker/monitoring/Dockerfile.prometheus`; jako kontekstu budowania użyj katalogu `infrastructure/monitoring`
    - Dodaj Volume dla danych Prometheus
    - Grafana z Volume dla dashboardów
 

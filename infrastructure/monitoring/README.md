@@ -1,9 +1,16 @@
 # Monitoring (Prometheus + Grafana)
 
+## Kubernetes / kind
+
+Do wdrożenia na klastrze użyj chartu
+`infrastructure/helm/daily-dish-monitoring`. Instrukcja tworzenia Secretu,
+podglądu manifestów i instalacji znajduje się w
+`infrastructure/helm/daily-dish-monitoring/README.md`.
+
 ## Start
 
 ```bash
-cd monitoring
+cd infrastructure/monitoring
 cp .env.example .env      # dane do baz - takie jak w głównym docker-compose
 docker compose up -d
 ```
@@ -48,7 +55,7 @@ Błędy z przeglądarki i Web Vitals to osobny temat (np. Sentry / Grafana Faro)
 
 - Lokalne porty (`host.docker.internal:4001`) zamień w `prometheus/prometheus.yml` na adresy
   prywatnej sieci Railway, np. `backend.railway.internal:PORT`.
-- Prometheus i Grafanę wdróż jako osobne serwisy (Dockerfile z `prometheus.yml`) i dodaj **Volume** na dane.
+- Prometheus i Grafanę wdróż jako osobne serwisy (Dockerfile w `infrastructure/docker/monitoring/`, kontekst `infrastructure/monitoring`) i dodaj **Volume** na dane.
 - Zabezpiecz `/metrics`: ustaw `METRICS_TOKEN` w aplikacji, a w Prometheusie w jobie dodaj
   `authorization: { credentials: <token> }`. Nie wystawiaj `/metrics` publicznie.
 - Pominąć na Railway: cAdvisor i exportery hosta (tam metryki infrastruktury dostajesz z panelu Railway).

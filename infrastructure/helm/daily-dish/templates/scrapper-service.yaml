@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrapper
+  labels:
+    app.kubernetes.io/name: scrapper
+    app.kubernetes.io/part-of: daily-dish
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: scrapper
+  ports:
+    - name: http
+      port: {{ .Values.scrapper.port }}
+      targetPort: http

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blackbox-config
+  labels:
+    app.kubernetes.io/name: blackbox
+    app.kubernetes.io/part-of: daily-dish-monitoring
+data:
+  blackbox.yml: |
+{{ .Files.Get "files/blackbox.yml" | indent 4 }}
